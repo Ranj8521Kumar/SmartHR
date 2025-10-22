@@ -2,8 +2,11 @@ const Resume = require('../models/Resume');
 const ErrorResponse = require('../utils/errorResponse');
 const asyncHandler = require('../middleware/asyncHandler');
 const { parseResume } = require('../services/resumeParserService');
+const { deleteFromCloudinary, uploadBufferToCloudinary } = require('../utils/cloudinary');
+const axios = require('axios');
 const path = require('path');
 const fs = require('fs').promises;
+const os = require('os');
 
 // @desc    Upload resume
 // @route   POST /api/v1/resumes/upload
@@ -28,31 +31,41 @@ exports.uploadResume = asyncHandler(async (req, res, next) => {
 
   // Create custom filename
   const fileExt = path.extname(file.name);
-  file.name = `resume_${req.user.id}_${Date.now()}${fileExt}`;
-
-  // Upload file
-  const uploadPath = path.join(__dirname, '../uploads/resumes', file.name);
-  
-  await file.mv(uploadPath);
+  const customFileName = `resume_${req.user.id}_${Date.now()}`;
+  const fullFileName = customFileName + fileExt; // Include extension for Cloudinary
 
   // Determine file type
   let fileType = 'pdf';
   if (file.mimetype === 'application/msword') fileType = 'doc';
   if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') fileType = 'docx';
 
-  // Create resume record
-  const resume = await Resume.create({
-    user: req.user.id,
-    fileName: file.name,
-    fileUrl: `/uploads/resumes/${file.name}`,
-    fileType,
-    fileSize: file.size
-  });
+  try {
+    // Upload to Cloudinary using buffer (with file extension and format)
+    const cloudinaryResult = await uploadBufferToCloudinary(
+      file.data,
+      process.env.CLOUDINARY_FOLDER || 'hrms/resumes',
+      fullFileName,
+      'raw',
+      fileType  // Pass the format explicitly
+    );
 
-  res.status(201).json({
-    success: true,
-    data: resume
-  });
+    // Create resume record
+    const resume = await Resume.create({
+      user: req.user.id,
+      fileName: fullFileName,
+      fileUrl: cloudinaryResult.url,
+      cloudinaryId: cloudinaryResult.public_id,
+      fileType,
+      fileSize: file.size
+    });
+
+    res.status(201).json({
+      success: true,
+      data: resume
+    });
+  } catch (error) {
+    return next(new ErrorResponse('Failed to upload resume to cloud storage', 500));
+  }
 });
 
 // @desc    Parse resume with AI
@@ -78,20 +91,49 @@ exports.parseResumeById = asyncHandler(async (req, res, next) => {
     });
   }
 
-  // Parse the resume
-  const filePath = path.join(__dirname, '..', resume.fileUrl);
-  const parsedData = await parseResume(filePath, resume.fileType);
+  try {
+    // For Cloudinary-stored files, download temporarily for parsing
+    let filePath;
+    
+    if (resume.cloudinaryId) {
+      // Download file from Cloudinary URL
+      const response = await axios({
+        method: 'get',
+        url: resume.fileUrl,
+        responseType: 'arraybuffer'
+      });
 
-  // Update resume with parsed data
-  resume.parsedData = parsedData.parsedData;
-  resume.aiAnalysis = parsedData.aiAnalysis;
-  resume.isParsed = true;
-  await resume.save();
+      // Save temporarily
+      const tempDir = os.tmpdir();
+      filePath = path.join(tempDir, resume.fileName);
+      await fs.writeFile(filePath, response.data);
+    } else {
+      // Legacy local file path
+      filePath = path.join(__dirname, '..', resume.fileUrl);
+    }
 
-  res.status(200).json({
-    success: true,
-    data: resume
-  });
+    // Parse the resume
+    const parsedData = await parseResume(filePath, resume.fileType);
+
+    // Clean up temp file if it was downloaded
+    if (resume.cloudinaryId) {
+      await fs.unlink(filePath).catch(err => console.error('Error deleting temp file:', err));
+    }
+
+    // Update resume with parsed data
+    resume.parsedData = parsedData.parsedData;
+    resume.aiAnalysis = parsedData.aiAnalysis;
+    resume.isParsed = true;
+    await resume.save();
+
+    res.status(200).json({
+      success: true,
+      data: resume
+    });
+  } catch (error) {
+    console.error('Resume parsing error:', error);
+    return next(new ErrorResponse('Failed to parse resume', 500));
+  }
 });
 
 // @desc    Get all resumes for current user
@@ -159,6 +201,16 @@ exports.deleteResume = asyncHandler(async (req, res, next) => {
   // Make sure user owns the resume
   if (resume.user.toString() !== req.user.id && req.user.role !== 'admin') {
     return next(new ErrorResponse('Not authorized to delete this resume', 401));
+  }
+
+  // Delete from Cloudinary if cloudinaryId exists
+  if (resume.cloudinaryId) {
+    try {
+      await deleteFromCloudinary(resume.cloudinaryId, 'raw');
+    } catch (error) {
+      console.error('Error deleting from Cloudinary:', error);
+      // Continue with soft delete even if Cloudinary delete fails
+    }
   }
 
   // Soft delete

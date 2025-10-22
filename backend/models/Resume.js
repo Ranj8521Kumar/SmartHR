@@ -14,6 +14,9 @@ const ResumeSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please add a file URL']
   },
+  cloudinaryId: {
+    type: String
+  },
   fileType: {
     type: String,
     enum: ['pdf', 'doc', 'docx'],
