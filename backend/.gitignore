@@ -50,3 +50,6 @@ uploads/*
 # Temporary files
 temp/
 tmp/
+
+#Scripts
+scripts/*.js
