@@ -125,32 +125,57 @@ const jobs = [
 
 const seedData = async () => {
   try {
-    // Clear existing data
-    await User.deleteMany();
-    await Job.deleteMany();
+    console.log('Starting seed process (without clearing existing data)...');
 
-    console.log('Data cleared...');
+    // Insert users only if they don't exist
+    const createdUsers = [];
+    for (const userData of users) {
+      const existingUser = await User.findOne({ email: userData.email });
+      if (!existingUser) {
+        const newUser = await User.create(userData);
+        createdUsers.push(newUser);
+        console.log(`✓ Created user: ${userData.email}`);
+      } else {
+        createdUsers.push(existingUser);
+        console.log(`- User already exists: ${userData.email}`);
+      }
+    }
+    console.log(`\nTotal users in database: ${await User.countDocuments()}`);
 
-    // Insert users
-    const createdUsers = await User.create(users);
-    console.log(`${createdUsers.length} users created...`);
+    // Find or use the manager for job creation
+    const manager = createdUsers.find(u => u.role === 'manager') || await User.findOne({ role: 'manager' });
+    
+    if (!manager) {
+      console.error('No manager found! Please create a manager user first.');
+      process.exit(1);
+    }
 
-    // Insert jobs (assign to manager)
-    const manager = createdUsers.find(u => u.role === 'manager');
-    const jobsWithPostedBy = jobs.map(job => ({
-      ...job,
-      postedBy: manager._id
-    }));
+    // Insert jobs only if they don't exist (check by title and department)
+    let jobsCreated = 0;
+    for (const jobData of jobs) {
+      const existingJob = await Job.findOne({ 
+        title: jobData.title, 
+        department: jobData.department 
+      });
+      if (!existingJob) {
+        await Job.create({
+          ...jobData,
+          postedBy: manager._id
+        });
+        jobsCreated++;
+        console.log(`✓ Created job: ${jobData.title}`);
+      } else {
+        console.log(`- Job already exists: ${jobData.title}`);
+      }
+    }
+    console.log(`\nTotal jobs in database: ${await Job.countDocuments()}`);
 
-    const createdJobs = await Job.create(jobsWithPostedBy);
-    console.log(`${createdJobs.length} jobs created...`);
-
-    console.log('Seed data inserted successfully!');
-    console.log('\nLogin credentials:');
-    console.log('Admin: admin@hrms.com / admin123');
-    console.log('HR: hr@hrms.com / hr123456');
-    console.log('Manager: manager@hrms.com / manager123');
-    console.log('Employee: employee@hrms.com / employee123');
+    console.log('\n✅ Seed process completed successfully!');
+    console.log('\n📋 Available Login Credentials:');
+    console.log('👤 Admin: admin@hrms.com / admin123');
+    console.log('👤 HR: hr@hrms.com / hr123456');
+    console.log('👤 Manager: manager@hrms.com / manager123');
+    console.log('👤 Employee: employee@hrms.com / employee123');
 
     process.exit();
   } catch (error) {
