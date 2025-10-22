@@ -9,6 +9,7 @@
     "test": "jest --coverage",
     "lint": "eslint .",
     "seed": "node scripts/seedData.js",
+    "seed:reset": "node scripts/resetAndSeed.js",
     "create-admin": "node scripts/createAdmin.js"
   },
   "keywords": [
