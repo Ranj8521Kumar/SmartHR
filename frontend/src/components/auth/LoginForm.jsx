@@ -7,8 +7,8 @@ import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
-export default function LoginForm({ onSuccess }) {
-  const { login, isLoading, error, clearError } = useAuth();
+export default function LoginForm({ onSuccess, expectedRole }) {
+  const { login, logout, isLoading, error, clearError } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -43,13 +43,45 @@ export default function LoginForm({ onSuccess }) {
     }
 
     try {
-      await login(formData.email, formData.password);
+      const response = await login(formData.email, formData.password);
+      
+      // Validate role if expectedRole is provided
+      if (expectedRole && response.user) {
+        const userRole = response.user.role.toLowerCase();
+        const expected = expectedRole.toLowerCase();
+        
+        // Check if roles match (also handle hr_recruiter vs hr-manager)
+        const roleMatches = userRole === expected || 
+                           (userRole === 'hr_recruiter' && expected === 'hr_recruiter') ||
+                           (userRole === 'hr_recruiter' && expected === 'hr-manager') ||
+                           (userRole === 'hr-manager' && expected === 'hr_recruiter');
+        
+        if (!roleMatches) {
+          // Logout the user immediately since role doesn't match
+          await logout();
+          setLocalError(`Access denied. These credentials are for a ${getRoleDisplayName(userRole)}, not a ${getRoleDisplayName(expectedRole)}.`);
+          // Don't proceed with onSuccess
+          return;
+        }
+      }
+      
       if (onSuccess) {
         onSuccess();
       }
     } catch (err) {
       setLocalError(err.message || 'Login failed. Please try again.');
     }
+  };
+
+  const getRoleDisplayName = (role) => {
+    const roleNames = {
+      admin: 'Admin',
+      hr_recruiter: 'HR Manager',
+      'hr-manager': 'HR Manager',
+      manager: 'Manager',
+      employee: 'Employee'
+    };
+    return roleNames[role.toLowerCase()] || role;
   };
 
   const displayError = localError || error;
