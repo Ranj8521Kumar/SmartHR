@@ -5,6 +5,7 @@ import CreateJobForm from '../jobs/CreateJobForm';
 import EditJobForm from '../jobs/EditJobForm';
 import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
 import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
+import CandidateDetailsDialog from '../candidates/CandidateDetailsDialog';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -20,7 +21,8 @@ import {
   Clock,
   Loader2,
   Search,
-  Filter
+  Filter,
+  Phone
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -37,6 +39,7 @@ import {
 } from '../ui/select';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
+import candidateService from '../../services/candidateService';
 
 const kanbanStages = [
   { 
@@ -101,6 +104,15 @@ export default function HRManagerDashboard({ user }) {
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Candidates page state
+  const [allCandidates, setAllCandidates] = useState([]);
+  const [filteredCandidates, setFilteredCandidates] = useState([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
+  const [candidateStatusFilter, setCandidateStatusFilter] = useState('all');
+  const [isCandidateDetailsOpen, setIsCandidateDetailsOpen] = useState(false);
+  const [selectedCandidateId, setSelectedCandidateId] = useState(null);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -242,6 +254,66 @@ export default function HRManagerDashboard({ user }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchQuery]);
+
+  // Fetch all candidates for Candidates page
+  const fetchAllCandidates = async () => {
+    setCandidatesLoading(true);
+    try {
+      const response = await candidateService.getCandidates();
+      if (response.success && response.data) {
+        setAllCandidates(response.data);
+        filterCandidatesByStatus(response.data, candidateStatusFilter, candidateSearchQuery);
+      }
+    } catch (err) {
+      console.error('Error fetching candidates:', err);
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  // Filter candidates
+  const filterCandidatesByStatus = (candidates, status, query) => {
+    let filtered = candidates;
+
+    // Filter by status
+    if (status !== 'all') {
+      filtered = filtered.filter(c => c.latestStatus === status);
+    }
+
+    // Filter by search query
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(c => 
+        (c.firstName?.toLowerCase().includes(lowerQuery)) ||
+        (c.lastName?.toLowerCase().includes(lowerQuery)) ||
+        (c.email?.toLowerCase().includes(lowerQuery))
+      );
+    }
+
+    setFilteredCandidates(filtered);
+  };
+
+  // Handle candidate view details
+  const handleViewCandidateDetails = (candidateId) => {
+    setSelectedCandidateId(candidateId);
+    setIsCandidateDetailsOpen(true);
+  };
+
+  // Effect to fetch candidates when view changes
+  useEffect(() => {
+    if (activeView === 'candidates') {
+      fetchAllCandidates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+
+  // Effect to filter candidates when filters change
+  useEffect(() => {
+    if (allCandidates.length > 0) {
+      filterCandidatesByStatus(allCandidates, candidateStatusFilter, candidateSearchQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidateStatusFilter, candidateSearchQuery]);
 
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
@@ -716,6 +788,194 @@ export default function HRManagerDashboard({ user }) {
         </div>
       )}
 
+      {activeView === 'candidates' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-gray-900 mb-2">Candidates</h1>
+              <p className="text-gray-600">Manage all candidates and their applications</p>
+            </div>
+          </div>
+
+          {/* Search and Filter Bar */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by candidate name or email..."
+                    value={candidateSearchQuery}
+                    onChange={(e) => setCandidateSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={candidateStatusFilter} onValueChange={setCandidateStatusFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="submitted">Active</SelectItem>
+                    <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                    <SelectItem value="interviewed">Interviewed</SelectItem>
+                    <SelectItem value="accepted">Hired</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Candidates Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Total Candidates</div>
+                <div className="text-2xl font-bold text-gray-900">{allCandidates.length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Active</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {allCandidates.filter(c => 
+                    ['submitted', 'under_review', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_extended']
+                    .includes(c.latestStatus)
+                  ).length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Hired</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {allCandidates.filter(c => c.latestStatus === 'accepted').length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Avg Applications</div>
+                <div className="text-2xl font-bold text-purple-600">
+                  {allCandidates.length > 0 
+                    ? (allCandidates.reduce((sum, c) => sum + c.totalApplications, 0) / allCandidates.length).toFixed(1)
+                    : 0}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Candidates List */}
+          {candidatesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : filteredCandidates.length > 0 ? (
+            <div className="space-y-4">
+              {filteredCandidates.map((candidate) => {
+                const candidateName = `${candidate.firstName} ${candidate.lastName}`;
+                const latestStatusBadgeMap = {
+                  'submitted': 'secondary',
+                  'under_review': 'default',
+                  'shortlisted': 'default',
+                  'interview_scheduled': 'default',
+                  'interviewed': 'default',
+                  'offer_extended': 'default',
+                  'accepted': 'default',
+                  'rejected': 'destructive',
+                  'withdrawn': 'secondary'
+                };
+
+                const latestStatusLabelMap = {
+                  'submitted': 'Active',
+                  'under_review': 'Under Review',
+                  'shortlisted': 'Shortlisted',
+                  'interview_scheduled': 'Interview Scheduled',
+                  'interviewed': 'Interviewed',
+                  'offer_extended': 'Offer Extended',
+                  'accepted': 'Hired',
+                  'rejected': 'Rejected',
+                  'withdrawn': 'Withdrawn'
+                };
+
+                return (
+                  <Card key={candidate._id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 flex-1">
+                          <img 
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
+                            alt={candidateName} 
+                            className="w-16 h-16 rounded-full" 
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="font-semibold text-xl text-gray-900">
+                                {candidateName}
+                              </h3>
+                              <Badge variant={latestStatusBadgeMap[candidate.latestStatus]}>
+                                {latestStatusLabelMap[candidate.latestStatus]}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-600 mb-2">
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4" />
+                                <span>{candidate.email}</span>
+                              </div>
+                              {candidate.phone && (
+                                <div className="flex items-center gap-2">
+                                  <Phone className="h-4 w-4" />
+                                  <span>{candidate.phone}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <Briefcase className="h-4 w-4" />
+                                <span>{candidate.totalApplications} {candidate.totalApplications === 1 ? 'Application' : 'Applications'}</span>
+                              </div>
+                            </div>
+                            {candidate.averageScore > 0 && (
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm text-gray-600">Average Score:</span>
+                                <div className="flex items-center gap-2 flex-1 max-w-xs">
+                                  <Progress value={candidate.averageScore} className="flex-1" />
+                                  <span className="font-semibold text-purple-600 min-w-[3rem]">{candidate.averageScore}%</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleViewCandidateDetails(candidate._id)}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Profile
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 border-2 border-dashed rounded-lg">
+              <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500">
+                {candidateSearchQuery || candidateStatusFilter !== 'all' 
+                  ? 'No candidates match your filters' 
+                  : 'No candidates yet'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeView === 'jobs' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -827,6 +1087,13 @@ export default function HRManagerDashboard({ user }) {
         onClose={() => setIsApplicationDetailsOpen(false)}
         applicationId={selectedApplicationId}
         onStatusUpdate={handleApplicationStatusUpdate}
+      />
+
+      {/* Candidate Details Dialog */}
+      <CandidateDetailsDialog
+        isOpen={isCandidateDetailsOpen}
+        onClose={() => setIsCandidateDetailsOpen(false)}
+        candidateId={selectedCandidateId}
       />
     </DashboardLayout>
   );
