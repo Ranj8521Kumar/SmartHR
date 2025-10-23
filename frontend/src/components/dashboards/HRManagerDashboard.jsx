@@ -7,11 +7,13 @@ import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
 import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
 import CandidateDetailsDialog from '../candidates/CandidateDetailsDialog';
 import InterviewDetailsDialog from '../interviews/InterviewDetailsDialog';
+import CommunicationDetailsDialog from '../communications/CommunicationDetailsDialog';
 import { 
   LayoutDashboard, 
   Briefcase, 
   FileText, 
   Users,
+  User,
   Calendar,
   Mail,
   BarChart3,
@@ -24,7 +26,9 @@ import {
   Search,
   Filter,
   Phone,
-  Video
+  Video,
+  Send,
+  Inbox
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -43,6 +47,7 @@ import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
 import candidateService from '../../services/candidateService';
 import interviewService from '../../services/interviewService';
+import communicationService from '../../services/communicationService';
 
 const kanbanStages = [
   { 
@@ -125,6 +130,15 @@ export default function HRManagerDashboard({ user }) {
   const [interviewStatusFilter, setInterviewStatusFilter] = useState('all');
   const [isInterviewDetailsOpen, setIsInterviewDetailsOpen] = useState(false);
   const [selectedInterview, setSelectedInterview] = useState(null);
+
+  // Communications page state
+  const [allCommunications, setAllCommunications] = useState([]);
+  const [filteredCommunications, setFilteredCommunications] = useState([]);
+  const [communicationsLoading, setCommunicationsLoading] = useState(false);
+  const [communicationSearchQuery, setCommunicationSearchQuery] = useState('');
+  const [communicationTypeFilter, setCommunicationTypeFilter] = useState('all');
+  const [isCommunicationDetailsOpen, setIsCommunicationDetailsOpen] = useState(false);
+  const [selectedCommunication, setSelectedCommunication] = useState(null);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -402,6 +416,89 @@ export default function HRManagerDashboard({ user }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateStatusFilter, candidateSearchQuery]);
+
+  // Fetch all communications for Communications page
+  const fetchAllCommunications = async () => {
+    setCommunicationsLoading(true);
+    try {
+      const response = await communicationService.getCommunications();
+      if (response.success && response.data) {
+        setAllCommunications(response.data);
+        filterCommunicationsByType(response.data, communicationTypeFilter, communicationSearchQuery);
+      }
+    } catch (err) {
+      console.error('Error fetching communications:', err);
+    } finally {
+      setCommunicationsLoading(false);
+    }
+  };
+
+  // Filter communications
+  const filterCommunicationsByType = (communications, type, query) => {
+    let filtered = communications;
+
+    // Filter by type
+    if (type !== 'all') {
+      filtered = filtered.filter(c => c.type === type);
+    }
+
+    // Filter by search query
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(c => 
+        (c.candidateName?.toLowerCase().includes(lowerQuery)) ||
+        (c.candidateEmail?.toLowerCase().includes(lowerQuery)) ||
+        (c.subject?.toLowerCase().includes(lowerQuery)) ||
+        (c.message?.toLowerCase().includes(lowerQuery))
+      );
+    }
+
+    setFilteredCommunications(filtered);
+  };
+
+  // Handle communication view details
+  const handleViewCommunicationDetails = (communication) => {
+    setSelectedCommunication(communication);
+    setIsCommunicationDetailsOpen(true);
+    // Mark as read
+    communicationService.markAsRead(communication.id);
+  };
+
+  // Handle send reply
+  const handleSendReply = async (communicationId, message) => {
+    try {
+      const communication = allCommunications.find(c => c.id === communicationId);
+      if (communication) {
+        await communicationService.sendMessage({
+          to: communication.candidateEmail,
+          subject: `Re: ${communication.subject}`,
+          message: message,
+          candidateName: communication.candidateName,
+          jobTitle: communication.jobTitle
+        });
+        // Refresh communications
+        await fetchAllCommunications();
+      }
+    } catch (err) {
+      console.error('Error sending reply:', err);
+    }
+  };
+
+  // Effect to fetch communications when view changes
+  useEffect(() => {
+    if (activeView === 'communications') {
+      fetchAllCommunications();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+
+  // Effect to filter communications when filters change
+  useEffect(() => {
+    if (allCommunications.length > 0) {
+      filterCommunicationsByType(allCommunications, communicationTypeFilter, communicationSearchQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communicationTypeFilter, communicationSearchQuery]);
 
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
@@ -1269,6 +1366,221 @@ export default function HRManagerDashboard({ user }) {
         </div>
       )}
 
+      {activeView === 'communications' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Communications</h2>
+              <p className="text-gray-600 mt-1">View and manage all candidate communications</p>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by candidate name, email, or subject..."
+                value={communicationSearchQuery}
+                onChange={(e) => setCommunicationSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={communicationTypeFilter} onValueChange={setCommunicationTypeFilter}>
+              <SelectTrigger className="w-full md:w-48">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="application">Applications</SelectItem>
+                <SelectItem value="interview">Interviews</SelectItem>
+                <SelectItem value="offer">Job Offers</SelectItem>
+                <SelectItem value="acceptance">Acceptances</SelectItem>
+                <SelectItem value="rejection">Rejections</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Communications</CardTitle>
+                <Inbox className="h-4 w-4 text-gray-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{allCommunications.length}</div>
+                <p className="text-xs text-gray-600 mt-1">All messages</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Unread</CardTitle>
+                <Mail className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {allCommunications.filter(c => !c.read).length}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">Require attention</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Today</CardTitle>
+                <Calendar className="h-4 w-4 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-600">
+                  {allCommunications.filter(c => {
+                    const today = new Date();
+                    const msgDate = new Date(c.date);
+                    return msgDate.toDateString() === today.toDateString();
+                  }).length}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">Today's messages</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">This Week</CardTitle>
+                <Send className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {allCommunications.filter(c => {
+                    const weekAgo = new Date();
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    return new Date(c.date) >= weekAgo;
+                  }).length}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">Last 7 days</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Communications List */}
+          {communicationsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : filteredCommunications.length > 0 ? (
+            <div className="space-y-3">
+              {filteredCommunications.map((communication) => {
+                const getTypeColor = (type) => {
+                  const colors = {
+                    'application': 'bg-blue-100 text-blue-800',
+                    'interview': 'bg-purple-100 text-purple-800',
+                    'offer': 'bg-green-100 text-green-800',
+                    'acceptance': 'bg-emerald-100 text-emerald-800',
+                    'rejection': 'bg-red-100 text-red-800'
+                  };
+                  return colors[type] || 'bg-gray-100 text-gray-800';
+                };
+
+                const getTypeIcon = (type) => {
+                  const icons = {
+                    'application': FileText,
+                    'interview': Video,
+                    'offer': Briefcase,
+                    'acceptance': CheckCircle,
+                    'rejection': XCircle
+                  };
+                  return icons[type] || Mail;
+                };
+
+                const TypeIcon = getTypeIcon(communication.type);
+                const isToday = new Date(communication.date).toDateString() === new Date().toDateString();
+
+                return (
+                  <Card key={communication.id} className={`hover:shadow-md transition-shadow ${!communication.read ? 'border-l-4 border-l-blue-500' : ''}`}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <TypeIcon className="h-5 w-5 flex-shrink-0 text-gray-600" />
+                            <h3 className="font-semibold text-gray-900 truncate">
+                              {communication.subject}
+                            </h3>
+                            <Badge className={getTypeColor(communication.type)}>
+                              {communication.type.charAt(0).toUpperCase() + communication.type.slice(1)}
+                            </Badge>
+                            {!communication.read && (
+                              <Badge variant="destructive" className="text-xs">
+                                New
+                              </Badge>
+                            )}
+                            {isToday && (
+                              <Badge variant="default" className="bg-blue-600 text-xs">
+                                Today
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600 mb-2">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 flex-shrink-0" />
+                              <span className="truncate">{communication.candidateName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 flex-shrink-0" />
+                              <span className="truncate">{communication.candidateEmail}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 flex-shrink-0" />
+                              <span>
+                                {new Date(communication.date).toLocaleDateString()} at{' '}
+                                {new Date(communication.date).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {communication.message}
+                          </p>
+                          <div className="mt-2">
+                            <Badge variant="outline" className="text-xs">
+                              <Briefcase className="h-3 w-3 mr-1" />
+                              {communication.jobTitle}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleViewCommunicationDetails(communication)}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 border-2 border-dashed rounded-lg">
+              <Mail className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500">
+                {communicationSearchQuery || communicationTypeFilter !== 'all' 
+                  ? 'No communications match your filters' 
+                  : 'No communications yet'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeView === 'jobs' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -1395,6 +1707,14 @@ export default function HRManagerDashboard({ user }) {
         onClose={() => setIsInterviewDetailsOpen(false)}
         interview={selectedInterview}
         onStatusUpdate={handleInterviewStatusUpdate}
+      />
+
+      {/* Communication Details Dialog */}
+      <CommunicationDetailsDialog
+        open={isCommunicationDetailsOpen}
+        onClose={() => setIsCommunicationDetailsOpen(false)}
+        communication={selectedCommunication}
+        onSendReply={handleSendReply}
       />
     </DashboardLayout>
   );
