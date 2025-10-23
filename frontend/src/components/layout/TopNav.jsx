@@ -1,4 +1,4 @@
-import { Bell, Settings, LogOut, User } from 'lucide-react';
+import { Bell, Settings, LogOut, User, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,11 +17,19 @@ const themeColors = {
   orange: 'bg-orange-600'
 };
 
-export default function TopNav({ user, theme = 'blue' }) {
+export default function TopNav({ user, theme = 'blue', onMenuClick }) {
   return (
     <header className={`${themeColors[theme]} text-white shadow-md`}>
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden inline-flex items-center justify-center h-10 w-10 rounded-md text-white hover:bg-white/10 transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
               <span className={`${theme === 'blue' ? 'text-blue-600' : theme === 'purple' ? 'text-purple-600' : theme === 'green' ? 'text-green-700' : 'text-orange-600'}`}>
