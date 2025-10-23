@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import StatsCard from '../shared/StatsCard';
 import CreateJobForm from '../jobs/CreateJobForm';
 import EditJobForm from '../jobs/EditJobForm';
 import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
+import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -17,14 +18,25 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Loader2
+  Loader2,
+  Search,
+  Filter
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
+import { Input } from '../ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import dashboardService from '../../services/dashboardService';
+import applicationService from '../../services/applicationService';
 
 const kanbanStages = [
   { 
@@ -79,32 +91,41 @@ export default function HRManagerDashboard({ user }) {
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
   const [isEditJobOpen, setIsEditJobOpen] = useState(false);
   const [isViewApplicationsOpen, setIsViewApplicationsOpen] = useState(false);
+  const [isApplicationDetailsOpen, setIsApplicationDetailsOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState(null);
+  
+  // Applications page state
+  const [allApplications, setAllApplications] = useState([]);
+  const [filteredApplications, setFilteredApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const [dashboardResponse, applicationsResponse, jobsResponse] = await Promise.all([
+        dashboardService.getDashboardAnalytics(),
+        dashboardService.getApplications({ limit: 10, sort: '-createdAt' }),
+        dashboardService.getJobs({ status: 'open', limit: 5 })
+      ]);
+
+      setDashboardData(dashboardResponse.data);
+      setApplicationsData(applicationsResponse.data || []);
+      setJobsData(jobsResponse.data || []);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        const [dashboardResponse, applicationsResponse, jobsResponse] = await Promise.all([
-          dashboardService.getDashboardAnalytics(),
-          dashboardService.getApplications({ limit: 10, sort: '-createdAt' }),
-          dashboardService.getJobs({ status: 'open', limit: 5 })
-        ]);
-
-        setDashboardData(dashboardResponse.data);
-        setApplicationsData(applicationsResponse.data || []);
-        setJobsData(jobsResponse.data || []);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchDashboardData();
   }, []);
 
@@ -136,27 +157,91 @@ export default function HRManagerDashboard({ user }) {
     setIsViewApplicationsOpen(true);
   };
 
-  const fetchDashboardData = async () => {
+  // Fetch all applications for Applications page
+  const fetchAllApplications = async () => {
+    setApplicationsLoading(true);
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      const [dashboardResponse, applicationsResponse, jobsResponse] = await Promise.all([
-        dashboardService.getDashboardAnalytics(),
-        dashboardService.getApplications({ limit: 10, sort: '-createdAt' }),
-        dashboardService.getJobs({ status: 'open', limit: 5 })
-      ]);
-
-      setDashboardData(dashboardResponse.data);
-      setApplicationsData(applicationsResponse.data || []);
-      setJobsData(jobsResponse.data || []);
+      const response = await applicationService.getApplications({ limit: 100 });
+      if (response.success && response.data) {
+        setAllApplications(response.data);
+        filterApplicationsByStatus(response.data, statusFilter, searchQuery);
+      }
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError(err.message);
+      console.error('Error fetching applications:', err);
     } finally {
-      setIsLoading(false);
+      setApplicationsLoading(false);
     }
   };
+
+  // Filter applications
+  const filterApplicationsByStatus = (apps, status, query) => {
+    let filtered = apps;
+
+    // Filter by status
+    if (status !== 'all') {
+      filtered = filtered.filter(app => app.status === status);
+    }
+
+    // Filter by search query
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(app => 
+        (app.applicant?.firstName?.toLowerCase().includes(lowerQuery)) ||
+        (app.applicant?.lastName?.toLowerCase().includes(lowerQuery)) ||
+        (app.applicant?.email?.toLowerCase().includes(lowerQuery)) ||
+        (app.job?.title?.toLowerCase().includes(lowerQuery))
+      );
+    }
+
+    setFilteredApplications(filtered);
+  };
+
+  // Handle application view details
+  const handleViewApplicationDetails = (applicationId) => {
+    setSelectedApplicationId(applicationId);
+    setIsApplicationDetailsOpen(true);
+  };
+
+  // Handle application status update
+  const handleApplicationStatusUpdate = (updatedApplication) => {
+    setAllApplications(prev => 
+      prev.map(app => app._id === updatedApplication._id ? updatedApplication : app)
+    );
+    filterApplicationsByStatus(
+      allApplications.map(app => app._id === updatedApplication._id ? updatedApplication : app),
+      statusFilter,
+      searchQuery
+    );
+    fetchDashboardData(); // Refresh dashboard stats
+  };
+
+  // Quick status update
+  const handleQuickStatusUpdate = async (applicationId, newStatus) => {
+    try {
+      const response = await applicationService.updateApplicationStatus(applicationId, newStatus);
+      if (response.success) {
+        handleApplicationStatusUpdate(response.data);
+      }
+    } catch (err) {
+      console.error('Error updating application status:', err);
+    }
+  };
+
+  // Effect to fetch applications when view changes
+  useEffect(() => {
+    if (activeView === 'applications') {
+      fetchAllApplications();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+
+  // Effect to filter applications when filters change
+  useEffect(() => {
+    if (allApplications.length > 0) {
+      filterApplicationsByStatus(allApplications, statusFilter, searchQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, searchQuery]);
 
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
@@ -201,10 +286,13 @@ export default function HRManagerDashboard({ user }) {
     }));
   };
 
+  const summary = dashboardData?.summary || {};
+  const recentApplications = dashboardData?.recentApplications || [];
+
   const sidebarItems = [
     { icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', active: activeView === 'dashboard', onClick: () => setActiveView('dashboard') },
     { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs') },
-    { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: 44 },
+    { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: summary.totalApplications || 0 },
     { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates') },
     { icon: <Calendar className="h-5 w-5" />, label: 'Interviews', active: activeView === 'interviews', onClick: () => setActiveView('interviews'), badge: 8 },
     { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications') },
@@ -239,9 +327,6 @@ export default function HRManagerDashboard({ user }) {
     );
   }
 
-  const summary = dashboardData?.summary || {};
-  const recentApplications = dashboardData?.recentApplications || [];
-  
   // Safely extract numeric values
   const openJobs = String(summary.openJobs ?? 0);
   const totalApplications = String(summary.totalApplications ?? 0);
@@ -423,6 +508,214 @@ export default function HRManagerDashboard({ user }) {
         </div>
       )}
 
+      {activeView === 'applications' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-gray-900 mb-2">Applications</h1>
+              <p className="text-gray-600">Manage all job applications</p>
+            </div>
+          </div>
+
+          {/* Search and Filter Bar */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by candidate name, email, or job title..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="under_review">Under Review</SelectItem>
+                    <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                    <SelectItem value="interview_scheduled">Interview Scheduled</SelectItem>
+                    <SelectItem value="interviewed">Interviewed</SelectItem>
+                    <SelectItem value="offer_extended">Offer Extended</SelectItem>
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Applications Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Total Applications</div>
+                <div className="text-2xl font-bold text-gray-900">{allApplications.length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">New</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {allApplications.filter(a => a.status === 'submitted').length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Under Review</div>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {allApplications.filter(a => a.status === 'under_review').length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Shortlisted</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {allApplications.filter(a => a.status === 'shortlisted').length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Applications List */}
+          {applicationsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : filteredApplications.length > 0 ? (
+            <div className="space-y-4">
+              {filteredApplications.map((app) => {
+                const candidateName = app.applicant 
+                  ? `${app.applicant.firstName} ${app.applicant.lastName}` 
+                  : 'Unknown Candidate';
+                const jobTitle = app.job?.title || 'Unknown Position';
+                const score = app.aiScore?.overallScore || 0;
+                const appliedDate = new Date(app.createdAt).toLocaleDateString();
+                
+                const statusBadgeMap = {
+                  'submitted': 'secondary',
+                  'under_review': 'default',
+                  'shortlisted': 'default',
+                  'interview_scheduled': 'default',
+                  'interviewed': 'default',
+                  'offer_extended': 'default',
+                  'accepted': 'default',
+                  'rejected': 'destructive',
+                  'withdrawn': 'secondary'
+                };
+
+                const statusLabelMap = {
+                  'submitted': 'New',
+                  'under_review': 'Under Review',
+                  'shortlisted': 'Shortlisted',
+                  'interview_scheduled': 'Interview Scheduled',
+                  'interviewed': 'Interviewed',
+                  'offer_extended': 'Offer Extended',
+                  'accepted': 'Accepted',
+                  'rejected': 'Rejected',
+                  'withdrawn': 'Withdrawn'
+                };
+
+                return (
+                  <Card key={app._id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 flex-1">
+                          <img 
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
+                            alt={candidateName} 
+                            className="w-14 h-14 rounded-full" 
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="font-semibold text-lg text-gray-900">
+                                {candidateName}
+                              </h3>
+                              <Badge variant={statusBadgeMap[app.status]}>
+                                {statusLabelMap[app.status]}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <Briefcase className="h-4 w-4" />
+                                <span>{jobTitle}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4" />
+                                <span>{app.applicant?.email || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4" />
+                                <span>Applied: {appliedDate}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 mt-2">
+                              <span className="text-sm text-gray-600">AI Match:</span>
+                              <div className="flex items-center gap-2 flex-1 max-w-xs">
+                                <Progress value={score} className="flex-1" />
+                                <span className="font-semibold text-purple-600">{score}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleViewApplicationDetails(app._id)}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {app.status !== 'accepted' && app.status !== 'rejected' && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleQuickStatusUpdate(app._id, 'shortlisted')}
+                                title="Shortlist"
+                                disabled={app.status === 'shortlisted'}
+                              >
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleQuickStatusUpdate(app._id, 'rejected')}
+                                title="Reject"
+                              >
+                                <XCircle className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 border-2 border-dashed rounded-lg">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500">
+                {searchQuery || statusFilter !== 'all' 
+                  ? 'No applications match your filters' 
+                  : 'No applications yet'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeView === 'jobs' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -460,9 +753,9 @@ export default function HRManagerDashboard({ user }) {
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">{job.title}</h3>
                             <div className="flex items-center gap-4 text-sm text-gray-600">
                               <span>{job.department}</span>
-                              <span>•</span>
+                              <span>â€¢</span>
                               <span>{job.applicationsCount || 0} applications</span>
-                              <span>•</span>
+                              <span>â€¢</span>
                               <span>Posted {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
                             </div>
                           </div>
@@ -526,6 +819,14 @@ export default function HRManagerDashboard({ user }) {
         isOpen={isViewApplicationsOpen}
         onClose={() => setIsViewApplicationsOpen(false)}
         job={selectedJob}
+      />
+
+      {/* Application Details Dialog */}
+      <ApplicationDetailsDialog
+        isOpen={isApplicationDetailsOpen}
+        onClose={() => setIsApplicationDetailsOpen(false)}
+        applicationId={selectedApplicationId}
+        onStatusUpdate={handleApplicationStatusUpdate}
       />
     </DashboardLayout>
   );
