@@ -28,10 +28,12 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import LoginForm from '../auth/LoginForm';
 
 export default function LandingPage() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [animateStats, setAnimateStats] = useState(false);
@@ -129,6 +131,21 @@ export default function LandingPage() {
     { value: '4.9/5', label: 'AI-Powered Matching' }
   ];
 
+  const handleRoleSelect = (role) => {
+    setSelectedRole(role);
+    setIsLoginOpen(true);
+  };
+
+  const getRoleTitle = () => {
+    const roleTitles = {
+      admin: 'Admin',
+      hr_recruiter: 'HR Manager',
+      manager: 'Manager',
+      employee: 'Employee'
+    };
+    return roleTitles[selectedRole] || '';
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -160,12 +177,52 @@ export default function LandingPage() {
               <a href="#contact" className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}>
                 Contact
               </a>
-              <Button 
-                variant={isScrolled ? 'outline' : 'secondary'}
-                onClick={() => setIsLoginOpen(true)}
-              >
-                Sign In
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant={isScrolled ? 'outline' : 'secondary'}
+                  >
+                    Sign In
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('admin')}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" />
+                      Admin
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('hr_recruiter')}
+                    >
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      HR Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('manager')}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('employee')}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      Employee
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Mobile Menu Button */}
@@ -190,7 +247,48 @@ export default function LandingPage() {
               <a href="#how-it-works" className="block py-2 text-gray-700 hover:text-blue-600">How It Works</a>
               <a href="#roles" className="block py-2 text-gray-700 hover:text-blue-600">Roles</a>
               <a href="#contact" className="block py-2 text-gray-700 hover:text-blue-600">Contact</a>
-              <Button className="w-full" onClick={() => setIsLoginOpen(true)}>Sign In</Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button className="w-full">Sign In</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('admin')}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" />
+                      Admin
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('hr_recruiter')}
+                    >
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      HR Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('manager')}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('employee')}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      Employee
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         )}
@@ -209,14 +307,54 @@ export default function LandingPage() {
               Complete recruitment solution for modern organizations - from job posting to hiring
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                size="lg" 
-                className="bg-white text-blue-600 hover:bg-gray-100"
-                onClick={() => setIsLoginOpen(true)}
-              >
-                Sign In
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    size="lg" 
+                    className="bg-white text-blue-600 hover:bg-gray-100"
+                  >
+                    Sign In
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('admin')}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" />
+                      Admin
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('hr_recruiter')}
+                    >
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      HR Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('manager')}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('employee')}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      Employee
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button 
                 size="lg" 
                 className="bg-purple-600/50 text-white border border-white/30 hover:bg-purple-300 hover:text-gray-900 hover:border-purple-400 backdrop-blur-sm transition-all duration-300"
@@ -346,10 +484,51 @@ export default function LandingPage() {
             Join hundreds of companies already using our AI-powered HRMS
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" onClick={() => setIsLoginOpen(true)}>
-              Get Started Today
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="lg">
+                  Get Started Today
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('admin')}
+                  >
+                    <UserCog className="mr-2 h-4 w-4" />
+                    Admin
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('hr_recruiter')}
+                  >
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    HR Manager
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('manager')}
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    Manager
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('employee')}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Employee
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button size="lg" variant="outline">
               Schedule a Demo
             </Button>
@@ -436,12 +615,20 @@ export default function LandingPage() {
             <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
               <span className="text-white text-xl">HR</span>
             </div>
-            <h2 className="text-gray-900 mb-2">Welcome Back</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+            {selectedRole && (
+              <p className="text-sm text-gray-500 mb-2">
+                Logging in as <span className="font-semibold text-blue-600">{getRoleTitle()}</span>
+              </p>
+            )}
             <p className="text-gray-600">Sign in to access your dashboard</p>
           </div>
 
           {/* Real Login Form */}
-          <LoginForm onSuccess={() => setIsLoginOpen(false)} />
+          <LoginForm 
+            onSuccess={() => setIsLoginOpen(false)} 
+            expectedRole={selectedRole}
+          />
 
           <div className="mt-4">
             <div className="relative">
