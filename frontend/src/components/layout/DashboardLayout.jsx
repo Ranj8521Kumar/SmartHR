@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
+import ProfileDialog from '../profile/ProfileDialog';
 
 export default function DashboardLayout({ 
   children, 
@@ -10,6 +11,7 @@ export default function DashboardLayout({
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -26,11 +28,18 @@ export default function DashboardLayout({
           user={user} 
           theme={theme}
           onMenuClick={() => setIsMobileSidebarOpen(true)}
+          onProfileClick={() => setIsProfileDialogOpen(true)}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {children}
         </main>
       </div>
+
+      {/* Profile Dialog */}
+      <ProfileDialog 
+        isOpen={isProfileDialogOpen} 
+        onClose={() => setIsProfileDialogOpen(false)} 
+      />
     </div>
   );
 }

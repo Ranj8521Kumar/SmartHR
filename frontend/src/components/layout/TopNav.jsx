@@ -1,4 +1,5 @@
 import { Bell, Settings, LogOut, User, Menu } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,28 @@ const themeColors = {
   orange: 'bg-orange-600'
 };
 
-export default function TopNav({ user, theme = 'blue', onMenuClick }) {
+export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileClick }) {
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  const handleProfileClick = () => {
+    // If a profile click handler is provided, use it
+    // Otherwise, you could navigate to a profile page or open a profile modal
+    if (onProfileClick) {
+      onProfileClick();
+    } else {
+      // Default behavior - could be to navigate to profile page
+      console.log('Profile clicked - implement profile navigation');
+    }
+  };
+
   return (
     <header className={`${themeColors[theme]} text-white shadow-md`}>
       <div className="flex items-center justify-between px-6 py-4">
@@ -86,7 +108,7 @@ export default function TopNav({ user, theme = 'blue', onMenuClick }) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleProfileClick}>
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
@@ -95,7 +117,7 @@ export default function TopNav({ user, theme = 'blue', onMenuClick }) {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600">
+              <DropdownMenuItem className="text-red-600" onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </DropdownMenuItem>

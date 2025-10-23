@@ -44,10 +44,9 @@ export default function Sidebar({ items, theme = 'blue', isCollapsed, onToggle, 
           // Desktop styles
           'lg:relative',
           isCollapsed ? 'lg:w-20' : 'lg:w-64',
-          'hidden lg:flex',
           // Mobile styles - overlay sidebar
-          'fixed inset-y-0 left-0 z-50 w-64',
-          isMobileOpen ? 'flex translate-x-0' : '-translate-x-full'
+          'fixed inset-y-0 left-0 z-50 w-64 lg:translate-x-0',
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
         {/* Mobile Close Button */}
