@@ -595,12 +595,12 @@ export default function HRManagerDashboard({ user }) {
       {activeView === 'dashboard' && (
         <div className="space-y-6">
           <div>
-            <h1 className="text-gray-900 mb-2">HR Manager Dashboard</h1>
-            <p className="text-gray-600">Recruitment and candidate management</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">HR Manager Dashboard</h1>
+            <p className="text-sm md:text-base text-gray-600">Recruitment and candidate management</p>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <StatsCard
               title="Open Positions"
               value={openJobs}
@@ -632,13 +632,13 @@ export default function HRManagerDashboard({ user }) {
           {/* Application Pipeline */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Application Pipeline</CardTitle>
-                <Button variant="outline" size="sm">View All</Button>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <CardTitle className="text-lg md:text-xl">Application Pipeline</CardTitle>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">View All</Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {getApplicationsByStatus().map((stage, index) => (
                   <div key={index} className={`${stage.color} p-4 rounded-lg`}>
                     <div className="flex items-center justify-between mb-3">
@@ -677,7 +677,7 @@ export default function HRManagerDashboard({ user }) {
           {/* Recent Applications */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Applications</CardTitle>
+              <CardTitle className="text-lg md:text-xl">Recent Applications</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -715,38 +715,41 @@ export default function HRManagerDashboard({ user }) {
                     };
 
                     return (
-                      <div key={app._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                        <div className="flex items-center gap-4">
+                      <div key={app._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-gray-50 gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                           <img 
                             src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
                             alt={candidateName} 
-                            className="w-12 h-12 rounded-full" 
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0" 
                           />
-                          <div>
-                            <p className="font-medium">{candidateName}</p>
-                            <p className="text-sm text-gray-500">{jobTitle}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base truncate">{candidateName}</p>
+                            <p className="text-xs sm:text-sm text-gray-500 truncate">{jobTitle}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <Badge variant={statusBadgeMap[app.status]} className="mb-1">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                          <div className="flex items-center gap-2 sm:text-right w-full sm:w-auto">
+                            <Badge variant={statusBadgeMap[app.status]} className="text-xs whitespace-nowrap">
                               {statusLabelMap[app.status]}
                             </Badge>
-                            <p className="text-xs text-gray-500">{appliedDate}</p>
+                            <p className="text-xs text-gray-500 sm:hidden">{appliedDate}</p>
                           </div>
-                          <div className="text-center">
-                            <div className="text-purple-600 font-semibold mb-1">{score}</div>
-                            <Progress value={score} className="w-20" />
+                          <p className="text-xs text-gray-500 hidden sm:block">{appliedDate}</p>
+                          <div className="flex items-center gap-2">
+                            <div className="text-center">
+                              <div className="text-purple-600 font-semibold text-sm sm:text-base mb-1">{score}</div>
+                              <Progress value={score} className="w-16 sm:w-20 h-1.5 sm:h-2" />
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" title="View Details">
-                              <Eye className="h-4 w-4" />
+                          <div className="flex gap-2 ml-auto sm:ml-0">
+                            <Button size="sm" variant="outline" title="View Details" className="h-8 w-8 p-0">
+                              <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
-                            <Button size="sm" variant="outline" title="Approve">
-                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            <Button size="sm" variant="outline" title="Approve" className="h-8 w-8 p-0">
+                              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                             </Button>
-                            <Button size="sm" variant="outline" title="Reject">
-                              <XCircle className="h-4 w-4 text-red-600" />
+                            <Button size="sm" variant="outline" title="Reject" className="h-8 w-8 p-0">
+                              <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
                             </Button>
                           </div>
                         </div>
@@ -769,15 +772,15 @@ export default function HRManagerDashboard({ user }) {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-gray-900 mb-2">Applications</h1>
-              <p className="text-gray-600">Manage all job applications</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Applications</h1>
+              <p className="text-sm md:text-base text-gray-600">Manage all job applications</p>
             </div>
           </div>
 
           {/* Search and Filter Bar */}
           <Card>
-            <CardContent className="p-4">
-              <div className="flex gap-4">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -788,7 +791,7 @@ export default function HRManagerDashboard({ user }) {
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full md:w-[200px]">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
@@ -809,7 +812,7 @@ export default function HRManagerDashboard({ user }) {
           </Card>
 
           {/* Applications Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="text-sm text-gray-600 mb-1">Total Applications</div>
@@ -883,54 +886,56 @@ export default function HRManagerDashboard({ user }) {
 
                 return (
                   <Card key={app._id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
+                    <CardContent className="p-4 md:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                           <img 
                             src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
                             alt={candidateName} 
-                            className="w-14 h-14 rounded-full" 
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex-shrink-0" 
                           />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="font-semibold text-lg text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                              <h3 className="font-semibold text-base sm:text-lg text-gray-900 truncate">
                                 {candidateName}
                               </h3>
-                              <Badge variant={statusBadgeMap[app.status]}>
+                              <Badge variant={statusBadgeMap[app.status]} className="text-xs sm:text-sm w-fit">
                                 {statusLabelMap[app.status]}
                               </Badge>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-600">
+                            <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-gray-600">
                               <div className="flex items-center gap-2">
-                                <Briefcase className="h-4 w-4" />
-                                <span>{jobTitle}</span>
+                                <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                <span className="truncate">{jobTitle}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4" />
-                                <span>{app.applicant?.email || 'N/A'}</span>
+                                <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                <span className="truncate">{app.applicant?.email || 'N/A'}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
+                                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                                 <span>Applied: {appliedDate}</span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3 mt-2">
-                              <span className="text-sm text-gray-600">AI Match:</span>
-                              <div className="flex items-center gap-2 flex-1 max-w-xs">
-                                <Progress value={score} className="flex-1" />
-                                <span className="font-semibold text-purple-600">{score}%</span>
+                            <div className="flex items-center gap-2 sm:gap-3 mt-2">
+                              <span className="text-xs sm:text-sm text-gray-600 flex-shrink-0">AI Match:</span>
+                              <div className="flex items-center gap-2 flex-1">
+                                <Progress value={score} className="flex-1 max-w-[120px] sm:max-w-xs" />
+                                <span className="text-xs sm:text-sm font-semibold text-purple-600 flex-shrink-0">{score}%</span>
                               </div>
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex gap-2 sm:flex-col lg:flex-row sm:ml-4">
                           <Button 
                             size="sm" 
                             variant="outline" 
                             onClick={() => handleViewApplicationDetails(app._id)}
                             title="View Details"
+                            className="flex-1 sm:flex-none h-8 sm:h-9"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-0 lg:mr-0" />
+                            <span className="sm:hidden lg:inline ml-1">View</span>
                           </Button>
                           {app.status !== 'accepted' && app.status !== 'rejected' && (
                             <>
@@ -940,8 +945,9 @@ export default function HRManagerDashboard({ user }) {
                                 onClick={() => handleQuickStatusUpdate(app._id, 'shortlisted')}
                                 title="Shortlist"
                                 disabled={app.status === 'shortlisted'}
+                                className="flex-1 sm:flex-none h-8 sm:h-9"
                               >
-                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                               </Button>
                               <Button 
                                 size="sm" 
@@ -977,15 +983,15 @@ export default function HRManagerDashboard({ user }) {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-gray-900 mb-2">Candidates</h1>
-              <p className="text-gray-600">Manage all candidates and their applications</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Candidates</h1>
+              <p className="text-sm md:text-base text-gray-600">Manage all candidates and their applications</p>
             </div>
           </div>
 
           {/* Search and Filter Bar */}
           <Card>
-            <CardContent className="p-4">
-              <div className="flex gap-4">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -996,7 +1002,7 @@ export default function HRManagerDashboard({ user }) {
                   />
                 </div>
                 <Select value={candidateStatusFilter} onValueChange={setCandidateStatusFilter}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full md:w-[200px]">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
@@ -1014,17 +1020,17 @@ export default function HRManagerDashboard({ user }) {
           </Card>
 
           {/* Candidates Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-gray-600 mb-1">Total Candidates</div>
-                <div className="text-2xl font-bold text-gray-900">{allCandidates.length}</div>
+              <CardContent className="p-3 md:p-4">
+                <div className="text-xs sm:text-sm text-gray-600 mb-1">Total Candidates</div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{allCandidates.length}</div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-gray-600 mb-1">Active</div>
-                <div className="text-2xl font-bold text-blue-600">
+              <CardContent className="p-3 md:p-4">
+                <div className="text-xs sm:text-sm text-gray-600 mb-1">Active</div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-600">
                   {allCandidates.filter(c => 
                     ['submitted', 'under_review', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_extended']
                     .includes(c.latestStatus)
@@ -1033,17 +1039,17 @@ export default function HRManagerDashboard({ user }) {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-gray-600 mb-1">Hired</div>
-                <div className="text-2xl font-bold text-green-600">
+              <CardContent className="p-3 md:p-4">
+                <div className="text-xs sm:text-sm text-gray-600 mb-1">Hired</div>
+                <div className="text-xl sm:text-2xl font-bold text-green-600">
                   {allCandidates.filter(c => c.latestStatus === 'accepted').length}
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
-                <div className="text-sm text-gray-600 mb-1">Avg Applications</div>
-                <div className="text-2xl font-bold text-purple-600">
+              <CardContent className="p-3 md:p-4">
+                <div className="text-xs sm:text-sm text-gray-600 mb-1">Avg Applications</div>
+                <div className="text-xl sm:text-2xl font-bold text-purple-600">
                   {allCandidates.length > 0 
                     ? (allCandidates.reduce((sum, c) => sum + c.totalApplications, 0) / allCandidates.length).toFixed(1)
                     : 0}
@@ -1087,59 +1093,61 @@ export default function HRManagerDashboard({ user }) {
 
                 return (
                   <Card key={candidate._id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
+                    <CardContent className="p-4 md:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                           <img 
                             src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
                             alt={candidateName} 
-                            className="w-16 h-16 rounded-full" 
+                            className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex-shrink-0" 
                           />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="font-semibold text-xl text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                              <h3 className="font-semibold text-base sm:text-xl text-gray-900 truncate">
                                 {candidateName}
                               </h3>
-                              <Badge variant={latestStatusBadgeMap[candidate.latestStatus]}>
+                              <Badge variant={latestStatusBadgeMap[candidate.latestStatus]} className="text-xs sm:text-sm w-fit">
                                 {latestStatusLabelMap[candidate.latestStatus]}
                               </Badge>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-600 mb-2">
+                            <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-gray-600 mb-2">
                               <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4" />
-                                <span>{candidate.email}</span>
+                                <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                <span className="truncate">{candidate.email}</span>
                               </div>
                               {candidate.phone && (
                                 <div className="flex items-center gap-2">
-                                  <Phone className="h-4 w-4" />
+                                  <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                                   <span>{candidate.phone}</span>
                                 </div>
                               )}
                               <div className="flex items-center gap-2">
-                                <Briefcase className="h-4 w-4" />
+                                <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                                 <span>{candidate.totalApplications} {candidate.totalApplications === 1 ? 'Application' : 'Applications'}</span>
                               </div>
                             </div>
                             {candidate.averageScore > 0 && (
-                              <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-600">Average Score:</span>
-                                <div className="flex items-center gap-2 flex-1 max-w-xs">
-                                  <Progress value={candidate.averageScore} className="flex-1" />
-                                  <span className="font-semibold text-purple-600 min-w-[3rem]">{candidate.averageScore}%</span>
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <span className="text-xs sm:text-sm text-gray-600 flex-shrink-0">Average Score:</span>
+                                <div className="flex items-center gap-2 flex-1">
+                                  <Progress value={candidate.averageScore} className="flex-1 max-w-[120px] sm:max-w-xs" />
+                                  <span className="text-xs sm:text-sm font-semibold text-purple-600 min-w-[2.5rem] sm:min-w-[3rem]">{candidate.averageScore}%</span>
                                 </div>
                               </div>
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-2 ml-4">
+                        <div className="flex gap-2 sm:ml-4">
                           <Button 
                             size="sm" 
                             variant="outline" 
                             onClick={() => handleViewCandidateDetails(candidate._id)}
                             title="View Details"
+                            className="w-full sm:w-auto text-xs sm:text-sm"
                           >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Profile
+                            <Eye className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">View Profile</span>
+                            <span className="sm:hidden ml-1">View</span>
                           </Button>
                         </div>
                       </div>
@@ -1165,15 +1173,15 @@ export default function HRManagerDashboard({ user }) {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-gray-900 mb-2">Interviews</h1>
-              <p className="text-gray-600">Manage and schedule interviews</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Interviews</h1>
+              <p className="text-sm md:text-base text-gray-600">Manage and schedule interviews</p>
             </div>
           </div>
 
           {/* Search and Filter Bar */}
           <Card>
-            <CardContent className="p-4">
-              <div className="flex gap-4">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -1184,7 +1192,7 @@ export default function HRManagerDashboard({ user }) {
                   />
                 </div>
                 <Select value={interviewStatusFilter} onValueChange={setInterviewStatusFilter}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full md:w-[200px]">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
@@ -1371,8 +1379,8 @@ export default function HRManagerDashboard({ user }) {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Communications</h2>
-              <p className="text-gray-600 mt-1">View and manage all candidate communications</p>
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Communications</h2>
+              <p className="text-sm md:text-base text-gray-600 mt-1">View and manage all candidate communications</p>
             </div>
           </div>
 
@@ -1404,7 +1412,7 @@ export default function HRManagerDashboard({ user }) {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Communications</CardTitle>
@@ -1583,26 +1591,26 @@ export default function HRManagerDashboard({ user }) {
 
       {activeView === 'jobs' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-gray-900 mb-2">Job Postings</h1>
-              <p className="text-gray-600">Create and manage job openings</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Job Postings</h1>
+              <p className="text-sm md:text-base text-gray-600">Create and manage job openings</p>
             </div>
-            <Button onClick={() => setIsCreateJobOpen(true)}>
+            <Button onClick={() => setIsCreateJobOpen(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Create Job Posting
             </Button>
           </div>
 
           <Tabs defaultValue="active">
-            <TabsList>
-              <TabsTrigger value="active">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="active" className="text-xs sm:text-sm">
                 Active ({jobsData.filter(j => j.status === 'open').length})
               </TabsTrigger>
-              <TabsTrigger value="draft">
+              <TabsTrigger value="draft" className="text-xs sm:text-sm">
                 Drafts ({jobsData.filter(j => j.status === 'draft').length})
               </TabsTrigger>
-              <TabsTrigger value="closed">
+              <TabsTrigger value="closed" className="text-xs sm:text-sm">
                 Closed ({jobsData.filter(j => j.status === 'closed').length})
               </TabsTrigger>
             </TabsList>
@@ -1612,23 +1620,23 @@ export default function HRManagerDashboard({ user }) {
                   const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
                   return (
                     <Card key={job._id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{job.title}</h3>
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              <span>{job.department}</span>
-                              <span>â€¢</span>
+                      <CardContent className="p-4 md:p-6">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                              <span className="truncate">{job.department}</span>
+                              <span className="hidden sm:inline">•</span>
                               <span>{job.applicationsCount || 0} applications</span>
-                              <span>â€¢</span>
+                              <span className="hidden sm:inline">•</span>
                               <span>Posted {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => handleEditJob(job)}>
+                          <div className="flex gap-2 flex-col sm:flex-row">
+                            <Button variant="outline" onClick={() => handleEditJob(job)} className="w-full sm:w-auto text-sm">
                               Edit
                             </Button>
-                            <Button onClick={() => handleViewApplications(job)}>
+                            <Button onClick={() => handleViewApplications(job)} className="w-full sm:w-auto text-sm">
                               View Applications
                             </Button>
                           </div>
@@ -1640,8 +1648,8 @@ export default function HRManagerDashboard({ user }) {
               ) : (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500">No active job postings</p>
-                  <Button className="mt-4" onClick={() => setIsCreateJobOpen(true)}>
+                  <p className="text-sm sm:text-base text-gray-500">No active job postings</p>
+                  <Button className="mt-4 w-full sm:w-auto" onClick={() => setIsCreateJobOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Your First Job
                   </Button>
@@ -1650,14 +1658,14 @@ export default function HRManagerDashboard({ user }) {
             </TabsContent>
             <TabsContent value="draft" className="space-y-4 mt-6">
               <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-500">No draft job postings</p>
+                <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-sm sm:text-base text-gray-500">No draft job postings</p>
               </div>
             </TabsContent>
             <TabsContent value="closed" className="space-y-4 mt-6">
               <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-500">No closed job postings</p>
+                <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-sm sm:text-base text-gray-500">No closed job postings</p>
               </div>
             </TabsContent>
           </Tabs>
