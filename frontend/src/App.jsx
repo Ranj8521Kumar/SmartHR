@@ -28,17 +28,22 @@ function AppContent() {
       avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`
     };
 
-    switch (user.role) {
+    // Map backend role names to dashboard components
+    const role = user.role.toLowerCase();
+    
+    switch (role) {
       case 'admin':
         return <AdminDashboard user={userWithAvatar} />;
+      case 'hr_recruiter':
       case 'hr-manager':
+      case 'hr':
         return <HRManagerDashboard user={userWithAvatar} />;
       case 'manager':
         return <ManagerDashboard user={userWithAvatar} />;
       case 'employee':
         return <EmployeeDashboard user={userWithAvatar} />;
       default:
-        return <AdminDashboard user={userWithAvatar} />;
+        return <EmployeeDashboard user={userWithAvatar} />;
     }
   };
 
