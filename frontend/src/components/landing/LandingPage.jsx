@@ -16,6 +16,7 @@ import {
   Building2,
   Search,
   ChevronRight,
+  ChevronDown,
   Menu,
   X,
   Linkedin,
@@ -224,8 +225,7 @@ export default function LandingPage({ onLogin }) {
               </Button>
               <Button 
                 size="lg" 
-                variant="outline" 
-                className="border-white text-white hover:bg-white/10"
+                className="bg-purple-600/50 text-white border border-white/30 hover:bg-purple-300 hover:text-gray-900 hover:border-purple-400 backdrop-blur-sm transition-all duration-300"
               >
                 Get Started
               </Button>
@@ -245,7 +245,7 @@ export default function LandingPage({ onLogin }) {
 
         {/* Scroll Indicator */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-          <ChevronRight className="h-6 w-6 text-white rotate-90" />
+          <ChevronDown className="h-6 w-6 text-white" />
         </div>
       </section>
 
