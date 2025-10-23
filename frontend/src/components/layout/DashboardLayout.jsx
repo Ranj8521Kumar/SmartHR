@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 
@@ -7,9 +8,16 @@ export default function DashboardLayout({
   sidebarItems,
   theme = 'blue'
 }) {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar items={sidebarItems} theme={theme} />
+      <Sidebar 
+        items={sidebarItems} 
+        theme={theme} 
+        isCollapsed={isSidebarCollapsed}
+        onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopNav user={user} theme={theme} />
         <main className="flex-1 overflow-y-auto p-6">
