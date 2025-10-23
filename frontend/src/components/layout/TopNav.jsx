@@ -1,5 +1,4 @@
 import { Bell, Settings, LogOut, User } from 'lucide-react';
-import { Button } from '../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,15 +10,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 
-interface TopNavProps {
-  user: {
-    name: string;
-    email: string;
-    avatar: string;
-  };
-  theme?: 'blue' | 'purple' | 'green' | 'orange';
-}
-
 const themeColors = {
   blue: 'bg-blue-600',
   purple: 'bg-purple-600',
@@ -27,7 +17,7 @@ const themeColors = {
   orange: 'bg-orange-600'
 };
 
-export default function TopNav({ user, theme = 'blue' }: TopNavProps) {
+export default function TopNav({ user, theme = 'blue' }) {
   return (
     <header className={`${themeColors[theme]} text-white shadow-md`}>
       <div className="flex items-center justify-between px-6 py-4">

@@ -1,16 +1,4 @@
-import { ReactNode } from 'react';
 import { cn } from '../ui/utils';
-
-interface SidebarProps {
-  items: Array<{
-    icon: ReactNode;
-    label: string;
-    active?: boolean;
-    onClick: () => void;
-    badge?: number;
-  }>;
-  theme?: 'blue' | 'purple' | 'green' | 'orange';
-}
 
 const themeColors = {
   blue: {
@@ -35,7 +23,7 @@ const themeColors = {
   }
 };
 
-export default function Sidebar({ items, theme = 'blue' }: SidebarProps) {
+export default function Sidebar({ items, theme = 'blue' }) {
   const colors = themeColors[theme];
 
   return (
