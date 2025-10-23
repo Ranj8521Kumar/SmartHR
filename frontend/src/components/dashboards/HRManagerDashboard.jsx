@@ -6,6 +6,7 @@ import EditJobForm from '../jobs/EditJobForm';
 import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
 import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
 import CandidateDetailsDialog from '../candidates/CandidateDetailsDialog';
+import InterviewDetailsDialog from '../interviews/InterviewDetailsDialog';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -22,7 +23,8 @@ import {
   Loader2,
   Search,
   Filter,
-  Phone
+  Phone,
+  Video
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -40,6 +42,7 @@ import {
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
 import candidateService from '../../services/candidateService';
+import interviewService from '../../services/interviewService';
 
 const kanbanStages = [
   { 
@@ -113,6 +116,15 @@ export default function HRManagerDashboard({ user }) {
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('all');
   const [isCandidateDetailsOpen, setIsCandidateDetailsOpen] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+
+  // Interviews page state
+  const [allInterviews, setAllInterviews] = useState([]);
+  const [filteredInterviews, setFilteredInterviews] = useState([]);
+  const [interviewsLoading, setInterviewsLoading] = useState(false);
+  const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
+  const [interviewStatusFilter, setInterviewStatusFilter] = useState('all');
+  const [isInterviewDetailsOpen, setIsInterviewDetailsOpen] = useState(false);
+  const [selectedInterview, setSelectedInterview] = useState(null);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -299,6 +311,82 @@ export default function HRManagerDashboard({ user }) {
     setIsCandidateDetailsOpen(true);
   };
 
+  // Fetch all interviews for Interviews page
+  const fetchAllInterviews = async () => {
+    setInterviewsLoading(true);
+    try {
+      const response = await interviewService.getInterviews();
+      if (response.success && response.data) {
+        setAllInterviews(response.data);
+        filterInterviewsByStatus(response.data, interviewStatusFilter, interviewSearchQuery);
+      }
+    } catch (err) {
+      console.error('Error fetching interviews:', err);
+    } finally {
+      setInterviewsLoading(false);
+    }
+  };
+
+  // Filter interviews
+  const filterInterviewsByStatus = (interviews, status, query) => {
+    let filtered = interviews;
+
+    // Filter by status
+    if (status !== 'all') {
+      filtered = filtered.filter(i => i.status === status);
+    }
+
+    // Filter by search query
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(i => 
+        (i.candidate?.firstName?.toLowerCase().includes(lowerQuery)) ||
+        (i.candidate?.lastName?.toLowerCase().includes(lowerQuery)) ||
+        (i.candidate?.email?.toLowerCase().includes(lowerQuery)) ||
+        (i.job?.title?.toLowerCase().includes(lowerQuery))
+      );
+    }
+
+    setFilteredInterviews(filtered);
+  };
+
+  // Handle interview view details
+  const handleViewInterviewDetails = (interview) => {
+    setSelectedInterview(interview);
+    setIsInterviewDetailsOpen(true);
+  };
+
+  // Handle interview status update
+  const handleInterviewStatusUpdate = async (applicationId, newStatus, feedback) => {
+    try {
+      const response = await applicationService.updateApplicationStatus(applicationId, newStatus, feedback);
+      if (response.success) {
+        // Refresh interviews
+        await fetchAllInterviews();
+        // Refresh dashboard stats
+        fetchDashboardData();
+      }
+    } catch (err) {
+      console.error('Error updating interview status:', err);
+    }
+  };
+
+  // Effect to fetch interviews when view changes
+  useEffect(() => {
+    if (activeView === 'interviews') {
+      fetchAllInterviews();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
+
+  // Effect to filter interviews when filters change
+  useEffect(() => {
+    if (allInterviews.length > 0) {
+      filterInterviewsByStatus(allInterviews, interviewStatusFilter, interviewSearchQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interviewStatusFilter, interviewSearchQuery]);
+
   // Effect to fetch candidates when view changes
   useEffect(() => {
     if (activeView === 'candidates') {
@@ -366,7 +454,7 @@ export default function HRManagerDashboard({ user }) {
     { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs') },
     { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: summary.totalApplications || 0 },
     { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates') },
-    { icon: <Calendar className="h-5 w-5" />, label: 'Interviews', active: activeView === 'interviews', onClick: () => setActiveView('interviews'), badge: 8 },
+    { icon: <Calendar className="h-5 w-5" />, label: 'Interviews', active: activeView === 'interviews', onClick: () => setActiveView('interviews'), badge: allInterviews.length || 0 },
     { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications') },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
   ];
@@ -976,6 +1064,211 @@ export default function HRManagerDashboard({ user }) {
         </div>
       )}
 
+      {activeView === 'interviews' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-gray-900 mb-2">Interviews</h1>
+              <p className="text-gray-600">Manage and schedule interviews</p>
+            </div>
+          </div>
+
+          {/* Search and Filter Bar */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by candidate name, email, or position..."
+                    value={interviewSearchQuery}
+                    onChange={(e) => setInterviewSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={interviewStatusFilter} onValueChange={setInterviewStatusFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Interviews Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Total Interviews</div>
+                <div className="text-2xl font-bold text-gray-900">{allInterviews.length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Today</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {allInterviews.filter(i => {
+                    if (!i.scheduledDate) return false;
+                    const today = new Date();
+                    const interviewDate = new Date(i.scheduledDate);
+                    return interviewDate.toDateString() === today.toDateString();
+                  }).length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Upcoming</div>
+                <div className="text-2xl font-bold text-orange-600">
+                  {allInterviews.filter(i => {
+                    if (!i.scheduledDate) return false;
+                    const interviewDate = new Date(i.scheduledDate);
+                    return interviewDate > new Date() && (i.status === 'scheduled' || i.status === 'pending');
+                  }).length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-sm text-gray-600 mb-1">Completed</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {allInterviews.filter(i => i.status === 'completed').length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Interviews List */}
+          {interviewsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : filteredInterviews.length > 0 ? (
+            <div className="space-y-4">
+              {filteredInterviews.map((interview) => {
+                const candidateName = interview.candidate 
+                  ? `${interview.candidate.firstName} ${interview.candidate.lastName}` 
+                  : 'Unknown Candidate';
+
+                const interviewTypeMap = {
+                  'phone': { label: 'Phone', icon: Phone, color: 'bg-blue-100 text-blue-600' },
+                  'video': { label: 'Video', icon: Video, color: 'bg-purple-100 text-purple-600' },
+                  'in-person': { label: 'In-Person', icon: Users, color: 'bg-green-100 text-green-600' },
+                  'technical': { label: 'Technical', icon: Briefcase, color: 'bg-orange-100 text-orange-600' },
+                  'hr': { label: 'HR', icon: Users, color: 'bg-pink-100 text-pink-600' },
+                };
+
+                const interviewType = interviewTypeMap[interview.type] || null;
+                const TypeIcon = interviewType?.icon;
+
+                const statusBadgeMap = {
+                  'scheduled': 'default',
+                  'pending': 'secondary',
+                  'completed': 'default',
+                };
+
+                const isUpcoming = interview.scheduledDate && new Date(interview.scheduledDate) > new Date();
+                const isToday = interview.scheduledDate && 
+                  new Date(interview.scheduledDate).toDateString() === new Date().toDateString();
+
+                return (
+                  <Card key={interview._id}>
+                    <CardContent className="p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <img 
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
+                            alt={candidateName} 
+                            className="w-14 h-14 rounded-full flex-shrink-0" 
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <h3 className="font-semibold text-lg text-gray-900">
+                                {candidateName}
+                              </h3>
+                              <Badge variant={statusBadgeMap[interview.status] || 'secondary'}>
+                                {interview.status?.charAt(0).toUpperCase() + interview.status?.slice(1)}
+                              </Badge>
+                              {isToday && (
+                                <Badge variant="default" className="bg-blue-600">
+                                  Today
+                                </Badge>
+                              )}
+                              {isUpcoming && !isToday && (
+                                <Badge variant="outline">
+                                  Upcoming
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <Briefcase className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate">{interview.job?.title || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate">{interview.candidate?.email || 'N/A'}</span>
+                              </div>
+                              {interview.scheduledDate && (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 flex-shrink-0" />
+                                  <span>
+                                    {new Date(interview.scheduledDate).toLocaleDateString()} at{' '}
+                                    {new Date(interview.scheduledDate).toLocaleTimeString([], { 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {interviewType && (
+                              <div className="mt-2 inline-flex">
+                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${interviewType.color} text-xs`}>
+                                  {TypeIcon && <TypeIcon className="h-3 w-3" />}
+                                  <span>{interviewType.label}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleViewInterviewDetails(interview)}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 border-2 border-dashed rounded-lg">
+              <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500">
+                {interviewSearchQuery || interviewStatusFilter !== 'all' 
+                  ? 'No interviews match your filters' 
+                  : 'No interviews scheduled yet'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeView === 'jobs' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -1094,6 +1387,14 @@ export default function HRManagerDashboard({ user }) {
         isOpen={isCandidateDetailsOpen}
         onClose={() => setIsCandidateDetailsOpen(false)}
         candidateId={selectedCandidateId}
+      />
+
+      {/* Interview Details Dialog */}
+      <InterviewDetailsDialog
+        isOpen={isInterviewDetailsOpen}
+        onClose={() => setIsInterviewDetailsOpen(false)}
+        interview={selectedInterview}
+        onStatusUpdate={handleInterviewStatusUpdate}
       />
     </DashboardLayout>
   );
