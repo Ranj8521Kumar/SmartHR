@@ -141,23 +141,23 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full overflow-x-hidden">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full overflow-x-hidden p-4 sm:p-6">
+        <DialogHeader className="pr-8">
           <DialogTitle className="text-lg sm:text-xl md:text-2xl">Applications for {job.title}</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
             {job.department} • {applications.length} total applications
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
           {/* Search Bar */}
-          <div className="relative">
+          <div className="relative w-full max-w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-sm"
+              className="pl-10 text-sm w-full"
             />
           </div>
 
@@ -173,24 +173,24 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
               <TabsTrigger value="rejected" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">Rejected ({counts.rejected})</TabsTrigger>
             </TabsList>
 
-            <TabsContent value={activeTab} className="mt-6">
+            <TabsContent value={activeTab} className="mt-4 sm:mt-6 w-full max-w-full overflow-hidden">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                 </div>
               ) : filteredApplications.length > 0 ? (
-                <div className="space-y-4 overflow-hidden">
+                <div className="space-y-4 w-full max-w-full overflow-hidden">
                   {filteredApplications.map((app) => {
                     const candidateName = `${app.applicant.firstName} ${app.applicant.lastName}`;
                     const score = app.aiScore?.overallScore || 0;
                     const appliedDate = new Date(app.createdAt).toLocaleDateString();
 
                     return (
-                      <Card key={app._id} className="overflow-hidden">
-                        <CardContent className="p-4 sm:p-6">
-                          <div className="flex flex-col lg:flex-row items-start gap-4 w-full overflow-hidden">
+                      <Card key={app._id} className="w-full max-w-full overflow-hidden">
+                        <CardContent className="p-4 sm:p-6 w-full max-w-full overflow-hidden">
+                          <div className="flex flex-col lg:flex-row items-start gap-4 w-full max-w-full overflow-hidden">
                             {/* Left section: Avatar and Details */}
-                            <div className="flex items-start gap-3 sm:gap-4 flex-1 w-full min-w-0">
+                            <div className="flex items-start gap-3 sm:gap-4 flex-1 w-full min-w-0 max-w-full">
                               {/* Avatar */}
                               <img 
                                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
@@ -199,20 +199,20 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                               />
                               
                               {/* Details */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                              <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 w-full">
                                   <h3 className="font-semibold text-base sm:text-lg text-gray-900 truncate">
                                     {candidateName}
                                   </h3>
-                                  <Badge variant={getStatusBadgeVariant(app.status)} className="w-fit text-xs">
+                                  <Badge variant={getStatusBadgeVariant(app.status)} className="w-fit text-xs shrink-0">
                                     {getStatusLabel(app.status)}
                                   </Badge>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-gray-600 mb-3">
-                                  <div className="flex items-center gap-2">
+                                <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-gray-600 mb-3 w-full max-w-full">
+                                  <div className="flex items-center gap-2 min-w-0">
                                     <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                    <span className="truncate">{app.applicant.email}</span>
+                                    <span className="truncate flex-1 min-w-0">{app.applicant.email}</span>
                                   </div>
                                   {app.applicant.phone && (
                                     <div className="flex items-center gap-2">
@@ -225,26 +225,26 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                                     <span>Applied: {appliedDate}</span>
                                   </div>
                                   {app.resume && (
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
                                       <FileText className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                      <span className="truncate">{app.resume.filename}</span>
+                                      <span className="truncate flex-1 min-w-0">{app.resume.filename}</span>
                                     </div>
                                   )}
                                 </div>
 
                                 {/* AI Score */}
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full max-w-full">
                                   <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">AI Match Score:</span>
-                                  <div className="flex items-center gap-2 flex-1 max-w-full sm:max-w-xs">
+                                  <div className="flex items-center gap-2 flex-1 w-full max-w-full sm:max-w-xs">
                                     <Progress value={score} className="flex-1 h-2" />
-                                    <span className="font-semibold text-purple-600 text-sm sm:text-base whitespace-nowrap">{score}%</span>
+                                    <span className="font-semibold text-purple-600 text-sm sm:text-base whitespace-nowrap shrink-0">{score}%</span>
                                   </div>
                                 </div>
                               </div>
                             </div>
 
                             {/* Actions */}
-                            <div className="flex gap-2 w-full lg:w-auto lg:ml-4">
+                            <div className="flex gap-2 w-full lg:w-auto lg:ml-4 shrink-0">
                               <Button size="sm" variant="outline" title="View Details" className="flex-1 lg:flex-none">
                                 <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                                 <span className="ml-1 lg:hidden text-xs">View</span>

@@ -151,10 +151,10 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Job Posting</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full overflow-x-hidden p-4 sm:p-6">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-lg sm:text-xl md:text-2xl">Edit Job Posting</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             Update the job posting details
           </DialogDescription>
         </DialogHeader>
@@ -165,25 +165,26 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
           {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Basic Information</h3>
+          <div className="space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden">
+            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Basic Information</h3>
             
-            <div>
-              <Label htmlFor="title">Job Title *</Label>
+            <div className="w-full max-w-full overflow-hidden">
+              <Label htmlFor="title" className="text-xs sm:text-sm">Job Title *</Label>
               <Input
                 id="title"
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
                 placeholder="e.g., Senior Full Stack Developer"
+                className="text-sm sm:text-base"
                 required
               />
             </div>
 
-            <div>
-              <Label htmlFor="description">Job Description *</Label>
+            <div className="w-full max-w-full overflow-hidden">
+              <Label htmlFor="description" className="text-xs sm:text-sm">Job Description *</Label>
               <Textarea
                 id="description"
                 name="description"
@@ -191,19 +192,20 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
                 onChange={handleInputChange}
                 placeholder="Describe the role, team, and what you're looking for..."
                 rows={4}
+                className="text-sm sm:text-base"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="department">Department *</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 w-full max-w-full overflow-hidden">
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="department" className="text-xs sm:text-sm">Department *</Label>
                 <Select
                   value={formData.department}
                   onValueChange={(value) => handleSelectChange('department', value)}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -216,28 +218,29 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="location">Location *</Label>
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="location" className="text-xs sm:text-sm">Location *</Label>
                 <Input
                   id="location"
                   name="location"
                   value={formData.location}
                   onChange={handleInputChange}
                   placeholder="e.g., New York, NY / Remote"
+                  className="text-sm sm:text-base"
                   required
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="employmentType">Employment Type *</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 w-full max-w-full overflow-hidden">
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="employmentType" className="text-xs sm:text-sm">Employment Type *</Label>
                 <Select
                   value={formData.employmentType}
                   onValueChange={(value) => handleSelectChange('employmentType', value)}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -250,14 +253,14 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="experienceLevel">Experience Level *</Label>
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="experienceLevel" className="text-xs sm:text-sm">Experience Level *</Label>
                 <Select
                   value={formData.experienceLevel}
                   onValueChange={(value) => handleSelectChange('experienceLevel', value)}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base">
                     <SelectValue placeholder="Select level" />
                   </SelectTrigger>
                   <SelectContent>
@@ -273,25 +276,26 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
           </div>
 
           {/* Compensation & Details */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Compensation & Details</h3>
+          <div className="space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden">
+            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Compensation & Details</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="salaryMin">Minimum Salary (USD) *</Label>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 w-full max-w-full overflow-hidden">
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="salaryMin" className="text-xs sm:text-sm">Minimum Salary (USD) *</Label>
                 <Input
                   id="salaryMin"
                   name="salaryMin"
                   type="number"
                   value={formData.salaryMin}
                   onChange={handleInputChange}
+                  className="text-sm sm:text-base"
                   placeholder="50000"
                   required
                 />
               </div>
 
-              <div>
-                <Label htmlFor="salaryMax">Maximum Salary (USD) *</Label>
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="salaryMax" className="text-xs sm:text-sm">Maximum Salary (USD) *</Label>
                 <Input
                   id="salaryMax"
                   name="salaryMax"
@@ -299,12 +303,13 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
                   value={formData.salaryMax}
                   onChange={handleInputChange}
                   placeholder="80000"
+                  className="text-sm sm:text-base"
                   required
                 />
               </div>
 
-              <div>
-                <Label htmlFor="openings">Number of Openings *</Label>
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="openings" className="text-xs sm:text-sm">Number of Openings *</Label>
                 <Input
                   id="openings"
                   name="openings"
@@ -312,18 +317,19 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
                   min="1"
                   value={formData.openings}
                   onChange={handleInputChange}
+                  className="text-sm sm:text-base"
                   required
                 />
               </div>
 
-              <div>
-                <Label htmlFor="status">Status *</Label>
+              <div className="w-full max-w-full overflow-hidden">
+                <Label htmlFor="status" className="text-xs sm:text-sm">Status *</Label>
                 <Select
                   value={formData.status}
                   onValueChange={(value) => handleSelectChange('status', value)}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -337,8 +343,8 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="deadline">Application Deadline</Label>
+            <div className="w-full max-w-full overflow-hidden">
+              <Label htmlFor="deadline" className="text-xs sm:text-sm">Application Deadline</Label>
               <Input
                 id="deadline"
                 name="deadline"
@@ -346,33 +352,37 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
                 value={formData.deadline}
                 onChange={handleInputChange}
                 min={new Date().toISOString().split('T')[0]}
+                className="text-sm sm:text-base"
               />
             </div>
           </div>
 
           {/* Skills */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Required Skills</h3>
-            <div className="flex gap-2">
+          <div className="space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden">
+            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Required Skills</h3>
+            <div className="flex gap-2 w-full max-w-full">
               <Input
                 value={skillInput}
                 onChange={(e) => setSkillInput(e.target.value)}
                 placeholder="e.g., React, Node.js, TypeScript"
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addItem('skills', skillInput, setSkillInput))}
+                className="text-sm sm:text-base flex-1 min-w-0"
               />
               <Button
                 type="button"
+                size="sm"
+                className="shrink-0"
                 onClick={() => addItem('skills', skillInput, setSkillInput)}
                 variant="outline"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 w-full max-w-full overflow-hidden">
               {formData.skills.map((skill, index) => (
                 <span
                   key={index}
-                  className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm flex items-center gap-1"
+                  className="bg-purple-100 text-purple-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm flex items-center gap-1 shrink-0"
                 >
                   {skill}
                   <button
@@ -388,31 +398,34 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
           </div>
 
           {/* Qualifications */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Qualifications</h3>
-            <div className="flex gap-2">
+          <div className="space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden">
+            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Qualifications</h3>
+            <div className="flex gap-2 w-full max-w-full">
               <Input
                 value={qualificationInput}
                 onChange={(e) => setQualificationInput(e.target.value)}
                 placeholder="e.g., Bachelor's degree in Computer Science"
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addItem('qualifications', qualificationInput, setQualificationInput))}
+                className="text-sm sm:text-base flex-1 min-w-0"
               />
               <Button
                 type="button"
+                size="sm"
+                className="shrink-0"
                 onClick={() => addItem('qualifications', qualificationInput, setQualificationInput)}
                 variant="outline"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
-            <ul className="space-y-2">
+            <ul className="space-y-2 w-full max-w-full overflow-hidden">
               {formData.qualifications.map((qual, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm">
+                <li key={index} className="flex items-start gap-2 text-xs sm:text-sm break-words">
                   <span className="flex-1">{qual}</span>
                   <button
                     type="button"
                     onClick={() => removeItem('qualifications', index)}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 shrink-0"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -422,31 +435,34 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
           </div>
 
           {/* Responsibilities */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Key Responsibilities</h3>
-            <div className="flex gap-2">
+          <div className="space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden">
+            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Key Responsibilities</h3>
+            <div className="flex gap-2 w-full max-w-full">
               <Input
                 value={responsibilityInput}
                 onChange={(e) => setResponsibilityInput(e.target.value)}
                 placeholder="e.g., Design and implement scalable backend services"
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addItem('responsibilities', responsibilityInput, setResponsibilityInput))}
+                className="text-sm sm:text-base flex-1 min-w-0"
               />
               <Button
                 type="button"
                 onClick={() => addItem('responsibilities', responsibilityInput, setResponsibilityInput)}
+                size="sm"
+                className="shrink-0"
                 variant="outline"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
-            <ul className="space-y-2">
+            <ul className="space-y-2 w-full max-w-full overflow-hidden">
               {formData.responsibilities.map((resp, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm">
+                <li key={index} className="flex items-start gap-2 text-xs sm:text-sm break-words">
                   <span className="flex-1">{resp}</span>
                   <button
                     type="button"
                     onClick={() => removeItem('responsibilities', index)}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 shrink-0"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -456,28 +472,31 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
           </div>
 
           {/* Benefits */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Benefits</h3>
-            <div className="flex gap-2">
+          <div className="space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden">
+            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Benefits</h3>
+            <div className="flex gap-2 w-full max-w-full">
               <Input
                 value={benefitInput}
                 onChange={(e) => setBenefitInput(e.target.value)}
                 placeholder="e.g., Health insurance, 401(k), Remote work"
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addItem('benefits', benefitInput, setBenefitInput))}
+                className="text-sm sm:text-base flex-1 min-w-0"
               />
               <Button
                 type="button"
                 onClick={() => addItem('benefits', benefitInput, setBenefitInput)}
                 variant="outline"
+                size="sm"
+                className="shrink-0"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 w-full max-w-full overflow-hidden">
               {formData.benefits.map((benefit, index) => (
                 <span
                   key={index}
-                  className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm flex items-center gap-1"
+                  className="bg-green-100 text-green-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm flex items-center gap-1 shrink-0"
                 >
                   {benefit}
                   <button
@@ -492,14 +511,14 @@ export default function EditJobForm({ isOpen, onClose, job, onJobUpdated }) {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading} className="w-full sm:w-auto text-sm">
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto text-sm">
               {isLoading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
                   Updating...
                 </>
               ) : (
