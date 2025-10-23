@@ -141,15 +141,15 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Applications for {job.title}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl md:text-2xl">Applications for {job.title}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             {job.department} • {applications.length} total applications
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Search Bar */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -157,20 +157,20 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
               placeholder="Search by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 text-sm"
             />
           </div>
 
           {/* Tabs for filtering */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
-              <TabsTrigger value="new">New ({counts.new})</TabsTrigger>
-              <TabsTrigger value="review">Review ({counts.review})</TabsTrigger>
-              <TabsTrigger value="interview">Interview ({counts.interview})</TabsTrigger>
-              <TabsTrigger value="offer">Offer ({counts.offer})</TabsTrigger>
-              <TabsTrigger value="hired">Hired ({counts.hired})</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected ({counts.rejected})</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full overflow-hidden">
+            <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 w-full h-auto gap-1">
+              <TabsTrigger value="all" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">All ({counts.all})</TabsTrigger>
+              <TabsTrigger value="new" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">New ({counts.new})</TabsTrigger>
+              <TabsTrigger value="review" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">Review ({counts.review})</TabsTrigger>
+              <TabsTrigger value="interview" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">Interview ({counts.interview})</TabsTrigger>
+              <TabsTrigger value="offer" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">Offer ({counts.offer})</TabsTrigger>
+              <TabsTrigger value="hired" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">Hired ({counts.hired})</TabsTrigger>
+              <TabsTrigger value="rejected" className="text-[10px] sm:text-xs px-1 sm:px-3 min-w-0">Rejected ({counts.rejected})</TabsTrigger>
             </TabsList>
 
             <TabsContent value={activeTab} className="mt-6">
@@ -179,81 +179,85 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                   <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                 </div>
               ) : filteredApplications.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-4 overflow-hidden">
                   {filteredApplications.map((app) => {
                     const candidateName = `${app.applicant.firstName} ${app.applicant.lastName}`;
                     const score = app.aiScore?.overallScore || 0;
                     const appliedDate = new Date(app.createdAt).toLocaleDateString();
 
                     return (
-                      <Card key={app._id}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-4 flex-1">
+                      <Card key={app._id} className="overflow-hidden">
+                        <CardContent className="p-4 sm:p-6">
+                          <div className="flex flex-col lg:flex-row items-start gap-4 w-full overflow-hidden">
+                            {/* Left section: Avatar and Details */}
+                            <div className="flex items-start gap-3 sm:gap-4 flex-1 w-full min-w-0">
                               {/* Avatar */}
                               <img 
                                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
                                 alt={candidateName} 
-                                className="w-16 h-16 rounded-full" 
+                                className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex-shrink-0" 
                               />
                               
                               {/* Details */}
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h3 className="font-semibold text-lg text-gray-900">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                                  <h3 className="font-semibold text-base sm:text-lg text-gray-900 truncate">
                                     {candidateName}
                                   </h3>
-                                  <Badge variant={getStatusBadgeVariant(app.status)}>
+                                  <Badge variant={getStatusBadgeVariant(app.status)} className="w-fit text-xs">
                                     {getStatusLabel(app.status)}
                                   </Badge>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
+                                <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-gray-600 mb-3">
                                   <div className="flex items-center gap-2">
-                                    <Mail className="h-4 w-4" />
-                                    <span>{app.applicant.email}</span>
+                                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                    <span className="truncate">{app.applicant.email}</span>
                                   </div>
                                   {app.applicant.phone && (
                                     <div className="flex items-center gap-2">
-                                      <Phone className="h-4 w-4" />
+                                      <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                                       <span>{app.applicant.phone}</span>
                                     </div>
                                   )}
                                   <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4" />
+                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                                     <span>Applied: {appliedDate}</span>
                                   </div>
                                   {app.resume && (
                                     <div className="flex items-center gap-2">
-                                      <FileText className="h-4 w-4" />
-                                      <span>{app.resume.filename}</span>
+                                      <FileText className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                      <span className="truncate">{app.resume.filename}</span>
                                     </div>
                                   )}
                                 </div>
 
                                 {/* AI Score */}
-                                <div className="flex items-center gap-3">
-                                  <span className="text-sm text-gray-600">AI Match Score:</span>
-                                  <div className="flex items-center gap-2 flex-1 max-w-xs">
-                                    <Progress value={score} className="flex-1" />
-                                    <span className="font-semibold text-purple-600">{score}%</span>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                  <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">AI Match Score:</span>
+                                  <div className="flex items-center gap-2 flex-1 max-w-full sm:max-w-xs">
+                                    <Progress value={score} className="flex-1 h-2" />
+                                    <span className="font-semibold text-purple-600 text-sm sm:text-base whitespace-nowrap">{score}%</span>
                                   </div>
                                 </div>
                               </div>
                             </div>
 
                             {/* Actions */}
-                            <div className="flex gap-2 ml-4">
-                              <Button size="sm" variant="outline" title="View Details">
-                                <Eye className="h-4 w-4" />
+                            <div className="flex gap-2 w-full lg:w-auto lg:ml-4">
+                              <Button size="sm" variant="outline" title="View Details" className="flex-1 lg:flex-none">
+                                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                                <span className="ml-1 lg:hidden text-xs">View</span>
                               </Button>
                               {app.status !== 'accepted' && app.status !== 'rejected' && (
                                 <>
-                                  <Button size="sm" variant="outline" title="Approve">
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <Button size="sm" variant="outline" title="Approve" className="flex-1 lg:flex-none">
+                                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                    <span className="ml-1 lg:hidden text-xs">Approve</span>
                                   </Button>
-                                  <Button size="sm" variant="outline" title="Reject">
-                                    <XCircle className="h-4 w-4 text-red-600" />
+                                  <Button size="sm" variant="outline" title="Reject" className="flex-1 lg:flex-none">
+                                    <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
+                                    <span className="ml-1 lg:hidden text-xs">Reject</span>
                                   </Button>
                                 </>
                               )}
@@ -266,8 +270,8 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                 </div>
               ) : (
                 <div className="text-center py-12 text-gray-500">
-                  <FileText className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                  <p>No applications found</p>
+                  <FileText className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm sm:text-base">No applications found</p>
                 </div>
               )}
             </TabsContent>
