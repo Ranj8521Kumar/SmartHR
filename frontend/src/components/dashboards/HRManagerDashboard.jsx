@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import StatsCard from '../shared/StatsCard';
+import CreateJobForm from '../jobs/CreateJobForm';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -73,6 +74,7 @@ export default function HRManagerDashboard({ user }) {
   const [jobsData, setJobsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
 
   // Fetch dashboard data
   useEffect(() => {
@@ -100,6 +102,36 @@ export default function HRManagerDashboard({ user }) {
 
     fetchDashboardData();
   }, []);
+
+  // Handle job creation
+  const handleJobCreated = (newJob) => {
+    // Add the new job to the jobs data
+    setJobsData(prev => [newJob, ...prev]);
+    // Refresh dashboard data to update stats
+    fetchDashboardData();
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const [dashboardResponse, applicationsResponse, jobsResponse] = await Promise.all([
+        dashboardService.getDashboardAnalytics(),
+        dashboardService.getApplications({ limit: 10, sort: '-createdAt' }),
+        dashboardService.getJobs({ status: 'open', limit: 5 })
+      ]);
+
+      setDashboardData(dashboardResponse.data);
+      setApplicationsData(applicationsResponse.data || []);
+      setJobsData(jobsResponse.data || []);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
@@ -373,7 +405,7 @@ export default function HRManagerDashboard({ user }) {
               <h1 className="text-gray-900 mb-2">Job Postings</h1>
               <p className="text-gray-600">Create and manage job openings</p>
             </div>
-            <Button>
+            <Button onClick={() => setIsCreateJobOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Job Posting
             </Button>
@@ -422,7 +454,7 @@ export default function HRManagerDashboard({ user }) {
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                   <p className="text-gray-500">No active job postings</p>
-                  <Button className="mt-4">
+                  <Button className="mt-4" onClick={() => setIsCreateJobOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Your First Job
                   </Button>
@@ -444,6 +476,13 @@ export default function HRManagerDashboard({ user }) {
           </Tabs>
         </div>
       )}
+
+      {/* Create Job Form Dialog */}
+      <CreateJobForm
+        isOpen={isCreateJobOpen}
+        onClose={() => setIsCreateJobOpen(false)}
+        onJobCreated={handleJobCreated}
+      />
     </DashboardLayout>
   );
 }
