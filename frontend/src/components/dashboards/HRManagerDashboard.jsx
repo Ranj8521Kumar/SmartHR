@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import StatsCard from '../shared/StatsCard';
 import CreateJobForm from '../jobs/CreateJobForm';
+import EditJobForm from '../jobs/EditJobForm';
+import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -75,6 +77,9 @@ export default function HRManagerDashboard({ user }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
+  const [isEditJobOpen, setIsEditJobOpen] = useState(false);
+  const [isViewApplicationsOpen, setIsViewApplicationsOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
 
   // Fetch dashboard data
   useEffect(() => {
@@ -109,6 +114,26 @@ export default function HRManagerDashboard({ user }) {
     setJobsData(prev => [newJob, ...prev]);
     // Refresh dashboard data to update stats
     fetchDashboardData();
+  };
+
+  // Handle job update
+  const handleJobUpdated = (updatedJob) => {
+    // Update the job in the jobs data
+    setJobsData(prev => prev.map(job => job._id === updatedJob._id ? updatedJob : job));
+    // Refresh dashboard data to update stats
+    fetchDashboardData();
+  };
+
+  // Handle edit job click
+  const handleEditJob = (job) => {
+    setSelectedJob(job);
+    setIsEditJobOpen(true);
+  };
+
+  // Handle view applications click
+  const handleViewApplications = (job) => {
+    setSelectedJob(job);
+    setIsViewApplicationsOpen(true);
   };
 
   const fetchDashboardData = async () => {
@@ -442,8 +467,12 @@ export default function HRManagerDashboard({ user }) {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Button variant="outline">Edit</Button>
-                            <Button>View Applications</Button>
+                            <Button variant="outline" onClick={() => handleEditJob(job)}>
+                              Edit
+                            </Button>
+                            <Button onClick={() => handleViewApplications(job)}>
+                              View Applications
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -482,6 +511,21 @@ export default function HRManagerDashboard({ user }) {
         isOpen={isCreateJobOpen}
         onClose={() => setIsCreateJobOpen(false)}
         onJobCreated={handleJobCreated}
+      />
+
+      {/* Edit Job Form Dialog */}
+      <EditJobForm
+        isOpen={isEditJobOpen}
+        onClose={() => setIsEditJobOpen(false)}
+        job={selectedJob}
+        onJobUpdated={handleJobUpdated}
+      />
+
+      {/* View Applications Dialog */}
+      <ViewApplicationsDialog
+        isOpen={isViewApplicationsOpen}
+        onClose={() => setIsViewApplicationsOpen(false)}
+        job={selectedJob}
       />
     </DashboardLayout>
   );
