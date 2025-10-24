@@ -182,28 +182,28 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Apply for {job.title}</DialogTitle>
+          <DialogTitle className="text-xl sm:text-2xl pr-8">Apply for {job.title}</DialogTitle>
         </DialogHeader>
 
         {success ? (
-          <div className="py-12 text-center">
-            <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Application Submitted!</h3>
-            <p className="text-gray-600">
+          <div className="py-8 sm:py-12 text-center">
+            <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-green-600 mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Application Submitted!</h3>
+            <p className="text-sm sm:text-base text-gray-600 px-4">
               Your application has been successfully submitted. We'll review it and get back to you soon.
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Job Summary */}
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-              <h4 className="font-semibold text-gray-900">{job.title}</h4>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{job.department}</Badge>
-                <Badge variant="outline">{job.employmentType}</Badge>
-                <Badge variant="outline">{job.location}</Badge>
+            <div className="bg-gray-50 rounded-lg p-3 sm:p-4 space-y-2">
+              <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{job.title}</h4>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                <Badge variant="outline" className="text-xs">{job.department}</Badge>
+                <Badge variant="outline" className="text-xs">{job.employmentType}</Badge>
+                <Badge variant="outline" className="text-xs">{job.location}</Badge>
               </div>
             </div>
 
@@ -211,7 +211,7 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
             {alreadyApplied && (
               <Alert className="bg-blue-50 border-blue-200">
                 <AlertCircle className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-800">
+                <AlertDescription className="text-blue-800 text-xs sm:text-sm">
                   <strong>You have already applied for this position.</strong> You can view your application status in the "My Applications" section.
                 </AlertDescription>
               </Alert>
@@ -220,17 +220,17 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
               </Alert>
             )}
 
             {/* Resume Section */}
             <div className="space-y-2">
-              <Label htmlFor="resume">Resume *</Label>
+              <Label htmlFor="resume" className="text-sm sm:text-base">Resume *</Label>
               
               {!uploadedResume && !isUploading ? (
                 <div 
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                  className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors cursor-pointer ${
                     isDragging 
                       ? 'border-orange-500 bg-orange-50' 
                       : 'border-gray-300 hover:border-gray-400'
@@ -240,14 +240,15 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                  <p className="text-sm text-gray-600 mb-2">
+                  <Upload className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 mx-auto mb-2 sm:mb-3" />
+                  <p className="text-xs sm:text-sm text-gray-600 mb-2">
                     Drag and drop your resume here, or click to browse
                   </p>
                   <Button 
                     type="button" 
                     variant="outline" 
                     size="sm"
+                    className="text-xs sm:text-sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       fileInputRef.current?.click();
@@ -267,23 +268,23 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
                   />
                 </div>
               ) : isUploading ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Loader2 className="h-10 w-10 text-orange-600 mx-auto mb-3 animate-spin" />
-                  <p className="text-sm text-gray-600">Uploading resume...</p>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center">
+                  <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 text-orange-600 mx-auto mb-2 sm:mb-3 animate-spin" />
+                  <p className="text-xs sm:text-sm text-gray-600">Uploading resume...</p>
                 </div>
               ) : (
-                <div className="border-2 border-green-200 bg-green-50 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <FileText className="h-5 w-5 text-green-600" />
+                <div className="border-2 border-green-200 bg-green-50 rounded-lg p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                           {selectedFile?.name || uploadedResume?.fileName}
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <CheckCircle className="h-3 w-3 text-green-600" />
+                        <div className="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
+                          <CheckCircle className="h-3 w-3 text-green-600 flex-shrink-0" />
                           <span className="text-xs text-green-600">
                             Resume uploaded successfully
                           </span>
@@ -295,7 +296,7 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
                       variant="ghost"
                       size="sm"
                       onClick={handleRemoveFile}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -306,16 +307,16 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
 
             {/* Cover Letter */}
             <div className="space-y-2">
-              <Label htmlFor="coverLetter">
-                Cover Letter <span className="text-gray-500">(Optional)</span>
+              <Label htmlFor="coverLetter" className="text-sm sm:text-base">
+                Cover Letter <span className="text-gray-500 text-xs sm:text-sm">(Optional)</span>
               </Label>
               <Textarea
                 id="coverLetter"
                 value={coverLetter}
                 onChange={(e) => setCoverLetter(e.target.value)}
                 placeholder="Tell us why you're a great fit for this position..."
-                rows={6}
-                className="resize-none"
+                rows={4}
+                className="resize-none text-sm sm:text-base"
               />
               <p className="text-xs text-gray-500">
                 {coverLetter.length} / 2000 characters
@@ -325,10 +326,10 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
             {/* Required Skills Match */}
             {job.skills && job.skills.length > 0 && (
               <div className="space-y-2">
-                <Label>Required Skills</Label>
-                <div className="flex flex-wrap gap-2">
+                <Label className="text-sm sm:text-base">Required Skills</Label>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {job.skills.map((skill, index) => (
-                    <Badge key={index} variant="secondary">
+                    <Badge key={index} variant="secondary" className="text-xs">
                       {skill}
                     </Badge>
                   ))}
@@ -339,29 +340,30 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
               </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
                 disabled={isSubmitting}
+                className="w-full sm:w-auto text-sm sm:text-base order-2 sm:order-1"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="bg-orange-600 hover:bg-orange-700"
+                className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto text-sm sm:text-base order-1 sm:order-2"
                 disabled={isSubmitting || alreadyApplied}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
+                    <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                    <span className="text-sm sm:text-base">Submitting...</span>
                   </>
                 ) : alreadyApplied ? (
-                  'Already Applied'
+                  <span className="text-sm sm:text-base">Already Applied</span>
                 ) : (
-                  'Submit Application'
+                  <span className="text-sm sm:text-base">Submit Application</span>
                 )}
               </Button>
             </DialogFooter>
