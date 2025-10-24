@@ -985,30 +985,30 @@ export default function AdminDashboard({ user }) {
 
       {activeView === 'users' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-gray-900 mb-2">User Management</h1>
-              <p className="text-gray-600">Manage system users and permissions</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">User Management</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage system users and permissions</p>
             </div>
-            <Button onClick={() => setIsCreateUserOpen(true)}>
+            <Button onClick={() => setIsCreateUserOpen(true)} className="w-full sm:w-auto">
               <Users className="h-4 w-4 mr-2" />
               Add User
             </Button>
           </div>
 
           <Dialog open={isCreateUserOpen} onOpenChange={handleCloseCreateDialog}>
-            <DialogContent>
+            <DialogContent className="w-[95vw] sm:w-full max-w-md">
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>Add a new user to the system</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
                     {formError}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">First Name</Label>
                     <Input 
@@ -1085,18 +1085,18 @@ export default function AdminDashboard({ user }) {
           </Dialog>
 
           <Dialog open={isEditUserOpen} onOpenChange={handleCloseEditDialog}>
-            <DialogContent>
+            <DialogContent className="w-[95vw] sm:w-full max-w-md">
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
                 <DialogDescription>Update user information</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
                     {formError}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="editFirstName">First Name</Label>
                     <Input 
@@ -1196,12 +1196,12 @@ export default function AdminDashboard({ user }) {
 
       {activeView === 'jobs' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-gray-900 mb-2">Job Management</h1>
-              <p className="text-gray-600">Manage job postings and openings</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Job Management</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage job postings and openings</p>
             </div>
-            <Button onClick={() => setIsCreateJobOpen(true)}>
+            <Button onClick={() => setIsCreateJobOpen(true)} className="w-full sm:w-auto">
               <Briefcase className="h-4 w-4 mr-2" />
               Post New Job
             </Button>
@@ -1210,7 +1210,7 @@ export default function AdminDashboard({ user }) {
           {/* Filter Section */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex gap-4 items-end">
+              <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
                 <div className="flex-1">
                   <Label htmlFor="statusFilter">Filter by Status</Label>
                   <Select value={jobStatusFilter} onValueChange={setJobStatusFilter}>
@@ -1248,6 +1248,7 @@ export default function AdminDashboard({ user }) {
                     setJobStatusFilter('all');
                     setJobTypeFilter('all');
                   }}
+                  className="w-full sm:w-auto"
                 >
                   Clear Filters
                 </Button>
@@ -1259,14 +1260,14 @@ export default function AdminDashboard({ user }) {
           </Card>
 
           <Dialog open={isCreateJobOpen} onOpenChange={handleCloseCreateJobDialog}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
               <DialogHeader>
                 <DialogTitle>Post New Job</DialogTitle>
                 <DialogDescription>Create a new job posting</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
                     {formError}
                   </div>
                 )}
@@ -1423,14 +1424,14 @@ export default function AdminDashboard({ user }) {
           </Dialog>
 
           <Dialog open={isEditJobOpen} onOpenChange={handleCloseEditJobDialog}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
               <DialogHeader>
                 <DialogTitle>Edit Job</DialogTitle>
                 <DialogDescription>Update job posting details</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
                     {formError}
                   </div>
                 )}
@@ -1611,12 +1612,74 @@ export default function AdminDashboard({ user }) {
                   </Button>
                 </div>
               ) : (
-                <DataTable
-                  data={filteredJobs}
-                  columns={jobColumns}
-                  searchable
-                  searchPlaceholder="Search jobs..."
-                />
+                <>
+                  {/* Mobile Card View */}
+                  <div className="block md:hidden space-y-4">
+                    {filteredJobs.map((job) => (
+                      <div key={job._id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900">{job.title}</h3>
+                            <p className="text-sm text-gray-600">{job.department}</p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-gray-100 transition-colors">
+                              <MoreVertical className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditJob(job._id)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleJobStatus(job._id, job.status)}>
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                {job.status === 'open' ? 'Close' : 'Open'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteJob(job._id)}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-500">Location:</span>
+                            <p className="font-medium">{job.location}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Type:</span>
+                            <div className="mt-1">
+                              <Badge variant="outline">{job.employmentType}</Badge>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Status:</span>
+                            <div className="mt-1">
+                              <Badge variant={job.status === 'open' ? 'default' : 'secondary'}>
+                                {job.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Applications:</span>
+                            <p className="font-medium">{job.applicationsCount || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block">
+                    <DataTable
+                      data={filteredJobs}
+                      columns={jobColumns}
+                      searchable
+                      searchPlaceholder="Search jobs..."
+                    />
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
