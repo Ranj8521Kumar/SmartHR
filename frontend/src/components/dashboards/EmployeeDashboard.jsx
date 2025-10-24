@@ -104,6 +104,29 @@ export default function EmployeeDashboard({ user }) {
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
+  const [readNotifications, setReadNotifications] = useState(new Set());
+
+  // Load read notifications from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(`readNotifications_${user.id}`);
+    if (saved) {
+      try {
+        setReadNotifications(new Set(JSON.parse(saved)));
+      } catch (e) {
+        console.error('Error loading read notifications:', e);
+      }
+    }
+  }, [user.id]);
+
+  // Save read notifications to localStorage whenever it changes
+  useEffect(() => {
+    if (readNotifications.size > 0) {
+      localStorage.setItem(
+        `readNotifications_${user.id}`,
+        JSON.stringify([...readNotifications])
+      );
+    }
+  }, [readNotifications, user.id]);
 
   // Load saved jobs from localStorage on mount
   useEffect(() => {
@@ -180,14 +203,14 @@ export default function EmployeeDashboard({ user }) {
         type,
         message,
         time: timeAgo,
-        read: false,
+        read: readNotifications.has(app._id), // Check if notification was read
         applicationId: app._id,
         jobId: job?._id
       };
     }).reverse(); // Show newest first
     
     setNotifications(generatedNotifications);
-  }, [applications, jobs]); // Run when applications or jobs data changes
+  }, [applications, jobs, readNotifications]); // Run when applications, jobs, or read state changes
 
   // Fetch jobs from API on mount and when filters change
   useEffect(() => {
@@ -406,15 +429,19 @@ export default function EmployeeDashboard({ user }) {
   };
 
   const handleMarkNotificationRead = (notificationId) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      )
-    );
+    setReadNotifications(prev => {
+      const newSet = new Set(prev);
+      newSet.add(notificationId);
+      return newSet;
+    });
   };
 
   const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+    setReadNotifications(prev => {
+      const newSet = new Set(prev);
+      notifications.forEach(notif => newSet.add(notif.id));
+      return newSet;
+    });
   };
 
   const handleNotificationClick = (notification) => {
