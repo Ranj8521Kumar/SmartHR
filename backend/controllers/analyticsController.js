@@ -274,3 +274,202 @@ exports.getSystemLogs = asyncHandler(async (req, res, next) => {
     data: logs
   });
 });
+
+// @desc    Get manager dashboard analytics
+// @route   GET /api/v1/analytics/manager-dashboard
+// @access  Private (Manager/Admin)
+exports.getManagerDashboardAnalytics = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  const userDepartment = req.user.department;
+
+  // For managers, filter jobs by their department
+  const departmentQuery = userDepartment ? { department: userDepartment } : {};
+
+  // Get open positions count for department
+  const openPositions = await Job.countDocuments({
+    ...departmentQuery,
+    status: 'open'
+  });
+
+  // Get all jobs for this department/manager
+  const departmentJobs = await Job.find(departmentQuery).select('_id');
+  const departmentJobIds = departmentJobs.map(job => job._id);
+
+  // Get applications count for department jobs
+  const totalApplications = await Application.countDocuments({
+    job: { $in: departmentJobIds }
+  });
+
+  // Get applications from last month
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  
+  const lastMonthApplications = await Application.countDocuments({
+    job: { $in: departmentJobIds },
+    createdAt: { $lt: lastMonth }
+  });
+
+  const applicationTrend = lastMonthApplications > 0 
+    ? Math.round(((totalApplications - lastMonthApplications) / lastMonthApplications) * 100)
+    : 0;
+
+  // Get interviews scheduled
+  const interviewsScheduled = await Application.countDocuments({
+    job: { $in: departmentJobIds },
+    status: { $in: ['interview_scheduled', 'interviewed'] }
+  });
+
+  // Get pending approvals (jobs in on-hold status or applications needing review)
+  const pendingJobApprovals = await Job.countDocuments({
+    ...departmentQuery,
+    status: 'on-hold'
+  });
+
+  const pendingApplicationReviews = await Application.countDocuments({
+    job: { $in: departmentJobIds },
+    status: 'under_review'
+  });
+
+  const pendingApprovals = pendingJobApprovals + pendingApplicationReviews;
+
+  // Get active job requisitions with details
+  const activeRequisitions = await Job.find({
+    ...departmentQuery,
+    status: { $in: ['open', 'on-hold'] }
+  })
+    .select('title status openings applicationsCount')
+    .sort({ createdAt: -1 })
+    .limit(10);
+
+  // Get application count and interview count for each requisition
+  const requisitionsWithDetails = await Promise.all(
+    activeRequisitions.map(async (job) => {
+      const interviewCount = await Application.countDocuments({
+        job: job._id,
+        status: { $in: ['interview_scheduled', 'interviewed', 'offer_extended', 'accepted'] }
+      });
+
+      return {
+        _id: job._id,
+        title: job.title,
+        status: job.status,
+        applicants: job.applicationsCount || 0,
+        interviews: interviewCount,
+        openings: job.openings
+      };
+    })
+  );
+
+  // Get hiring progress by position
+  const hiringProgress = await Promise.all(
+    activeRequisitions.map(async (job) => {
+      const hiredCount = await Application.countDocuments({
+        job: job._id,
+        status: 'accepted'
+      });
+
+      const progressPercentage = job.openings > 0
+        ? Math.round((hiredCount / job.openings) * 100)
+        : 0;
+
+      return {
+        role: job.title,
+        current: hiredCount,
+        target: job.openings,
+        progress: progressPercentage
+      };
+    })
+  );
+
+  // Get top candidates (shortlisted and interviewed)
+  const topCandidates = await Application.find({
+    job: { $in: departmentJobIds },
+    status: { $in: ['shortlisted', 'interview_scheduled', 'interviewed'] },
+    'aiScore.overallScore': { $exists: true }
+  })
+    .populate('applicant', 'firstName lastName email')
+    .populate('job', 'title')
+    .populate('resume', 'parsedData')
+    .sort({ 'aiScore.overallScore': -1 })
+    .limit(10);
+
+  const candidatesData = topCandidates.map(app => ({
+    _id: app._id,
+    name: `${app.applicant.firstName} ${app.applicant.lastName}`,
+    email: app.applicant.email,
+    position: app.job.title,
+    experience: app.resume?.parsedData?.experience?.length 
+      ? `${app.resume.parsedData.experience.length} years` 
+      : 'N/A',
+    skills: app.resume?.parsedData?.skills || [],
+    score: app.aiScore?.overallScore || 0,
+    status: app.status,
+    interviews: app.interviews || []
+  }));
+
+  // Get pending approvals details
+  const pendingApprovalsDetails = [];
+
+  // Add job approvals
+  const jobApprovals = await Job.find({
+    ...departmentQuery,
+    status: 'on-hold'
+  })
+    .select('title createdAt postedBy')
+    .populate('postedBy', 'firstName lastName')
+    .sort({ createdAt: -1 })
+    .limit(5);
+
+  jobApprovals.forEach(job => {
+    pendingApprovalsDetails.push({
+      _id: job._id,
+      type: 'Job Posting',
+      title: job.title,
+      requester: `${job.postedBy?.firstName || ''} ${job.postedBy?.lastName || 'System'}`,
+      date: job.createdAt,
+      status: 'pending'
+    });
+  });
+
+  // Add offer letters that need approval (applications with offer_extended status)
+  const offerApprovals = await Application.find({
+    job: { $in: departmentJobIds },
+    status: 'offer_extended'
+  })
+    .populate('applicant', 'firstName lastName')
+    .populate('job', 'title')
+    .populate('timeline.updatedBy', 'firstName lastName')
+    .sort({ updatedAt: -1 })
+    .limit(5);
+
+  offerApprovals.forEach(app => {
+    const lastUpdate = app.timeline[app.timeline.length - 1];
+    pendingApprovalsDetails.push({
+      _id: app._id,
+      type: 'Offer Letter',
+      title: `${app.applicant.firstName} ${app.applicant.lastName} - ${app.job.title}`,
+      requester: lastUpdate?.updatedBy 
+        ? `${lastUpdate.updatedBy.firstName} ${lastUpdate.updatedBy.lastName}`
+        : 'HR Team',
+      date: app.updatedAt,
+      status: 'pending'
+    });
+  });
+
+  res.status(200).json({
+    success: true,
+    data: {
+      stats: {
+        openPositions,
+        totalApplications,
+        applicationTrend,
+        interviewsScheduled,
+        pendingApprovals
+      },
+      activeRequisitions: requisitionsWithDetails,
+      hiringProgress,
+      topCandidates: candidatesData,
+      pendingApprovals: pendingApprovalsDetails
+    }
+  });
+});

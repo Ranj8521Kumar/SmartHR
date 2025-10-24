@@ -201,6 +201,36 @@ class DashboardService {
       throw error;
     }
   }
+
+  /**
+   * Get manager dashboard analytics
+   * @returns {Promise} Manager dashboard data
+   */
+  async getManagerDashboardAnalytics() {
+    try {
+      const token = authService.getToken();
+
+      const response = await fetch(API_ENDPOINTS.ANALYTICS + '/manager-dashboard', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch manager dashboard analytics');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Manager dashboard analytics error:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

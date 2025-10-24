@@ -4,7 +4,8 @@ const {
   getApplicationAnalytics,
   getJobAnalytics,
   matchCandidates,
-  getSystemLogs
+  getSystemLogs,
+  getManagerDashboardAnalytics
 } = require('../controllers/analyticsController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -15,6 +16,7 @@ router.use(protect);
 router.use(authorize('hr_recruiter', 'manager', 'admin'));
 
 router.get('/dashboard', getDashboardAnalytics);
+router.get('/manager-dashboard', getManagerDashboardAnalytics);
 router.get('/applications', getApplicationAnalytics);
 router.get('/jobs', getJobAnalytics);
 router.post('/candidate-match', matchCandidates);
