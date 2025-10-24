@@ -4,6 +4,7 @@ import authService from './authService';
 const jobService = {
   // Get all jobs with filters
   async getJobs(params = {}) {
+    const token = authService.getToken();
     const queryString = new URLSearchParams(params).toString();
     const url = queryString ? `${API_ENDPOINTS.JOBS}?${queryString}` : API_ENDPOINTS.JOBS;
     
@@ -11,7 +12,9 @@ const jobService = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {

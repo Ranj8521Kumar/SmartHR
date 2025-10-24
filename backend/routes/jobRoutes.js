@@ -6,12 +6,12 @@ const {
   updateJob,
   deleteJob
 } = require('../controllers/jobController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.route('/')
-  .get(getJobs)
+  .get(optionalAuth, getJobs)
   .post(protect, authorize('hr_recruiter', 'manager', 'admin'), createJob);
 
 router.route('/:id')

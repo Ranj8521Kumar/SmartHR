@@ -6,6 +6,10 @@ const asyncHandler = require('../middleware/asyncHandler');
 // @route   GET /api/v1/jobs
 // @access  Public
 exports.getJobs = asyncHandler(async (req, res, next) => {
+  console.log('=== GET JOBS CALLED ===');
+  console.log('User:', req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated');
+  console.log('Query params:', req.query);
+  
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const skip = (page - 1) * limit;
@@ -16,7 +20,10 @@ exports.getJobs = asyncHandler(async (req, res, next) => {
   if (req.query.status) {
     query.status = req.query.status;
   } else if (!req.user || req.user.role === 'employee') {
+    console.log('Filtering to open jobs only');
     query.status = 'open';
+  } else {
+    console.log('Admin/HR user - showing all jobs');
   }
 
   // Filter by department
@@ -44,6 +51,8 @@ exports.getJobs = asyncHandler(async (req, res, next) => {
     query.$text = { $search: req.query.search };
   }
 
+  console.log('Final query:', query);
+
   const jobs = await Job.find(query)
     .populate('postedBy', 'firstName lastName email')
     .skip(skip)
@@ -51,6 +60,9 @@ exports.getJobs = asyncHandler(async (req, res, next) => {
     .sort({ createdAt: -1 });
 
   const total = await Job.countDocuments(query);
+
+  console.log(`Found ${jobs.length} jobs, total: ${total}`);
+  console.log('Job statuses:', jobs.map(j => ({ id: j._id, title: j.title, status: j.status })));
 
   res.status(200).json({
     success: true,
@@ -99,50 +111,59 @@ exports.createJob = asyncHandler(async (req, res, next) => {
 
 // @desc    Update job
 // @route   PUT /api/v1/jobs/:id
-// @access  Private (HR/Manager/Admin)
+// @access  Private (HR/Recruiter/Manager)
 exports.updateJob = asyncHandler(async (req, res, next) => {
-  let job = await Job.findById(req.params.id);
-
-  if (!job) {
-    return next(new ErrorResponse(`Job not found with id of ${req.params.id}`, 404));
-  }
-
-  // Make sure user is job owner or admin
-  if (job.postedBy.toString() !== req.user.id && req.user.role !== 'admin') {
-    return next(
-      new ErrorResponse(`User ${req.user.id} is not authorized to update this job`, 401)
-    );
-  }
-
-  job = await Job.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true
-  });
-
-  res.status(200).json({
-    success: true,
-    data: job
-  });
-});
-
-// @desc    Delete job
-// @route   DELETE /api/v1/jobs/:id
-// @access  Private (HR/Manager/Admin)
-exports.deleteJob = asyncHandler(async (req, res, next) => {
+  console.log('=== UPDATE JOB CALLED ===');
+  console.log('Job ID:', req.params.id);
+  console.log('Update data:', req.body);
+  console.log('User ID:', req.user?.id);
+  
   const job = await Job.findById(req.params.id);
 
   if (!job) {
     return next(new ErrorResponse(`Job not found with id of ${req.params.id}`, 404));
   }
 
-  // Make sure user is job owner or admin
+  // Make sure user is job owner or has permission
   if (job.postedBy.toString() !== req.user.id && req.user.role !== 'admin') {
-    return next(
-      new ErrorResponse(`User ${req.user.id} is not authorized to delete this job`, 401)
-    );
+    return next(new ErrorResponse(`User ${req.user.id} is not authorized to update this job`, 403));
+  }
+
+  const updatedJob = await Job.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true
+  });
+
+  console.log('Job updated successfully:', updatedJob._id);
+  
+  res.status(200).json({
+    success: true,
+    data: updatedJob
+  });
+});
+
+// @desc    Delete job
+// @route   DELETE /api/v1/jobs/:id
+// @access  Private (HR/Recruiter/Manager)
+exports.deleteJob = asyncHandler(async (req, res, next) => {
+  console.log('=== DELETE JOB CALLED ===');
+  console.log('Job ID:', req.params.id);
+  console.log('User ID:', req.user?.id);
+  
+  const job = await Job.findById(req.params.id);
+
+  if (!job) {
+    return next(new ErrorResponse(`Job not found with id of ${req.params.id}`, 404));
+  }
+
+  // Make sure user is job owner or has permission
+  if (job.postedBy.toString() !== req.user.id && req.user.role !== 'admin') {
+    return next(new ErrorResponse(`User ${req.user.id} is not authorized to delete this job`, 403));
   }
 
   await job.deleteOne();
+
+  console.log('Job deleted successfully');
 
   res.status(200).json({
     success: true,

@@ -272,6 +272,7 @@ export default function AdminDashboard({ user }) {
       if (activeView === 'jobs') {
         try {
           setJobsLoading(true);
+          // Don't pass status parameter - backend will return all jobs for admin users
           const response = await jobService.getJobs({ limit: 100 });
           setJobs(response.data || []);
         } catch (error) {
@@ -543,6 +544,7 @@ export default function AdminDashboard({ user }) {
       });
       setIsCreateJobOpen(false);
       
+      // Refresh jobs list
       const response = await jobService.getJobs({ limit: 100 });
       setJobs(response.data || []);
       
@@ -625,6 +627,7 @@ export default function AdminDashboard({ user }) {
       setSelectedJob(null);
       setIsEditJobOpen(false);
       
+      // Refresh jobs list
       const response = await jobService.getJobs({ limit: 100 });
       setJobs(response.data || []);
       
@@ -637,16 +640,22 @@ export default function AdminDashboard({ user }) {
 
   const handleToggleJobStatus = async (jobId, currentStatus) => {
     try {
+      console.log('Toggle job status called with:', { jobId, currentStatus });
       const newStatus = currentStatus === 'open' ? 'closed' : 'open';
-      await jobService.updateJob(jobId, { status: newStatus });
+      console.log('New status will be:', newStatus);
       
+      const result = await jobService.updateJob(jobId, { status: newStatus });
+      console.log('Update result:', result);
+      
+      // Refresh jobs list
       const response = await jobService.getJobs({ limit: 100 });
+      console.log('Fetched jobs after update:', response.data?.length);
       setJobs(response.data || []);
       
       alert(`Job ${newStatus === 'open' ? 'opened' : 'closed'} successfully!`);
     } catch (error) {
       console.error('Failed to toggle job status:', error);
-      alert('Failed to update job status');
+      alert('Failed to update job status: ' + error.message);
     }
   };
 
@@ -658,6 +667,7 @@ export default function AdminDashboard({ user }) {
     try {
       await jobService.deleteJob(jobId);
       
+      // Refresh jobs list
       const response = await jobService.getJobs({ limit: 100 });
       setJobs(response.data || []);
       
