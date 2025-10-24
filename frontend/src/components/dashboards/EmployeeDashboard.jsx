@@ -81,6 +81,23 @@ export default function EmployeeDashboard({ user }) {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [isApplicationDetailsOpen, setIsApplicationDetailsOpen] = useState(false);
 
+  // Load saved jobs from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(`savedJobs_${user.id}`);
+    if (saved) {
+      try {
+        setSavedJobs(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error loading saved jobs:', error);
+      }
+    }
+  }, [user.id]);
+
+  // Save to localStorage whenever savedJobs changes
+  useEffect(() => {
+    localStorage.setItem(`savedJobs_${user.id}`, JSON.stringify(savedJobs));
+  }, [savedJobs, user.id]);
+
   // Fetch jobs from API
   useEffect(() => {
     const fetchJobs = async () => {
@@ -246,21 +263,159 @@ export default function EmployeeDashboard({ user }) {
           )}
 
           {/* Empty State */}
-          {!loadingJobs && !jobsError && displayJobs.length === 0 && (
+          {!loadingJobs && !jobsError && jobs.length === 0 && (
             <Card>
               <CardContent className="p-12 text-center">
                 <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No jobs found</h3>
                 <p className="text-gray-600">
-                  {activeView === 'saved' 
-                    ? 'You haven\'t saved any jobs yet. Browse available positions and save your favorites!'
-                    : 'No jobs match your current filters. Try adjusting your search criteria.'}
+                  No jobs match your current filters. Try adjusting your search criteria.
                 </p>
               </CardContent>
             </Card>
           )}
 
           {/* Job Listings */}
+          {!loadingJobs && !jobsError && jobs.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {jobs.map((job) => (
+                <Card key={job._id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="mb-2">{job.title}</CardTitle>
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                          <Badge variant="secondary">{job.department}</Badge>
+                          <Badge variant="outline">{job.employmentType}</Badge>
+                          {job.experienceLevel && (
+                            <Badge variant="outline">{job.experienceLevel}</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleSaveJob(job._id)}
+                      >
+                        <Bookmark 
+                          className={`h-5 w-5 ${savedJobs.includes(job._id) ? 'fill-orange-600 text-orange-600' : ''}`}
+                        />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 mb-4 line-clamp-2">{job.description}</p>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <MapPin className="h-4 w-4" />
+                        {job.location}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <DollarSign className="h-4 w-4" />
+                        ${job.salary?.min?.toLocaleString()} - ${job.salary?.max?.toLocaleString()} {job.salary?.currency || 'USD'}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="h-4 w-4" />
+                        Posted {formatDate(job.createdAt)}
+                      </div>
+                      {job.openings > 1 && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Briefcase className="h-4 w-4" />
+                          {job.openings} openings
+                        </div>
+                      )}
+                    </div>
+
+                    {job.skills && job.skills.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-600 mb-2">Required Skills:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {job.skills.slice(0, 5).map((skill, index) => (
+                            <Badge key={index} variant="outline">{skill}</Badge>
+                          ))}
+                          {job.skills.length > 5 && (
+                            <Badge variant="outline">+{job.skills.length - 5} more</Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      {applications.some(app => app.job?._id === job._id || app.job === job._id) ? (
+                        <Button 
+                          className="flex-1 bg-gray-400 cursor-not-allowed"
+                          disabled
+                        >
+                          Already Applied
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="flex-1 bg-orange-600 hover:bg-orange-700"
+                          onClick={() => handleApplyJob(job)}
+                        >
+                          Apply Now
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleViewJobDetails(job)}
+                      >
+                        View Details
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeView === 'saved' && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-gray-900 mb-2">Saved Jobs</h1>
+            <p className="text-gray-600">Your bookmarked job opportunities</p>
+          </div>
+
+          {/* Loading State */}
+          {loadingJobs && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+              <span className="ml-2 text-gray-600">Loading saved jobs...</span>
+            </div>
+          )}
+
+          {/* Error State */}
+          {jobsError && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-6">
+                <p className="text-red-800">Error: {jobsError}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty State */}
+          {!loadingJobs && !jobsError && displayJobs.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Bookmark className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No saved jobs yet</h3>
+                <p className="text-gray-600 mb-4">
+                  Browse available positions and bookmark your favorites to view them here!
+                </p>
+                <Button 
+                  className="bg-orange-600 hover:bg-orange-700"
+                  onClick={() => setActiveView('browse')}
+                >
+                  Browse Jobs
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Saved Job Listings */}
           {!loadingJobs && !jobsError && displayJobs.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {displayJobs.map((job) => (
@@ -283,7 +438,7 @@ export default function EmployeeDashboard({ user }) {
                         onClick={() => toggleSaveJob(job._id)}
                       >
                         <Bookmark 
-                          className={`h-5 w-5 ${savedJobs.includes(job._id) ? 'fill-orange-600 text-orange-600' : ''}`}
+                          className="h-5 w-5 fill-orange-600 text-orange-600"
                         />
                       </Button>
                     </div>
