@@ -18,8 +18,19 @@ const themeColors = {
   orange: 'bg-orange-600'
 };
 
-export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileClick, onSettingsClick }) {
+export default function TopNav({ 
+  user, 
+  theme = 'blue', 
+  onMenuClick, 
+  onProfileClick, 
+  onSettingsClick,
+  notifications = [],
+  onNotificationClick,
+  onViewAllNotifications
+}) {
   const { logout } = useAuth();
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = async () => {
     try {
@@ -75,26 +86,83 @@ export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileCli
           <DropdownMenu>
             <DropdownMenuTrigger className="relative inline-flex items-center justify-center h-10 w-10 rounded-md text-white hover:bg-white/10 transition-colors">
               <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white border-0">
-                3
-              </Badge>
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white border-0">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Badge>
+              )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuLabel className="flex items-center justify-between">
+                <span>Notifications</span>
+                {notifications.length > 0 && onViewAllNotifications && (
+                  <button
+                    onClick={onViewAllNotifications}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-normal"
+                  >
+                    View All
+                  </button>
+                )}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="max-h-96 overflow-y-auto">
-                <div className="p-3 hover:bg-gray-100 cursor-pointer border-b">
-                  <p className="text-sm">New application for Senior Developer</p>
-                  <p className="text-xs text-gray-500 mt-1">2 minutes ago</p>
-                </div>
-                <div className="p-3 hover:bg-gray-100 cursor-pointer border-b">
-                  <p className="text-sm">Interview scheduled for tomorrow</p>
-                  <p className="text-xs text-gray-500 mt-1">1 hour ago</p>
-                </div>
-                <div className="p-3 hover:bg-gray-100 cursor-pointer">
-                  <p className="text-sm">Job posting approved</p>
-                  <p className="text-xs text-gray-500 mt-1">3 hours ago</p>
-                </div>
+                {notifications.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500">
+                    <Bell className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm">No notifications</p>
+                  </div>
+                ) : (
+                  notifications.slice(0, 5).map((notification) => (
+                    <div
+                      key={notification.id}
+                      onClick={() => onNotificationClick && onNotificationClick(notification)}
+                      className={`p-3 hover:bg-gray-100 cursor-pointer border-b ${
+                        !notification.read ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className={`flex-shrink-0 rounded-full p-1.5 ${
+                          notification.type === 'success' ? 'bg-green-100' :
+                          notification.type === 'error' ? 'bg-red-100' :
+                          notification.type === 'warning' ? 'bg-yellow-100' :
+                          'bg-blue-100'
+                        }`}>
+                          {notification.type === 'success' && (
+                            <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          {notification.type === 'error' && (
+                            <svg className="h-3 w-3 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                          {notification.type === 'warning' && (
+                            <svg className="h-3 w-3 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                          )}
+                          {notification.type === 'info' && (
+                            <svg className="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${!notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        </div>
+                        {!notification.read && (
+                          <div className="flex-shrink-0">
+                            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

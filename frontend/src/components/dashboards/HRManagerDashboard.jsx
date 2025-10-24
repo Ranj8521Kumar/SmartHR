@@ -128,6 +128,9 @@ export default function HRManagerDashboard({ user }) {
   const [interviewsLoading, setInterviewsLoading] = useState(false);
   const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
   const [interviewStatusFilter, setInterviewStatusFilter] = useState('all');
+
+  // Notifications state
+  const [notifications, setNotifications] = useState([]);
   const [isInterviewDetailsOpen, setIsInterviewDetailsOpen] = useState(false);
   const [selectedInterview, setSelectedInterview] = useState(null);
 
@@ -166,6 +169,79 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Generate notifications from applications and jobs
+  useEffect(() => {
+    const generatedNotifications = [];
+    
+    // Get recent applications (last 24 hours or pending status)
+    if (applicationsData && applicationsData.length > 0) {
+      const recentApplications = applicationsData.filter(app => {
+        const appDate = new Date(app.createdAt);
+        const hoursDiff = (new Date() - appDate) / (1000 * 60 * 60);
+        return hoursDiff < 24 || app.status === 'Pending';
+      }).slice(0, 5);
+
+      recentApplications.forEach(app => {
+        const timeAgo = formatTimeAgo(new Date(app.createdAt));
+        generatedNotifications.push({
+          id: app._id,
+          type: 'info',
+          message: `New application from ${app.candidate?.name || 'Unknown'} for ${app.job?.title || 'a position'}`,
+          time: timeAgo,
+          read: false,
+          applicationId: app._id
+        });
+      });
+    }
+
+    // Add interview notifications
+    if (allInterviews && allInterviews.length > 0) {
+      const upcomingInterviews = allInterviews.filter(interview => {
+        const interviewDate = new Date(interview.scheduledDate);
+        return interviewDate > new Date() && interview.status === 'Scheduled';
+      }).slice(0, 3);
+
+      upcomingInterviews.forEach(interview => {
+        generatedNotifications.push({
+          id: `interview-${interview._id}`,
+          type: 'warning',
+          message: `Interview scheduled with ${interview.candidate?.name || 'candidate'} for ${interview.job?.title || 'position'}`,
+          time: new Date(interview.scheduledDate).toLocaleDateString(),
+          read: false,
+          interviewId: interview._id
+        });
+      });
+    }
+
+    setNotifications(generatedNotifications);
+  }, [applicationsData, allInterviews]);
+
+  // Format time ago helper
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffMinutes = Math.floor(diffTime / (1000 * 60));
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Handle notification click
+  const handleNotificationClick = (notification) => {
+    if (notification.applicationId) {
+      setSelectedApplicationId(notification.applicationId);
+      setIsApplicationDetailsOpen(true);
+    }
+    // Mark as read
+    setNotifications(prev =>
+      prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+    );
+  };
 
   // Handle job creation
   const handleJobCreated = (newJob) => {
@@ -591,7 +667,14 @@ export default function HRManagerDashboard({ user }) {
   const totalJobs = String(summary.totalJobs ?? 0);
   
   return (
-    <DashboardLayout user={user} sidebarItems={sidebarItems} theme="purple">
+    <DashboardLayout 
+      user={user} 
+      sidebarItems={sidebarItems} 
+      theme="purple"
+      notifications={notifications}
+      onNotificationClick={handleNotificationClick}
+      onViewAllNotifications={() => setActiveView('applications')}
+    >
       {activeView === 'dashboard' && (
         <div className="space-y-6">
           <div>

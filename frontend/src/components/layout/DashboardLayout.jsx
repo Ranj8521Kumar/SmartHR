@@ -8,7 +8,10 @@ export default function DashboardLayout({
   user, 
   sidebarItems,
   theme = 'blue',
-  onSettingsClick
+  onSettingsClick,
+  notifications = [],
+  onNotificationClick,
+  onViewAllNotifications
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -31,6 +34,9 @@ export default function DashboardLayout({
           onMenuClick={() => setIsMobileSidebarOpen(true)}
           onProfileClick={() => setIsProfileDialogOpen(true)}
           onSettingsClick={onSettingsClick}
+          notifications={notifications}
+          onNotificationClick={onNotificationClick}
+          onViewAllNotifications={onViewAllNotifications}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {children}

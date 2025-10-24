@@ -411,7 +411,15 @@ export default function ManagerDashboard({ user }) {
   }
 
   return (
-    <DashboardLayout user={user} sidebarItems={sidebarItems} theme="green" onSettingsClick={handleSettingsClick}>
+    <DashboardLayout 
+      user={user} 
+      sidebarItems={sidebarItems} 
+      theme="green" 
+      onSettingsClick={handleSettingsClick}
+      notifications={[]}
+      onNotificationClick={() => {}}
+      onViewAllNotifications={() => {}}
+    >
       {activeView === 'dashboard' && (
         <div className="space-y-4 md:space-y-6">
           {/* Header - Mobile Responsive */}

@@ -1135,6 +1135,9 @@ export default function AdminDashboard({ user }) {
       sidebarItems={sidebarItems} 
       theme="blue"
       onSettingsClick={() => setActiveView('settings')}
+      notifications={[]}
+      onNotificationClick={() => {}}
+      onViewAllNotifications={() => {}}
     >
       {loading && activeView === 'dashboard' ? (
         <div className="flex items-center justify-center h-64">

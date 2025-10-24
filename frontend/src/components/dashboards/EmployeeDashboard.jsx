@@ -104,7 +104,6 @@ export default function EmployeeDashboard({ user }) {
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   // Load saved jobs from localStorage on mount
   useEffect(() => {
@@ -144,56 +143,51 @@ export default function EmployeeDashboard({ user }) {
     fetchResumes();
   }, [activeView]);
 
-  // Generate notifications from applications
+  // Generate notifications from applications (run on mount and when data changes)
   useEffect(() => {
-    if (activeView === 'notifications') {
-      setLoadingNotifications(true);
+    // Generate notifications based on application status changes
+    const generatedNotifications = applications.map((app) => {
+      const job = jobs.find(j => j._id === app.job?._id) || app.job;
+      const timeAgo = formatTimeAgo(new Date(app.updatedAt));
       
-      // Generate notifications based on application status changes
-      const generatedNotifications = applications.map((app) => {
-        const job = jobs.find(j => j._id === app.job?._id) || app.job;
-        const timeAgo = formatTimeAgo(new Date(app.updatedAt));
-        
-        let type = 'info';
-        let message = '';
-        
-        switch(app.status) {
-          case 'Accepted':
-            type = 'success';
-            message = `Your application for ${job?.title || 'a position'} has been accepted!`;
-            break;
-          case 'Rejected':
-            type = 'error';
-            message = `Your application for ${job?.title || 'a position'} was not successful.`;
-            break;
-          case 'Interview':
-            type = 'warning';
-            message = `You have been invited for an interview for ${job?.title || 'a position'}!`;
-            break;
-          case 'Reviewed':
-            type = 'info';
-            message = `Your application for ${job?.title || 'a position'} is under review.`;
-            break;
-          default:
-            type = 'info';
-            message = `Your application for ${job?.title || 'a position'} has been submitted.`;
-        }
-        
-        return {
-          id: app._id,
-          type,
-          message,
-          time: timeAgo,
-          read: false,
-          applicationId: app._id,
-          jobId: job?._id
-        };
-      }).reverse(); // Show newest first
+      let type = 'info';
+      let message = '';
       
-      setNotifications(generatedNotifications);
-      setLoadingNotifications(false);
-    }
-  }, [activeView, applications, jobs]);
+      switch(app.status) {
+        case 'Accepted':
+          type = 'success';
+          message = `Your application for ${job?.title || 'a position'} has been accepted!`;
+          break;
+        case 'Rejected':
+          type = 'error';
+          message = `Your application for ${job?.title || 'a position'} was not successful.`;
+          break;
+        case 'Interview':
+          type = 'warning';
+          message = `You have been invited for an interview for ${job?.title || 'a position'}!`;
+          break;
+        case 'Reviewed':
+          type = 'info';
+          message = `Your application for ${job?.title || 'a position'} is under review.`;
+          break;
+        default:
+          type = 'info';
+          message = `Your application for ${job?.title || 'a position'} has been submitted.`;
+      }
+      
+      return {
+        id: app._id,
+        type,
+        message,
+        time: timeAgo,
+        read: false,
+        applicationId: app._id,
+        jobId: job?._id
+      };
+    }).reverse(); // Show newest first
+    
+    setNotifications(generatedNotifications);
+  }, [applications, jobs]); // Run when applications or jobs data changes
 
   // Fetch jobs from API on mount and when filters change
   useEffect(() => {
@@ -439,7 +433,14 @@ export default function EmployeeDashboard({ user }) {
     : jobs;
 
   return (
-    <DashboardLayout user={user} sidebarItems={sidebarItems} theme="orange">
+    <DashboardLayout 
+      user={user} 
+      sidebarItems={sidebarItems} 
+      theme="orange"
+      notifications={notifications}
+      onNotificationClick={handleNotificationClick}
+      onViewAllNotifications={() => setActiveView('notifications')}
+    >
       {activeView === 'browse' && (
         <div className="space-y-6">
           <div>
@@ -1175,12 +1176,7 @@ export default function EmployeeDashboard({ user }) {
             )}
           </div>
 
-          {loadingNotifications ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
-              <span className="ml-2 text-gray-600">Loading notifications...</span>
-            </div>
-          ) : notifications.length === 0 ? (
+          {notifications.length === 0 ? (
             <Card>
               <CardContent className="p-8 sm:p-12 text-center">
                 <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
