@@ -64,6 +64,12 @@ export default function ManagerDashboard({ user }) {
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
   const [candidateFilter, setCandidateFilter] = useState('all');
+
+  // Approvals page state
+  const [approvals, setApprovals] = useState([]);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
+  const [approvingApprovalId, setApprovingApprovalId] = useState(null);
+  const [rejectingApprovalId, setRejectingApprovalId] = useState(null);
   
   const [dashboardData, setDashboardData] = useState({
     stats: {
@@ -92,6 +98,12 @@ export default function ManagerDashboard({ user }) {
   useEffect(() => {
     if (activeView === 'candidates') {
       fetchCandidates();
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    if (activeView === 'approvals') {
+      fetchApprovals();
     }
   }, [activeView]);
 
@@ -143,6 +155,23 @@ export default function ManagerDashboard({ user }) {
     }
   };
 
+  const fetchApprovals = async () => {
+    try {
+      setLoadingApprovals(true);
+      // Fetch applications that need manager approval (offer_extended status)
+      const response = await dashboardService.getApplications({
+        status: 'offer_extended'
+      });
+      if (response.success) {
+        setApprovals(response.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch approvals:', error);
+    } finally {
+      setLoadingApprovals(false);
+    }
+  };
+
   const handleApproveApplication = async (application) => {
     try {
       setApprovingId(application._id);
@@ -180,6 +209,42 @@ export default function ManagerDashboard({ user }) {
   const handleViewCandidate = (application) => {
     setSelectedApplication(application);
     setIsCandidateDetailsOpen(true);
+  };
+
+  const handleApproveApproval = async (approval) => {
+    try {
+      setApprovingApprovalId(approval._id);
+      await applicationService.updateApplicationStatus(
+        approval._id,
+        'accepted',
+        'Offer approved by manager'
+      );
+      await fetchApprovals();
+      await fetchDashboardData(); // Refresh dashboard stats
+    } catch (error) {
+      console.error('Error approving offer:', error);
+      alert('Failed to approve offer. Please try again.');
+    } finally {
+      setApprovingApprovalId(null);
+    }
+  };
+
+  const handleRejectApproval = async (approval) => {
+    try {
+      setRejectingApprovalId(approval._id);
+      await applicationService.updateApplicationStatus(
+        approval._id,
+        'rejected',
+        'Offer rejected by manager'
+      );
+      await fetchApprovals();
+      await fetchDashboardData(); // Refresh dashboard stats
+    } catch (error) {
+      console.error('Error rejecting offer:', error);
+      alert('Failed to reject offer. Please try again.');
+    } finally {
+      setRejectingApprovalId(null);
+    }
   };
 
   const getFilteredApplications = () => {
@@ -1130,48 +1195,185 @@ export default function ManagerDashboard({ user }) {
       {activeView === 'approvals' && (
         <div className="space-y-4 md:space-y-6">
           {/* Header - Mobile Responsive */}
-          <div>
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Pending Approvals</h1>
-            <p className="text-sm md:text-base text-gray-600">Review and approve hiring decisions</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Pending Approvals</h1>
+              <p className="text-sm md:text-base text-gray-600">Review and approve hiring decisions</p>
+            </div>
+            <Button onClick={fetchApprovals} variant="outline" className="w-full sm:w-auto">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
           </div>
 
-          {dashboardData.pendingApprovals.length === 0 ? (
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Pending Approvals</p>
+                    <p className="text-xl md:text-2xl font-bold">{approvals.length}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-orange-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Offers Extended</p>
+                    <p className="text-xl md:text-2xl font-bold">{approvals.length}</p>
+                  </div>
+                  <FileText className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Awaiting Decision</p>
+                    <p className="text-xl md:text-2xl font-bold">{approvals.length}</p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Approvals List */}
+          {loadingApprovals ? (
+            <Card>
+              <CardContent className="p-12">
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <span className="ml-3 text-gray-600">Loading approvals...</span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : approvals.length === 0 ? (
             <Card>
               <CardContent className="p-8 md:p-12">
                 <div className="text-center text-gray-500">
                   <CheckCircle className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 md:mb-4 text-gray-400" />
-                  <p className="text-sm md:text-base">No pending approvals</p>
+                  <p className="text-sm md:text-base mb-2">No pending approvals</p>
+                  <p className="text-xs md:text-sm text-gray-400">
+                    All offers have been reviewed
+                  </p>
                 </div>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-3 md:space-y-4">
-              {dashboardData.pendingApprovals.map((approval) => (
-                <Card key={approval._id}>
+              {approvals.map((approval) => (
+                <Card key={approval._id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4 md:p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <Badge className="text-xs">{approval.type}</Badge>
-                          <h3 className="text-sm md:text-base font-semibold text-gray-900 truncate">{approval.title}</h3>
-                        </div>
-                        <div className="text-xs md:text-sm text-gray-600">
-                          <span className="block sm:inline">Requested by {approval.requester}</span>
-                          <span className="hidden sm:inline"> • </span>
-                          <span className="block sm:inline">{formatDate(approval.date)}</span>
+                    <div className="flex flex-col lg:flex-row gap-4">
+                      {/* Candidate Info */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${approval.applicant?.email || 'default'}`}
+                          alt={`${approval.applicant?.firstName} ${approval.applicant?.lastName}`}
+                          className="w-12 h-12 md:w-16 md:h-16 rounded-full flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <Badge className="text-xs bg-orange-600">Offer Extended</Badge>
+                            <h3 className="text-base md:text-lg font-semibold text-gray-900 truncate">
+                              {approval.applicant?.firstName} {approval.applicant?.lastName}
+                            </h3>
+                          </div>
+                          
+                          {/* Position */}
+                          <div className="mb-3">
+                            <p className="text-sm md:text-base text-gray-700 font-medium">
+                              {approval.job?.title || 'Position not specified'}
+                            </p>
+                            <p className="text-xs md:text-sm text-gray-500">
+                              {approval.job?.department || 'Department'} • {approval.job?.location || 'Location'}
+                            </p>
+                          </div>
+
+                          {/* Details Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5">
+                              <Mail className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                              <span className="truncate">{approval.applicant?.email}</span>
+                            </div>
+                            {approval.applicant?.phone && (
+                              <div className="flex items-center gap-1.5">
+                                <Phone className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                                <span>{approval.applicant.phone}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                              <span>Offer sent {formatDate(approval.updatedAt || approval.createdAt)}</span>
+                            </div>
+                            {approval.aiMatchScore !== undefined && (
+                              <div className="flex items-center gap-1.5">
+                                <Star className="h-3 w-3 md:h-4 md:w-4 text-yellow-600 flex-shrink-0" />
+                                <span>Match: {Math.round(approval.aiMatchScore)}%</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Notes if any */}
+                          {approval.notes && (
+                            <div className="mt-3 p-2 bg-gray-50 rounded text-xs md:text-sm text-gray-700">
+                              <p className="font-medium mb-1">Notes:</p>
+                              <p className="line-clamp-2">{approval.notes}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        <Button variant="outline" className="text-xs md:text-sm w-full sm:w-auto">
-                          <span className="hidden sm:inline">View Details</span>
-                          <span className="sm:hidden">Details</span>
+
+                      {/* Actions */}
+                      <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-48">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewCandidate(approval)}
+                          className="w-full text-xs md:text-sm"
+                        >
+                          <Eye className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                          View Details
                         </Button>
-                        <Button variant="outline" className="text-red-600 hover:text-red-700 text-xs md:text-sm w-full sm:w-auto">
-                          Reject
-                        </Button>
-                        <Button className="bg-green-600 hover:bg-green-700 text-xs md:text-sm w-full sm:w-auto">
-                          Approve
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveApproval(approval)}
+                            disabled={approvingApprovalId === approval._id || rejectingApprovalId === approval._id}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-xs md:text-sm"
+                          >
+                            {approvingApprovalId === approval._id ? (
+                              <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                                <span className="hidden sm:inline">Approve</span>
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRejectApproval(approval)}
+                            disabled={approvingApprovalId === approval._id || rejectingApprovalId === approval._id}
+                            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 text-xs md:text-sm"
+                          >
+                            {rejectingApprovalId === approval._id ? (
+                              <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <XCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                                <span className="hidden sm:inline">Reject</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
