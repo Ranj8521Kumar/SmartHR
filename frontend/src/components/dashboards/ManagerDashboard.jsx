@@ -19,6 +19,9 @@ import { Progress } from '../ui/progress';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import dashboardService from '../../services/dashboardService';
+import CreateJobForm from '../jobs/CreateJobForm';
+import JobDetailsDialog from '../jobs/JobDetailsDialog';
+import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
 
 export default function ManagerDashboard({ user }) {
   const [activeView, setActiveView] = useState('dashboard');
@@ -26,6 +29,13 @@ export default function ManagerDashboard({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // Dialog states
+  const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
+  const [isJobDetailsOpen, setIsJobDetailsOpen] = useState(false);
+  const [isViewApplicationsOpen, setIsViewApplicationsOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  
   const [dashboardData, setDashboardData] = useState({
     stats: {
       openPositions: 0,
@@ -73,6 +83,25 @@ export default function ManagerDashboard({ user }) {
     setSelectedCandidates(prev => 
       prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
     );
+  };
+
+  const handleViewJobDetails = (job) => {
+    setSelectedJob(job);
+    setIsJobDetailsOpen(true);
+  };
+
+  const handleReviewCandidates = (job) => {
+    setSelectedJob(job);
+    setIsViewApplicationsOpen(true);
+  };
+
+  const handleNewRequisition = () => {
+    setIsCreateJobOpen(true);
+  };
+
+  const handleJobCreated = () => {
+    setIsCreateJobOpen(false);
+    fetchDashboardData(); // Refresh the dashboard data
   };
 
   const formatDate = (dateString) => {
@@ -171,7 +200,7 @@ export default function ManagerDashboard({ user }) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Active Job Requisitions</CardTitle>
-                <Button>
+                <Button onClick={handleNewRequisition}>
                   <Plus className="h-4 w-4 mr-2" />
                   New Requisition
                 </Button>
@@ -200,8 +229,19 @@ export default function ManagerDashboard({ user }) {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">View Details</Button>
-                        <Button size="sm">Review Candidates</Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewJobDetails(req)}
+                        >
+                          View Details
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => handleReviewCandidates(req)}
+                        >
+                          Review Candidates
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -378,6 +418,25 @@ export default function ManagerDashboard({ user }) {
           )}
         </div>
       )}
+
+      {/* Dialogs */}
+      <CreateJobForm
+        isOpen={isCreateJobOpen}
+        onClose={() => setIsCreateJobOpen(false)}
+        onJobCreated={handleJobCreated}
+      />
+
+      <JobDetailsDialog
+        isOpen={isJobDetailsOpen}
+        onClose={() => setIsJobDetailsOpen(false)}
+        jobId={selectedJob?._id}
+      />
+
+      <ViewApplicationsDialog
+        isOpen={isViewApplicationsOpen}
+        onClose={() => setIsViewApplicationsOpen(false)}
+        job={selectedJob}
+      />
     </DashboardLayout>
   );
 }
