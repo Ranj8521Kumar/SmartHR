@@ -10,7 +10,16 @@ import {
   Clock,
   Plus,
   Star,
-  RefreshCw
+  RefreshCw,
+  Search,
+  Filter,
+  Mail,
+  Phone,
+  Calendar,
+  Eye,
+  XCircle,
+  Loader2,
+  MapPin
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -18,10 +27,14 @@ import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
+import { Input } from '../ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import dashboardService from '../../services/dashboardService';
+import applicationService from '../../services/applicationService';
 import CreateJobForm from '../jobs/CreateJobForm';
 import JobDetailsDialog from '../jobs/JobDetailsDialog';
 import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
+import CandidateDetailsDialog from '../candidates/CandidateDetailsDialog';
 
 export default function ManagerDashboard({ user }) {
   const [activeView, setActiveView] = useState('dashboard');
@@ -35,6 +48,16 @@ export default function ManagerDashboard({ user }) {
   const [isJobDetailsOpen, setIsJobDetailsOpen] = useState(false);
   const [isViewApplicationsOpen, setIsViewApplicationsOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [isCandidateDetailsOpen, setIsCandidateDetailsOpen] = useState(false);
+  
+  // Applications page state
+  const [applications, setApplications] = useState([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [approvingId, setApprovingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
   
   const [dashboardData, setDashboardData] = useState({
     stats: {
@@ -54,6 +77,12 @@ export default function ManagerDashboard({ user }) {
     fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    if (activeView === 'applications') {
+      fetchApplications();
+    }
+  }, [activeView]);
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -69,6 +98,89 @@ export default function ManagerDashboard({ user }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchApplications = async () => {
+    try {
+      setLoadingApplications(true);
+      const response = await dashboardService.getApplications();
+      if (response.success) {
+        setApplications(response.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch applications:', error);
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
+  const handleApproveApplication = async (application) => {
+    try {
+      setApprovingId(application._id);
+      await applicationService.updateApplicationStatus(
+        application._id,
+        'shortlisted',
+        'Application approved by manager'
+      );
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error approving application:', error);
+      alert('Failed to approve application. Please try again.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectApplication = async (application) => {
+    try {
+      setRejectingId(application._id);
+      await applicationService.updateApplicationStatus(
+        application._id,
+        'rejected',
+        'Application rejected by manager'
+      );
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error rejecting application:', error);
+      alert('Failed to reject application. Please try again.');
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
+  const handleViewCandidate = (application) => {
+    setSelectedApplication(application);
+    setIsCandidateDetailsOpen(true);
+  };
+
+  const getFilteredApplications = () => {
+    let filtered = applications;
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      const statusMap = {
+        'new': ['submitted'],
+        'review': ['under_review', 'shortlisted'],
+        'interview': ['interview_scheduled', 'interviewed'],
+        'offer': ['offer_extended'],
+        'hired': ['accepted'],
+        'rejected': ['rejected', 'withdrawn']
+      };
+      filtered = filtered.filter(app => statusMap[statusFilter]?.includes(app.status));
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(app =>
+        app.applicant?.firstName?.toLowerCase().includes(query) ||
+        app.applicant?.lastName?.toLowerCase().includes(query) ||
+        app.applicant?.email?.toLowerCase().includes(query) ||
+        app.job?.title?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
   };
 
   const sidebarItems = [
@@ -118,6 +230,36 @@ export default function ManagerDashboard({ user }) {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString();
+  };
+
+  const getStatusBadgeVariant = (status) => {
+    const variants = {
+      'submitted': 'secondary',
+      'under_review': 'default',
+      'shortlisted': 'default',
+      'interview_scheduled': 'default',
+      'interviewed': 'default',
+      'offer_extended': 'default',
+      'accepted': 'default',
+      'rejected': 'destructive',
+      'withdrawn': 'secondary'
+    };
+    return variants[status] || 'default';
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      'submitted': 'New',
+      'under_review': 'Under Review',
+      'shortlisted': 'Shortlisted',
+      'interview_scheduled': 'Interview Scheduled',
+      'interviewed': 'Interviewed',
+      'offer_extended': 'Offer Extended',
+      'accepted': 'Hired',
+      'rejected': 'Rejected',
+      'withdrawn': 'Withdrawn'
+    };
+    return labels[status] || status;
   };
 
   if (loading) {
@@ -456,6 +598,236 @@ export default function ManagerDashboard({ user }) {
         </div>
       )}
 
+      {activeView === 'applications' && (
+        <div className="space-y-4 md:space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Applications</h1>
+              <p className="text-sm md:text-base text-gray-600">Manage all job applications for your department</p>
+            </div>
+            <Button onClick={fetchApplications} variant="outline" className="w-full sm:w-auto">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+
+          {/* Search and Filter Bar */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by name, email or job title..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="w-full sm:w-48">
+                  <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                      <TabsTrigger value="new" className="text-xs">New</TabsTrigger>
+                      <TabsTrigger value="review" className="text-xs">Review</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Applications Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Total</p>
+                    <p className="text-xl md:text-2xl font-bold">{applications.length}</p>
+                  </div>
+                  <FileText className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">New</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {applications.filter(a => a.status === 'submitted').length}
+                    </p>
+                  </div>
+                  <Clock className="h-6 w-6 md:h-8 md:w-8 text-orange-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Shortlisted</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {applications.filter(a => a.status === 'shortlisted').length}
+                    </p>
+                  </div>
+                  <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Interviewed</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {applications.filter(a => a.status === 'interviewed').length}
+                    </p>
+                  </div>
+                  <Users className="h-6 w-6 md:h-8 md:w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Applications List */}
+          {loadingApplications ? (
+            <Card>
+              <CardContent className="p-12">
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <span className="ml-3 text-gray-600">Loading applications...</span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : getFilteredApplications().length === 0 ? (
+            <Card>
+              <CardContent className="p-8 md:p-12">
+                <div className="text-center text-gray-500">
+                  <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 md:mb-4 text-gray-400" />
+                  <p className="text-sm md:text-base mb-2">No applications found</p>
+                  <p className="text-xs md:text-sm text-gray-400">
+                    {searchQuery || statusFilter !== 'all' 
+                      ? 'Try adjusting your filters' 
+                      : 'Applications will appear here when candidates apply'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3 md:space-y-4">
+              {getFilteredApplications().map((app) => (
+                <Card key={app._id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 md:p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                      {/* Candidate Info */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${app.applicant?.email || 'default'}`}
+                          alt={`${app.applicant?.firstName} ${app.applicant?.lastName}`}
+                          className="w-12 h-12 md:w-16 md:h-16 rounded-full flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <h3 className="text-base md:text-lg font-semibold text-gray-900">
+                              {app.applicant?.firstName} {app.applicant?.lastName}
+                            </h3>
+                            <Badge variant={getStatusBadgeVariant(app.status)} className="text-xs">
+                              {getStatusLabel(app.status)}
+                            </Badge>
+                          </div>
+
+                          {/* Job Title */}
+                          <div className="mb-2">
+                            <p className="text-sm md:text-base text-gray-700 font-medium">
+                              {app.job?.title || 'Position not specified'}
+                            </p>
+                          </div>
+
+                          {/* Contact Info */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5">
+                              <Mail className="h-3 w-3 md:h-4 md:w-4" />
+                              <span className="truncate">{app.applicant?.email}</span>
+                            </div>
+                            {app.applicant?.phone && (
+                              <div className="flex items-center gap-1.5">
+                                <Phone className="h-3 w-3 md:h-4 md:w-4" />
+                                <span>{app.applicant.phone}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="h-3 w-3 md:h-4 md:w-4" />
+                              <span>Applied {formatDate(app.createdAt)}</span>
+                            </div>
+                            {app.aiMatchScore !== undefined && (
+                              <div className="flex items-center gap-1.5">
+                                <Star className="h-3 w-3 md:h-4 md:w-4 text-yellow-600" />
+                                <span>Match: {Math.round(app.aiMatchScore)}%</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-40">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewCandidate(app)}
+                          className="w-full text-xs md:text-sm"
+                        >
+                          <Eye className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                          View Details
+                        </Button>
+                        {app.status !== 'accepted' && app.status !== 'rejected' && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveApplication(app)}
+                              disabled={approvingId === app._id || rejectingId === app._id}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-xs md:text-sm"
+                            >
+                              {approvingId === app._id ? (
+                                <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                                  <span className="hidden sm:inline">Approve</span>
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRejectApplication(app)}
+                              disabled={approvingId === app._id || rejectingId === app._id}
+                              className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 text-xs md:text-sm"
+                            >
+                              {rejectingId === app._id ? (
+                                <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <XCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                                  <span className="hidden sm:inline">Reject</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeView === 'candidates' && (
         <div className="space-y-4 md:space-y-6">
           {/* Header - Mobile Responsive */}
@@ -633,6 +1005,12 @@ export default function ManagerDashboard({ user }) {
         isOpen={isViewApplicationsOpen}
         onClose={() => setIsViewApplicationsOpen(false)}
         job={selectedJob}
+      />
+
+      <CandidateDetailsDialog
+        isOpen={isCandidateDetailsOpen}
+        onClose={() => setIsCandidateDetailsOpen(false)}
+        candidateId={selectedApplication?.applicant?._id}
       />
     </DashboardLayout>
   );
