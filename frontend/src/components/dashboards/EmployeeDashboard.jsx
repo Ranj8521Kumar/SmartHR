@@ -349,25 +349,25 @@ export default function EmployeeDashboard({ user }) {
       )}
 
       {activeView === 'applications' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <div>
-            <h1 className="text-gray-900 mb-2">My Applications</h1>
-            <p className="text-gray-600">Track your application progress</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl text-gray-900 mb-2">My Applications</h1>
+            <p className="text-sm sm:text-base text-gray-600">Track your application progress</p>
           </div>
 
           {/* Loading State */}
           {loadingApplications && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
-              <span className="ml-2 text-gray-600">Loading applications...</span>
+            <div className="flex items-center justify-center py-8 sm:py-12">
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-orange-600" />
+              <span className="ml-2 text-sm sm:text-base text-gray-600">Loading applications...</span>
             </div>
           )}
 
           {/* Error State */}
           {applicationsError && (
             <Card className="border-red-200 bg-red-50">
-              <CardContent className="p-6">
-                <p className="text-red-800">Error: {applicationsError}</p>
+              <CardContent className="p-4 sm:p-6">
+                <p className="text-sm sm:text-base text-red-800">Error: {applicationsError}</p>
               </CardContent>
             </Card>
           )}
@@ -375,14 +375,14 @@ export default function EmployeeDashboard({ user }) {
           {/* Empty State */}
           {!loadingApplications && !applicationsError && applications.length === 0 && (
             <Card>
-              <CardContent className="p-12 text-center">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No applications yet</h3>
-                <p className="text-gray-600 mb-4">
+              <CardContent className="p-8 sm:p-12 text-center">
+                <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No applications yet</h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
                   You haven't applied to any jobs yet. Start browsing and apply to positions that interest you!
                 </p>
                 <Button 
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="bg-orange-600 hover:bg-orange-700 text-sm sm:text-base"
                   onClick={() => setActiveView('browse')}
                 >
                   Browse Jobs
@@ -394,28 +394,32 @@ export default function EmployeeDashboard({ user }) {
           {/* Applications List */}
           {!loadingApplications && !applicationsError && applications.length > 0 && (
             <Tabs defaultValue="all">
-              <TabsList>
-                <TabsTrigger value="all">All Applications ({applications.length})</TabsTrigger>
-                <TabsTrigger value="active">
+              <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsTrigger value="all" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+                  <span className="hidden sm:inline">All Applications</span>
+                  <span className="sm:hidden">All</span> ({applications.length})
+                </TabsTrigger>
+                <TabsTrigger value="active" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
                   Active ({applications.filter(app => !['rejected', 'withdrawn'].includes(app.status)).length})
                 </TabsTrigger>
-                <TabsTrigger value="archived">
-                  Archived ({applications.filter(app => ['rejected', 'withdrawn'].includes(app.status)).length})
+                <TabsTrigger value="archived" className="text-xs sm:text-sm px-2 sm:px-4 py-2">
+                  <span className="hidden sm:inline">Archived</span>
+                  <span className="sm:hidden">Arch.</span> ({applications.filter(app => ['rejected', 'withdrawn'].includes(app.status)).length})
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="all" className="space-y-4 mt-6">
+              <TabsContent value="all" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
                 {applications.map((app) => (
                   <Card key={app._id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-gray-900">{app.job?.title || 'Position'}</h3>
-                            <Badge className={statusColors[app.status] || statusColors['pending']}>
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{app.job?.title || 'Position'}</h3>
+                            <Badge className={`${statusColors[app.status] || statusColors['pending']} text-xs w-fit`}>
                               {app.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                             </Badge>
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-xs sm:text-sm text-gray-600">
                             {app.job?.department && `${app.job.department} • `}
                             Applied on {new Date(app.createdAt).toLocaleDateString('en-US', { 
                               year: 'numeric', 
@@ -427,40 +431,41 @@ export default function EmployeeDashboard({ user }) {
                         <Button 
                           variant="outline"
                           onClick={() => handleViewApplicationDetails(app)}
+                          className="text-xs sm:text-sm w-full sm:w-auto"
                         >
                           View Details
                         </Button>
                       </div>
 
-                      {/* Timeline */}
+                      {/* Timeline - Mobile Responsive */}
                       <div className="mt-4 pt-4 border-t">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                              <div className="w-3 h-3 rounded-full bg-green-600" />
+                        <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto pb-2">
+                          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-green-100 flex items-center justify-center">
+                              <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-600" />
                             </div>
-                            <span className="text-sm">Applied</span>
+                            <span className="text-xs sm:text-sm whitespace-nowrap">Applied</span>
                           </div>
-                          <div className="flex-1 h-px bg-gray-300" />
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-3 h-3 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-600' : 'bg-gray-400'}`} />
+                          <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-600' : 'bg-gray-400'}`} />
                             </div>
-                            <span className="text-sm">Review</span>
+                            <span className="text-xs sm:text-sm whitespace-nowrap">Review</span>
                           </div>
-                          <div className="flex-1 h-px bg-gray-300" />
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-3 h-3 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-600' : 'bg-gray-400'}`} />
+                          <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-600' : 'bg-gray-400'}`} />
                             </div>
-                            <span className="text-sm">Interview</span>
+                            <span className="text-xs sm:text-sm whitespace-nowrap">Interview</span>
                           </div>
-                          <div className="flex-1 h-px bg-gray-300" />
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full ${app.status === 'offered' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-3 h-3 rounded-full ${app.status === 'offered' ? 'bg-green-600' : 'bg-gray-400'}`} />
+                          <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${app.status === 'offered' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${app.status === 'offered' ? 'bg-green-600' : 'bg-gray-400'}`} />
                             </div>
-                            <span className="text-sm">Offer</span>
+                            <span className="text-xs sm:text-sm whitespace-nowrap">Offer</span>
                           </div>
                         </div>
                       </div>
@@ -468,19 +473,19 @@ export default function EmployeeDashboard({ user }) {
                   </Card>
                 ))}
               </TabsContent>
-              <TabsContent value="active" className="space-y-4 mt-6">
+              <TabsContent value="active" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
                 {applications.filter(app => !['rejected', 'withdrawn'].includes(app.status)).map((app) => (
                   <Card key={app._id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-gray-900">{app.job?.title || 'Position'}</h3>
-                            <Badge className={statusColors[app.status] || statusColors['pending']}>
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{app.job?.title || 'Position'}</h3>
+                            <Badge className={`${statusColors[app.status] || statusColors['pending']} text-xs w-fit`}>
                               {app.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                             </Badge>
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-xs sm:text-sm text-gray-600">
                             {app.job?.department && `${app.job.department} • `}
                             Applied on {new Date(app.createdAt).toLocaleDateString('en-US', { 
                               year: 'numeric', 
@@ -492,6 +497,7 @@ export default function EmployeeDashboard({ user }) {
                         <Button 
                           variant="outline"
                           onClick={() => handleViewApplicationDetails(app)}
+                          className="text-xs sm:text-sm w-full sm:w-auto"
                         >
                           View Details
                         </Button>
@@ -500,19 +506,19 @@ export default function EmployeeDashboard({ user }) {
                   </Card>
                 ))}
               </TabsContent>
-              <TabsContent value="archived" className="space-y-4 mt-6">
+              <TabsContent value="archived" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
                 {applications.filter(app => ['rejected', 'withdrawn'].includes(app.status)).map((app) => (
                   <Card key={app._id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-gray-900">{app.job?.title || 'Position'}</h3>
-                            <Badge className={statusColors[app.status] || statusColors['pending']}>
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{app.job?.title || 'Position'}</h3>
+                            <Badge className={`${statusColors[app.status] || statusColors['pending']} text-xs w-fit`}>
                               {app.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                             </Badge>
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-xs sm:text-sm text-gray-600">
                             {app.job?.department && `${app.job.department} • `}
                             Applied on {new Date(app.createdAt).toLocaleDateString('en-US', { 
                               year: 'numeric', 
@@ -524,6 +530,7 @@ export default function EmployeeDashboard({ user }) {
                         <Button 
                           variant="outline"
                           onClick={() => handleViewApplicationDetails(app)}
+                          className="text-xs sm:text-sm w-full sm:w-auto"
                         >
                           View Details
                         </Button>
