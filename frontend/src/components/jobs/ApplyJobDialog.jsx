@@ -38,6 +38,12 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Existing resumes states
+  const [existingResumes, setExistingResumes] = useState([]);
+  const [loadingResumes, setLoadingResumes] = useState(false);
+  const [selectedExistingResume, setSelectedExistingResume] = useState(null);
+  const [showResumeSelector, setShowResumeSelector] = useState(false);
+
   // Check if user has already applied for this job
   useEffect(() => {
     if (isOpen && job && existingApplications.length > 0) {
@@ -47,6 +53,25 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
       setAlreadyApplied(hasApplied);
     }
   }, [isOpen, job, existingApplications]);
+
+  // Fetch existing resumes when dialog opens
+  useEffect(() => {
+    const fetchResumes = async () => {
+      if (isOpen) {
+        setLoadingResumes(true);
+        try {
+          const response = await resumeService.getMyResumes();
+          setExistingResumes(response.data || []);
+        } catch (err) {
+          console.error('Error fetching resumes:', err);
+        } finally {
+          setLoadingResumes(false);
+        }
+      }
+    };
+
+    fetchResumes();
+  }, [isOpen]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -58,6 +83,8 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
       setSelectedFile(null);
       setUploadedResume(null);
       setIsUploading(false);
+      setSelectedExistingResume(null);
+      setShowResumeSelector(false);
     }
   }, [isOpen]);
 
@@ -105,7 +132,7 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
   const handleFileInputChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleFileSelect(file);
+      handleFileSelectWithSource(file);
     }
   };
 
@@ -126,7 +153,7 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
     
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      handleFileSelect(file);
+      handleFileSelectWithSource(file);
     }
   };
 
@@ -135,9 +162,28 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
     setSelectedFile(null);
     setUploadedResume(null);
     setResumeId('');
+    setSelectedExistingResume(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  // Handle selecting an existing resume
+  const handleSelectExistingResume = (resume) => {
+    setSelectedExistingResume(resume);
+    setResumeId(resume._id);
+    // Clear any uploaded resume
+    setSelectedFile(null);
+    setUploadedResume(null);
+    setError(null);
+    setShowResumeSelector(false); // Close selector after selection
+  };
+
+  // Handle uploading new resume (updated to set source)
+  const handleFileSelectWithSource = async (file) => {
+    // Clear existing resume selection
+    setSelectedExistingResume(null);
+    await handleFileSelect(file);
   };
 
   const handleSubmit = async (e) => {
@@ -225,10 +271,122 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
             )}
 
             {/* Resume Section */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="resume" className="text-sm sm:text-base">Resume *</Label>
               
-              {!uploadedResume && !isUploading ? (
+              {/* Show "Select Resume" button if user has resumes and nothing is selected yet */}
+              {existingResumes.length > 0 && !uploadedResume && !selectedExistingResume && !showResumeSelector && (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-2 border-dashed hover:border-orange-500 hover:bg-orange-50 text-gray-700"
+                    onClick={() => setShowResumeSelector(true)}
+                    disabled={loadingResumes}
+                  >
+                    {loadingResumes ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading resumes...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Select Resume ({existingResumes.length})
+                      </>
+                    )}
+                  </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white px-2 text-gray-500">Or upload a new resume</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Show resume selector when button is clicked */}
+              {showResumeSelector && existingResumes.length > 0 && !uploadedResume && !selectedExistingResume && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs sm:text-sm text-gray-600">Select from your uploaded resumes:</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowResumeSelector(false)}
+                      className="text-xs"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-2">
+                    {existingResumes.map((resume) => (
+                      <div
+                        key={resume._id}
+                        onClick={() => handleSelectExistingResume(resume)}
+                        className="border-2 border-gray-200 hover:border-orange-500 bg-white rounded-lg p-3 cursor-pointer transition-all"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{resume.fileName}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(resume.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white px-2 text-gray-500">Or upload a new resume</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Show selected existing resume */}
+              {selectedExistingResume && !uploadedResume && (
+                <div className="border-2 border-blue-200 bg-blue-50 rounded-lg p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                          {selectedExistingResume.fileName}
+                        </p>
+                        <div className="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
+                          <CheckCircle className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                          <span className="text-xs text-blue-600">
+                            Resume selected
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveFile}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload new resume section */}
+              {!uploadedResume && !isUploading && !selectedExistingResume && !showResumeSelector ? (
                 <div 
                   className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors cursor-pointer ${
                     isDragging 
@@ -272,7 +430,7 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
                   <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 text-orange-600 mx-auto mb-2 sm:mb-3 animate-spin" />
                   <p className="text-xs sm:text-sm text-gray-600">Uploading resume...</p>
                 </div>
-              ) : (
+              ) : uploadedResume ? (
                 <div className="border-2 border-green-200 bg-green-50 rounded-lg p-3 sm:p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -302,7 +460,7 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existi
                     </Button>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Cover Letter */}
