@@ -11,7 +11,8 @@ export default function DashboardLayout({
   onSettingsClick,
   notifications = [],
   onNotificationClick,
-  onViewAllNotifications
+  onViewAllNotifications,
+  onMarkAllRead
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -37,6 +38,7 @@ export default function DashboardLayout({
           notifications={notifications}
           onNotificationClick={onNotificationClick}
           onViewAllNotifications={onViewAllNotifications}
+          onMarkAllRead={onMarkAllRead}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {children}

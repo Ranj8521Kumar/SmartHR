@@ -131,8 +131,32 @@ export default function HRManagerDashboard({ user }) {
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
+  const [readNotifications, setReadNotifications] = useState(new Set());
+  
   const [isInterviewDetailsOpen, setIsInterviewDetailsOpen] = useState(false);
   const [selectedInterview, setSelectedInterview] = useState(null);
+
+  // Load read notifications from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(`readNotifications_${user.id}`);
+    if (saved) {
+      try {
+        setReadNotifications(new Set(JSON.parse(saved)));
+      } catch (e) {
+        console.error('Error loading read notifications:', e);
+      }
+    }
+  }, [user.id]);
+
+  // Save read notifications to localStorage whenever it changes
+  useEffect(() => {
+    if (readNotifications.size > 0) {
+      localStorage.setItem(
+        `readNotifications_${user.id}`,
+        JSON.stringify([...readNotifications])
+      );
+    }
+  }, [readNotifications, user.id]);
 
   // Communications page state
   const [allCommunications, setAllCommunications] = useState([]);
@@ -189,7 +213,7 @@ export default function HRManagerDashboard({ user }) {
           type: 'info',
           message: `New application from ${app.candidate?.name || 'Unknown'} for ${app.job?.title || 'a position'}`,
           time: timeAgo,
-          read: false,
+          read: readNotifications.has(app._id), // Check if notification was read
           applicationId: app._id
         });
       });
@@ -203,19 +227,20 @@ export default function HRManagerDashboard({ user }) {
       }).slice(0, 3);
 
       upcomingInterviews.forEach(interview => {
+        const interviewNotifId = `interview-${interview._id}`;
         generatedNotifications.push({
-          id: `interview-${interview._id}`,
+          id: interviewNotifId,
           type: 'warning',
           message: `Interview scheduled with ${interview.candidate?.name || 'candidate'} for ${interview.job?.title || 'position'}`,
           time: new Date(interview.scheduledDate).toLocaleDateString(),
-          read: false,
+          read: readNotifications.has(interviewNotifId), // Check if notification was read
           interviewId: interview._id
         });
       });
     }
 
     setNotifications(generatedNotifications);
-  }, [applicationsData, allInterviews]);
+  }, [applicationsData, allInterviews, readNotifications]); // Added readNotifications dependency
 
   // Format time ago helper
   const formatTimeAgo = (date) => {
@@ -233,14 +258,26 @@ export default function HRManagerDashboard({ user }) {
 
   // Handle notification click
   const handleNotificationClick = (notification) => {
+    // Mark as read
+    setReadNotifications(prev => {
+      const newSet = new Set(prev);
+      newSet.add(notification.id);
+      return newSet;
+    });
+    
     if (notification.applicationId) {
       setSelectedApplicationId(notification.applicationId);
       setIsApplicationDetailsOpen(true);
     }
-    // Mark as read
-    setNotifications(prev =>
-      prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
-    );
+  };
+
+  // Handle mark all notifications as read
+  const handleMarkAllRead = () => {
+    setReadNotifications(prev => {
+      const newSet = new Set(prev);
+      notifications.forEach(notif => newSet.add(notif.id));
+      return newSet;
+    });
   };
 
   // Handle job creation
@@ -674,6 +711,7 @@ export default function HRManagerDashboard({ user }) {
       notifications={notifications}
       onNotificationClick={handleNotificationClick}
       onViewAllNotifications={() => setActiveView('applications')}
+      onMarkAllRead={handleMarkAllRead}
     >
       {activeView === 'dashboard' && (
         <div className="space-y-6">

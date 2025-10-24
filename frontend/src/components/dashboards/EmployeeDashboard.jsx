@@ -467,6 +467,7 @@ export default function EmployeeDashboard({ user }) {
       notifications={notifications}
       onNotificationClick={handleNotificationClick}
       onViewAllNotifications={() => setActiveView('notifications')}
+      onMarkAllRead={handleMarkAllRead}
     >
       {activeView === 'browse' && (
         <div className="space-y-6">

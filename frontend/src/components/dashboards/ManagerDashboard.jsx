@@ -419,6 +419,7 @@ export default function ManagerDashboard({ user }) {
       notifications={[]}
       onNotificationClick={() => {}}
       onViewAllNotifications={() => {}}
+      onMarkAllRead={() => {}}
     >
       {activeView === 'dashboard' && (
         <div className="space-y-4 md:space-y-6">

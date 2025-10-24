@@ -26,7 +26,8 @@ export default function TopNav({
   onSettingsClick,
   notifications = [],
   onNotificationClick,
-  onViewAllNotifications
+  onViewAllNotifications,
+  onMarkAllRead
 }) {
   const { logout } = useAuth();
 
@@ -95,14 +96,24 @@ export default function TopNav({
             <DropdownMenuContent align="end" className="w-80">
               <DropdownMenuLabel className="flex items-center justify-between">
                 <span>Notifications</span>
-                {notifications.length > 0 && onViewAllNotifications && (
-                  <button
-                    onClick={onViewAllNotifications}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-normal"
-                  >
-                    View All
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && onMarkAllRead && (
+                    <button
+                      onClick={onMarkAllRead}
+                      className="text-xs text-gray-600 hover:text-gray-700 font-normal"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  {notifications.length > 0 && onViewAllNotifications && (
+                    <button
+                      onClick={onViewAllNotifications}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-normal"
+                    >
+                      View All
+                    </button>
+                  )}
+                </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="max-h-96 overflow-y-auto">

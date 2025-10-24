@@ -1138,6 +1138,7 @@ export default function AdminDashboard({ user }) {
       notifications={[]}
       onNotificationClick={() => {}}
       onViewAllNotifications={() => {}}
+      onMarkAllRead={() => {}}
     >
       {loading && activeView === 'dashboard' ? (
         <div className="flex items-center justify-center h-64">
