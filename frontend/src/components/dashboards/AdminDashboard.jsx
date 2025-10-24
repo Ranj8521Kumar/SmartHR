@@ -50,6 +50,14 @@ export default function AdminDashboard({ user }) {
   const { user: authUser } = useAuth();
   const [activeView, setActiveView] = useState('dashboard');
   const [currentUser, setCurrentUser] = useState(user || authUser);
+  
+  // Sync currentUser with user/authUser changes
+  useEffect(() => {
+    if (user || authUser) {
+      setCurrentUser(user || authUser);
+    }
+  }, [user, authUser]);
+  
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -1122,7 +1130,12 @@ export default function AdminDashboard({ user }) {
   ];
 
   return (
-    <DashboardLayout user={user} sidebarItems={sidebarItems} theme="blue">
+    <DashboardLayout 
+      user={currentUser || user} 
+      sidebarItems={sidebarItems} 
+      theme="blue"
+      onSettingsClick={() => setActiveView('settings')}
+    >
       {loading && activeView === 'dashboard' ? (
         <div className="flex items-center justify-center h-64">
           <div className="text-center">

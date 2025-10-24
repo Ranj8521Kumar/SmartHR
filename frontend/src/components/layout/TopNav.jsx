@@ -18,7 +18,7 @@ const themeColors = {
   orange: 'bg-orange-600'
 };
 
-export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileClick }) {
+export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileClick, onSettingsClick }) {
   const { logout } = useAuth();
 
   const handleLogout = async () => {
@@ -37,6 +37,14 @@ export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileCli
     } else {
       // Default behavior - could be to navigate to profile page
       console.log('Profile clicked - implement profile navigation');
+    }
+  };
+
+  const handleSettingsClick = () => {
+    if (onSettingsClick) {
+      onSettingsClick();
+    } else {
+      console.log('Settings clicked - implement settings navigation');
     }
   };
 
@@ -95,16 +103,16 @@ export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileCli
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-white hover:bg-white/10 transition-colors">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarImage src={user?.avatar} alt={user?.name || 'User'} />
+                <AvatarFallback>{user?.name?.charAt(0) || user?.firstName?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
-              <span className="hidden md:block">{user.name}</span>
+              <span className="hidden md:block">{user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User'}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
                 <div>
-                  <p>{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
+                  <p>{user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User'}</p>
+                  <p className="text-xs text-gray-500">{user?.email || ''}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -112,7 +120,7 @@ export default function TopNav({ user, theme = 'blue', onMenuClick, onProfileCli
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSettingsClick}>
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
