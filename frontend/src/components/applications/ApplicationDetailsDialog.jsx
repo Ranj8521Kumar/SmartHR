@@ -141,8 +141,8 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
         ) : application ? (
           <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
             {/* Header Section */}
-            <div className="flex flex-col lg:flex-row items-start gap-4 lg:justify-between w-full max-w-full overflow-hidden">
-              <div className="flex items-start gap-3 sm:gap-4 w-full lg:w-auto">
+            <div className="flex flex-col lg:flex-row items-start gap-4 lg:justify-between w-full max-w-full overflow-hidden pr-2">
+              <div className="flex items-start gap-3 sm:gap-4 w-full lg:flex-1 min-w-0">
                 <img 
                   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${application.applicant?.firstName || 'user'}`} 
                   alt="Candidate" 
@@ -160,14 +160,14 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                   </Badge>
                 </div>
               </div>
-              <div className="w-full lg:w-auto lg:text-right">
+              <div className="w-full lg:w-auto lg:min-w-[180px] lg:text-right flex-shrink-0">
                 <div className="text-xs sm:text-sm text-gray-600 mb-2">AI Match Score</div>
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 lg:justify-end">
                   <Progress 
                     value={application.aiScore?.overallScore || 0} 
-                    className="flex-1 sm:flex-none sm:w-32 h-2" 
+                    className="flex-1 lg:w-24 h-2" 
                   />
-                  <span className="text-xl sm:text-2xl font-bold text-purple-600 whitespace-nowrap">
+                  <span className="text-xl sm:text-2xl font-bold text-purple-600 whitespace-nowrap flex-shrink-0 min-w-[60px] text-right">
                     {application.aiScore?.overallScore || 0}%
                   </span>
                 </div>
