@@ -186,6 +186,47 @@ class AuthService {
   }
 
   /**
+   * Update user profile
+   * @param {Object} profileData - Profile data to update (firstName, lastName, phone, location)
+   * @returns {Promise} Updated user data
+   */
+  async updateProfile(profileData) {
+    try {
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        throw new Error('No token found');
+      }
+
+      const response = await fetch(API_ENDPOINTS.UPDATE_DETAILS, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify(profileData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+
+      // Update user in localStorage
+      if (data.data) {
+        localStorage.setItem('user', JSON.stringify(data.data));
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Update password
    * @param {string} currentPassword - Current password
    * @param {string} newPassword - New password

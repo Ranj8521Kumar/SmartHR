@@ -23,6 +23,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import jobService from '../../services/jobService';
 import applicationService from '../../services/applicationService';
+import resumeService from '../../services/resumeService';
+import authService from '../../services/authService';
 import JobDetailsDialog from '../jobs/JobDetailsDialog';
 import ApplyJobDialog from '../jobs/ApplyJobDialog';
 import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
@@ -81,6 +83,25 @@ export default function EmployeeDashboard({ user }) {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [isApplicationDetailsOpen, setIsApplicationDetailsOpen] = useState(false);
 
+  // Profile states
+  const [profileData, setProfileData] = useState({
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    location: user.location || ''
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileUpdateSuccess, setProfileUpdateSuccess] = useState(false);
+  const [profileUpdateError, setProfileUpdateError] = useState(null);
+
+  // Resume states
+  const [resumes, setResumes] = useState([]);
+  const [loadingResumes, setLoadingResumes] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [resumeError, setResumeError] = useState(null);
+  const [isDraggingResume, setIsDraggingResume] = useState(false);
+
   // Load saved jobs from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(`savedJobs_${user.id}`);
@@ -97,6 +118,27 @@ export default function EmployeeDashboard({ user }) {
   useEffect(() => {
     localStorage.setItem(`savedJobs_${user.id}`, JSON.stringify(savedJobs));
   }, [savedJobs, user.id]);
+
+  // Fetch resumes when profile view is active
+  useEffect(() => {
+    const fetchResumes = async () => {
+      if (activeView === 'profile') {
+        setLoadingResumes(true);
+        setResumeError(null);
+        try {
+          const response = await resumeService.getMyResumes();
+          setResumes(response.data || []);
+        } catch (error) {
+          console.error('Error fetching resumes:', error);
+          setResumeError(error.message || 'Failed to load resumes');
+        } finally {
+          setLoadingResumes(false);
+        }
+      }
+    };
+
+    fetchResumes();
+  }, [activeView]);
 
   // Fetch jobs from API
   useEffect(() => {
@@ -182,6 +224,126 @@ export default function EmployeeDashboard({ user }) {
   const handleViewApplicationDetails = (application) => {
     setSelectedApplication(application);
     setIsApplicationDetailsOpen(true);
+  };
+
+  // Profile handlers
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setIsUpdatingProfile(true);
+    setProfileUpdateError(null);
+    setProfileUpdateSuccess(false);
+
+    try {
+      const response = await authService.updateProfile(profileData);
+      if (response.success) {
+        setProfileUpdateSuccess(true);
+        setTimeout(() => setProfileUpdateSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setProfileUpdateError(error.message || 'Failed to update profile');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  // Resume handlers
+  const handleResumeUpload = async (file) => {
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      setResumeError('Please upload a PDF or Word document (.pdf, .doc, .docx)');
+      return;
+    }
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setResumeError('File size must be less than 10MB');
+      return;
+    }
+
+    setUploadingResume(true);
+    setResumeError(null);
+
+    try {
+      const response = await resumeService.uploadResume(file);
+      if (response.success) {
+        setResumes(prev => [response.data, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      setResumeError(error.message || 'Failed to upload resume');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleResumeFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleResumeUpload(file);
+    }
+  };
+
+  const handleResumeDragOver = (e) => {
+    e.preventDefault();
+    setIsDraggingResume(true);
+  };
+
+  const handleResumeDragLeave = (e) => {
+    e.preventDefault();
+    setIsDraggingResume(false);
+  };
+
+  const handleResumeDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingResume(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleResumeUpload(file);
+    }
+  };
+
+  const handleDeleteResume = async (resumeId) => {
+    if (!confirm('Are you sure you want to delete this resume?')) return;
+
+    try {
+      await resumeService.deleteResume(resumeId);
+      setResumes(prev => prev.filter(r => r._id !== resumeId));
+    } catch (error) {
+      console.error('Error deleting resume:', error);
+      setResumeError(error.message || 'Failed to delete resume');
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const formatUploadDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
   };
 
   // Filter jobs for saved view
@@ -720,26 +882,80 @@ export default function EmployeeDashboard({ user }) {
               <CardHeader>
                 <CardTitle>Personal Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-600">Full Name</label>
-                    <Input defaultValue={user.name} />
+              <CardContent>
+                <form onSubmit={handleProfileUpdate} className="space-y-4">
+                  {profileUpdateSuccess && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                      Profile updated successfully!
+                    </div>
+                  )}
+                  {profileUpdateError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                      {profileUpdateError}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">First Name</label>
+                      <Input 
+                        name="firstName"
+                        value={profileData.firstName}
+                        onChange={handleProfileChange}
+                        placeholder="Jane"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Last Name</label>
+                      <Input 
+                        name="lastName"
+                        value={profileData.lastName}
+                        onChange={handleProfileChange}
+                        placeholder="Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Email</label>
+                      <Input 
+                        name="email"
+                        value={profileData.email}
+                        disabled 
+                        className="bg-gray-50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">Phone</label>
+                      <Input 
+                        name="phone"
+                        value={profileData.phone}
+                        onChange={handleProfileChange}
+                        placeholder="+1 (555) 000-0000"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-sm text-gray-600 block mb-1">Location</label>
+                      <Input 
+                        name="location"
+                        value={profileData.location}
+                        onChange={handleProfileChange}
+                        placeholder="City, State"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm text-gray-600">Email</label>
-                    <Input defaultValue={user.email} disabled />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600">Phone</label>
-                    <Input placeholder="+1 (555) 000-0000" />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-600">Location</label>
-                    <Input placeholder="City, State" />
-                  </div>
-                </div>
-                <Button>Save Changes</Button>
+                  <Button 
+                    type="submit" 
+                    className="bg-orange-600 hover:bg-orange-700"
+                    disabled={isUpdatingProfile}
+                  >
+                    {isUpdatingProfile ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
 
@@ -747,26 +963,103 @@ export default function EmployeeDashboard({ user }) {
               <CardHeader>
                 <CardTitle>Resume</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-sm text-gray-600 mb-2">Drop your resume here or</p>
-                  <Button variant="outline" size="sm">Browse Files</Button>
-                  <p className="text-xs text-gray-500 mt-2">PDF, DOC up to 10MB</p>
-                </div>
-                {/* Current Resume */}
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-gray-600" />
-                      <div>
-                        <p className="text-sm">resume.pdf</p>
-                        <p className="text-xs text-gray-500">Uploaded 2 days ago</p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm">Delete</Button>
+              <CardContent className="space-y-4">
+                {resumeError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                    {resumeError}
                   </div>
-                </div>
+                )}
+
+                {/* Upload Area */}
+                {!uploadingResume && (
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                      isDraggingResume 
+                        ? 'border-orange-500 bg-orange-50' 
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    onDragOver={handleResumeDragOver}
+                    onDragLeave={handleResumeDragLeave}
+                    onDrop={handleResumeDrop}
+                    onClick={() => document.getElementById('resume-upload')?.click()}
+                  >
+                    <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600 mb-2">Drop your resume here or</p>
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        document.getElementById('resume-upload')?.click();
+                      }}
+                    >
+                      Browse Files
+                    </Button>
+                    <p className="text-xs text-gray-500 mt-2">PDF, DOC up to 10MB</p>
+                    <input
+                      id="resume-upload"
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleResumeFileChange}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+
+                {uploadingResume && (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <Loader2 className="h-10 w-10 text-orange-600 mx-auto mb-3 animate-spin" />
+                    <p className="text-sm text-gray-600">Uploading resume...</p>
+                  </div>
+                )}
+
+                {/* Resumes List */}
+                {loadingResumes ? (
+                  <div className="text-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-orange-600 mx-auto" />
+                  </div>
+                ) : resumes.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">Your Resumes</p>
+                    {resumes.map((resume) => (
+                      <div key={resume._id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <FileText className="h-5 w-5 text-gray-600 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{resume.fileName}</p>
+                              <p className="text-xs text-gray-500">
+                                {formatUploadDate(resume.createdAt)} • {formatFileSize(resume.fileSize)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              asChild
+                            >
+                              <a href={resume.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <Upload className="h-4 w-4" />
+                              </a>
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDeleteResume(resume._id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">No resumes uploaded yet</p>
+                )}
               </CardContent>
             </Card>
           </div>
