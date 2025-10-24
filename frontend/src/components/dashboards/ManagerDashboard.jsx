@@ -35,6 +35,7 @@ import CreateJobForm from '../jobs/CreateJobForm';
 import JobDetailsDialog from '../jobs/JobDetailsDialog';
 import ViewApplicationsDialog from '../jobs/ViewApplicationsDialog';
 import CandidateDetailsDialog from '../candidates/CandidateDetailsDialog';
+import SettingsDialog from '../settings/SettingsDialog';
 
 export default function ManagerDashboard({ user }) {
   const [activeView, setActiveView] = useState('dashboard');
@@ -50,6 +51,7 @@ export default function ManagerDashboard({ user }) {
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [isCandidateDetailsOpen, setIsCandidateDetailsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Applications page state
   const [applications, setApplications] = useState([]);
@@ -337,6 +339,10 @@ export default function ManagerDashboard({ user }) {
     fetchDashboardData(); // Refresh the dashboard data
   };
 
+  const handleSettingsClick = () => {
+    setIsSettingsOpen(true);
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -385,7 +391,7 @@ export default function ManagerDashboard({ user }) {
 
   if (loading) {
     return (
-      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="green">
+      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="green" onSettingsClick={handleSettingsClick}>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
         </div>
@@ -395,7 +401,7 @@ export default function ManagerDashboard({ user }) {
 
   if (error) {
     return (
-      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="green">
+      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="green" onSettingsClick={handleSettingsClick}>
         <div className="flex flex-col items-center justify-center h-64 space-y-4">
           <div className="text-red-600 text-lg">{error}</div>
           <Button onClick={fetchDashboardData}>Retry</Button>
@@ -405,7 +411,7 @@ export default function ManagerDashboard({ user }) {
   }
 
   return (
-    <DashboardLayout user={user} sidebarItems={sidebarItems} theme="green">
+    <DashboardLayout user={user} sidebarItems={sidebarItems} theme="green" onSettingsClick={handleSettingsClick}>
       {activeView === 'dashboard' && (
         <div className="space-y-4 md:space-y-6">
           {/* Header - Mobile Responsive */}
@@ -1407,6 +1413,12 @@ export default function ManagerDashboard({ user }) {
         isOpen={isCandidateDetailsOpen}
         onClose={() => setIsCandidateDetailsOpen(false)}
         candidateId={selectedApplication?.applicant?._id}
+      />
+
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        user={user}
       />
     </DashboardLayout>
   );

@@ -166,6 +166,70 @@ class UserService {
       throw error;
     }
   }
+
+  /**
+   * Update current user profile
+   * @param {Object} profileData - Profile data to update
+   * @returns {Promise} Updated user data
+   */
+  async updateProfile(profileData) {
+    try {
+      const token = authService.getToken();
+
+      const response = await fetch(API_ENDPOINTS.UPDATE_DETAILS, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: 'include',
+        body: JSON.stringify(profileData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Change password
+   * @param {Object} passwordData - Current and new password
+   * @returns {Promise} Response data
+   */
+  async changePassword(passwordData) {
+    try {
+      const token = authService.getToken();
+
+      const response = await fetch(API_ENDPOINTS.UPDATE_PASSWORD, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: 'include',
+        body: JSON.stringify(passwordData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to change password');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Change password error:', error);
+      throw error;
+    }
+  }
 }
 
 export default new UserService();
