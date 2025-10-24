@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import { 
   LayoutDashboard, 
@@ -12,7 +12,8 @@ import {
   Clock,
   DollarSign,
   Search,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -20,51 +21,8 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-
-const mockJobs = [
-  {
-    id: 1,
-    title: 'Senior Full Stack Developer',
-    department: 'Engineering',
-    location: 'San Francisco, CA',
-    type: 'Full-time',
-    salary: '$120k - $160k',
-    posted: '2 days ago',
-    description: 'We are looking for an experienced Full Stack Developer to join our growing team.',
-    requirements: ['5+ years React', 'Node.js', 'AWS'],
-    saved: false
-  },
-  {
-    id: 2,
-    title: 'Product Manager',
-    department: 'Product',
-    location: 'Remote',
-    type: 'Full-time',
-    salary: '$130k - $170k',
-    posted: '1 week ago',
-    description: 'Join our product team to shape the future of our platform.',
-    requirements: ['3+ years PM experience', 'Agile', 'Data-driven'],
-    saved: true
-  },
-  {
-    id: 3,
-    title: 'UX Designer',
-    department: 'Design',
-    location: 'New York, NY',
-    type: 'Contract',
-    salary: '$80k - $100k',
-    posted: '3 days ago',
-    description: 'Create beautiful and intuitive user experiences.',
-    requirements: ['Figma', 'User Research', 'Prototyping'],
-    saved: false
-  },
-];
-
-const mockApplications = [
-  { id: 1, position: 'Senior Developer', status: 'Interview Scheduled', date: '2024-01-15', company: 'TechCorp' },
-  { id: 2, position: 'Product Manager', status: 'Under Review', date: '2024-01-10', company: 'StartupXYZ' },
-  { id: 3, position: 'Team Lead', status: 'Application Submitted', date: '2024-01-05', company: 'BigTech Inc' },
-];
+import jobService from '../../services/jobService';
+import applicationService from '../../services/applicationService';
 
 const statusColors = {
   'Interview Scheduled': 'bg-purple-100 text-purple-800',
@@ -72,17 +30,101 @@ const statusColors = {
   'Application Submitted': 'bg-gray-100 text-gray-800',
   'Offer Received': 'bg-green-100 text-green-800',
   'Rejected': 'bg-red-100 text-red-800',
+  'pending': 'bg-gray-100 text-gray-800',
+  'reviewed': 'bg-blue-100 text-blue-800',
+  'shortlisted': 'bg-purple-100 text-purple-800',
+  'interview_scheduled': 'bg-purple-100 text-purple-800',
+  'offered': 'bg-green-100 text-green-800',
+  'rejected': 'bg-red-100 text-red-800',
+  'withdrawn': 'bg-gray-100 text-gray-800',
+};
+
+// Helper function to format date
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now - date);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return '1 day ago';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  return `${Math.floor(diffDays / 365)} years ago`;
 };
 
 export default function EmployeeDashboard({ user }) {
   const [activeView, setActiveView] = useState('browse');
-  const [savedJobs, setSavedJobs] = useState([2]);
+  const [savedJobs, setSavedJobs] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  
+  // State for jobs
+  const [jobs, setJobs] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [jobsError, setJobsError] = useState(null);
+  
+  // State for applications
+  const [applications, setApplications] = useState([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [applicationsError, setApplicationsError] = useState(null);
+
+  // Fetch jobs from API
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoadingJobs(true);
+      setJobsError(null);
+      try {
+        const params = {
+          status: 'open',
+        };
+        
+        if (searchQuery) params.search = searchQuery;
+        if (departmentFilter !== 'all') params.department = departmentFilter;
+        if (typeFilter !== 'all') params.employmentType = typeFilter;
+        
+        const response = await jobService.getJobs(params);
+        setJobs(response.data || []);
+      } catch (error) {
+        console.error('Error fetching jobs:', error);
+        setJobsError(error.message || 'Failed to load jobs');
+      } finally {
+        setLoadingJobs(false);
+      }
+    };
+
+    if (activeView === 'browse' || activeView === 'saved') {
+      fetchJobs();
+    }
+  }, [activeView, searchQuery, departmentFilter, typeFilter]);
+
+  // Fetch applications from API
+  useEffect(() => {
+    const fetchApplications = async () => {
+      setLoadingApplications(true);
+      setApplicationsError(null);
+      try {
+        const response = await applicationService.getApplications();
+        setApplications(response.data || []);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setApplicationsError(error.message || 'Failed to load applications');
+      } finally {
+        setLoadingApplications(false);
+      }
+    };
+
+    if (activeView === 'applications') {
+      fetchApplications();
+    }
+  }, [activeView]);
 
   const sidebarItems = [
     { icon: <Search className="h-5 w-5" />, label: 'Browse Jobs', active: activeView === 'browse', onClick: () => setActiveView('browse') },
     { icon: <Bookmark className="h-5 w-5" />, label: 'Saved Jobs', active: activeView === 'saved', onClick: () => setActiveView('saved'), badge: savedJobs.length },
-    { icon: <FileText className="h-5 w-5" />, label: 'My Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: 3 },
+    { icon: <FileText className="h-5 w-5" />, label: 'My Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: applications.length },
     { icon: <User className="h-5 w-5" />, label: 'Profile', active: activeView === 'profile', onClick: () => setActiveView('profile') },
     { icon: <Bell className="h-5 w-5" />, label: 'Notifications', active: activeView === 'notifications', onClick: () => setActiveView('notifications'), badge: 2 },
   ];
@@ -92,6 +134,21 @@ export default function EmployeeDashboard({ user }) {
       prev.includes(jobId) ? prev.filter(id => id !== jobId) : [...prev, jobId]
     );
   };
+  
+  const handleApplyJob = (job) => {
+    // TODO: Open application dialog/modal
+    alert(`Apply to: ${job.title}\n\nThis will open an application form in the full implementation.`);
+  };
+  
+  const handleViewJobDetails = (job) => {
+    // TODO: Open job details dialog/modal
+    alert(`View details for: ${job.title}\n\nFull job details:\n${job.description}`);
+  };
+
+  // Filter jobs for saved view
+  const displayJobs = activeView === 'saved' 
+    ? jobs.filter(job => savedJobs.includes(job._id))
+    : jobs;
 
   return (
     <DashboardLayout user={user} sidebarItems={sidebarItems} theme="orange">
@@ -117,93 +174,155 @@ export default function EmployeeDashboard({ user }) {
                     />
                   </div>
                 </div>
-                <Select>
+                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="Department" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Departments</SelectItem>
-                    <SelectItem value="engineering">Engineering</SelectItem>
-                    <SelectItem value="product">Product</SelectItem>
-                    <SelectItem value="design">Design</SelectItem>
+                    <SelectItem value="Engineering">Engineering</SelectItem>
+                    <SelectItem value="HR">HR</SelectItem>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                    <SelectItem value="Marketing">Marketing</SelectItem>
+                    <SelectItem value="Finance">Finance</SelectItem>
+                    <SelectItem value="Operations">Operations</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="Job Type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="fulltime">Full-time</SelectItem>
-                    <SelectItem value="contract">Contract</SelectItem>
-                    <SelectItem value="remote">Remote</SelectItem>
+                    <SelectItem value="Full-time">Full-time</SelectItem>
+                    <SelectItem value="Part-time">Part-time</SelectItem>
+                    <SelectItem value="Contract">Contract</SelectItem>
+                    <SelectItem value="Internship">Internship</SelectItem>
+                    <SelectItem value="Temporary">Temporary</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </CardContent>
           </Card>
 
+          {/* Loading State */}
+          {loadingJobs && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+              <span className="ml-2 text-gray-600">Loading jobs...</span>
+            </div>
+          )}
+
+          {/* Error State */}
+          {jobsError && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-6">
+                <p className="text-red-800">Error: {jobsError}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty State */}
+          {!loadingJobs && !jobsError && displayJobs.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No jobs found</h3>
+                <p className="text-gray-600">
+                  {activeView === 'saved' 
+                    ? 'You haven\'t saved any jobs yet. Browse available positions and save your favorites!'
+                    : 'No jobs match your current filters. Try adjusting your search criteria.'}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Job Listings */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {mockJobs.map((job) => (
-              <Card key={job.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="mb-2">{job.title}</CardTitle>
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                        <Badge variant="secondary">{job.department}</Badge>
-                        <Badge variant="outline">{job.type}</Badge>
+          {!loadingJobs && !jobsError && displayJobs.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {displayJobs.map((job) => (
+                <Card key={job._id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="mb-2">{job.title}</CardTitle>
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                          <Badge variant="secondary">{job.department}</Badge>
+                          <Badge variant="outline">{job.employmentType}</Badge>
+                          {job.experienceLevel && (
+                            <Badge variant="outline">{job.experienceLevel}</Badge>
+                          )}
+                        </div>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleSaveJob(job._id)}
+                      >
+                        <Bookmark 
+                          className={`h-5 w-5 ${savedJobs.includes(job._id) ? 'fill-orange-600 text-orange-600' : ''}`}
+                        />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => toggleSaveJob(job.id)}
-                    >
-                      <Bookmark 
-                        className={`h-5 w-5 ${savedJobs.includes(job.id) ? 'fill-orange-600 text-orange-600' : ''}`}
-                      />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">{job.description}</p>
-                  
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <MapPin className="h-4 w-4" />
-                      {job.location}
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 mb-4 line-clamp-2">{job.description}</p>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <MapPin className="h-4 w-4" />
+                        {job.location}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <DollarSign className="h-4 w-4" />
+                        ${job.salary?.min?.toLocaleString()} - ${job.salary?.max?.toLocaleString()} {job.salary?.currency || 'USD'}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="h-4 w-4" />
+                        Posted {formatDate(job.createdAt)}
+                      </div>
+                      {job.openings > 1 && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Briefcase className="h-4 w-4" />
+                          {job.openings} openings
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <DollarSign className="h-4 w-4" />
-                      {job.salary}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock className="h-4 w-4" />
-                      Posted {job.posted}
-                    </div>
-                  </div>
 
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-2">Requirements:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {job.requirements.map((req, index) => (
-                        <Badge key={index} variant="outline">{req}</Badge>
-                      ))}
-                    </div>
-                  </div>
+                    {job.skills && job.skills.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-600 mb-2">Required Skills:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {job.skills.slice(0, 5).map((skill, index) => (
+                            <Badge key={index} variant="outline">{skill}</Badge>
+                          ))}
+                          {job.skills.length > 5 && (
+                            <Badge variant="outline">+{job.skills.length - 5} more</Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                  <div className="flex gap-2">
-                    <Button className="flex-1 bg-orange-600 hover:bg-orange-700">
-                      Apply Now
-                    </Button>
-                    <Button variant="outline">View Details</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1 bg-orange-600 hover:bg-orange-700"
+                        onClick={() => handleApplyJob(job)}
+                      >
+                        Apply Now
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleViewJobDetails(job)}
+                      >
+                        View Details
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -214,68 +333,170 @@ export default function EmployeeDashboard({ user }) {
             <p className="text-gray-600">Track your application progress</p>
           </div>
 
-          <Tabs defaultValue="all">
-            <TabsList>
-              <TabsTrigger value="all">All Applications (3)</TabsTrigger>
-              <TabsTrigger value="active">Active (2)</TabsTrigger>
-              <TabsTrigger value="archived">Archived (1)</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all" className="space-y-4 mt-6">
-              {mockApplications.map((app) => (
-                <Card key={app.id}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-gray-900">{app.position}</h3>
-                          <Badge className={statusColors[app.status]}>
-                            {app.status}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {app.company} • Applied on {app.date}
-                        </div>
-                      </div>
-                      <Button variant="outline">View Details</Button>
-                    </div>
+          {/* Loading State */}
+          {loadingApplications && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+              <span className="ml-2 text-gray-600">Loading applications...</span>
+            </div>
+          )}
 
-                    {/* Timeline */}
-                    <div className="mt-4 pt-4 border-t">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                            <div className="w-3 h-3 rounded-full bg-green-600" />
+          {/* Error State */}
+          {applicationsError && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-6">
+                <p className="text-red-800">Error: {applicationsError}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty State */}
+          {!loadingApplications && !applicationsError && applications.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No applications yet</h3>
+                <p className="text-gray-600 mb-4">
+                  You haven't applied to any jobs yet. Start browsing and apply to positions that interest you!
+                </p>
+                <Button 
+                  className="bg-orange-600 hover:bg-orange-700"
+                  onClick={() => setActiveView('browse')}
+                >
+                  Browse Jobs
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Applications List */}
+          {!loadingApplications && !applicationsError && applications.length > 0 && (
+            <Tabs defaultValue="all">
+              <TabsList>
+                <TabsTrigger value="all">All Applications ({applications.length})</TabsTrigger>
+                <TabsTrigger value="active">
+                  Active ({applications.filter(app => !['rejected', 'withdrawn'].includes(app.status)).length})
+                </TabsTrigger>
+                <TabsTrigger value="archived">
+                  Archived ({applications.filter(app => ['rejected', 'withdrawn'].includes(app.status)).length})
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="all" className="space-y-4 mt-6">
+                {applications.map((app) => (
+                  <Card key={app._id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-gray-900">{app.job?.title || 'Position'}</h3>
+                            <Badge className={statusColors[app.status] || statusColors['pending']}>
+                              {app.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Badge>
                           </div>
-                          <span className="text-sm">Applied</span>
+                          <div className="text-sm text-gray-600">
+                            {app.job?.department && `${app.job.department} • `}
+                            Applied on {new Date(app.createdAt).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </div>
                         </div>
-                        <div className="flex-1 h-px bg-gray-300" />
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full ${app.status !== 'Application Submitted' ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                            <div className={`w-3 h-3 rounded-full ${app.status !== 'Application Submitted' ? 'bg-blue-600' : 'bg-gray-400'}`} />
+                        <Button variant="outline">View Details</Button>
+                      </div>
+
+                      {/* Timeline */}
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                              <div className="w-3 h-3 rounded-full bg-green-600" />
+                            </div>
+                            <span className="text-sm">Applied</span>
                           </div>
-                          <span className="text-sm">Review</span>
-                        </div>
-                        <div className="flex-1 h-px bg-gray-300" />
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full ${app.status === 'Interview Scheduled' ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                            <div className={`w-3 h-3 rounded-full ${app.status === 'Interview Scheduled' ? 'bg-purple-600' : 'bg-gray-400'}`} />
+                          <div className="flex-1 h-px bg-gray-300" />
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-3 h-3 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-600' : 'bg-gray-400'}`} />
+                            </div>
+                            <span className="text-sm">Review</span>
                           </div>
-                          <span className="text-sm">Interview</span>
-                        </div>
-                        <div className="flex-1 h-px bg-gray-300" />
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                            <div className="w-3 h-3 rounded-full bg-gray-400" />
+                          <div className="flex-1 h-px bg-gray-300" />
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-3 h-3 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-600' : 'bg-gray-400'}`} />
+                            </div>
+                            <span className="text-sm">Interview</span>
                           </div>
-                          <span className="text-sm">Offer</span>
+                          <div className="flex-1 h-px bg-gray-300" />
+                          <div className="flex items-center gap-2">
+                            <div className={`w-8 h-8 rounded-full ${app.status === 'offered' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-3 h-3 rounded-full ${app.status === 'offered' ? 'bg-green-600' : 'bg-gray-400'}`} />
+                            </div>
+                            <span className="text-sm">Offer</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-          </Tabs>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+              <TabsContent value="active" className="space-y-4 mt-6">
+                {applications.filter(app => !['rejected', 'withdrawn'].includes(app.status)).map((app) => (
+                  <Card key={app._id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-gray-900">{app.job?.title || 'Position'}</h3>
+                            <Badge className={statusColors[app.status] || statusColors['pending']}>
+                              {app.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {app.job?.department && `${app.job.department} • `}
+                            Applied on {new Date(app.createdAt).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                        <Button variant="outline">View Details</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+              <TabsContent value="archived" className="space-y-4 mt-6">
+                {applications.filter(app => ['rejected', 'withdrawn'].includes(app.status)).map((app) => (
+                  <Card key={app._id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-gray-900">{app.job?.title || 'Position'}</h3>
+                            <Badge className={statusColors[app.status] || statusColors['pending']}>
+                              {app.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {app.job?.department && `${app.job.department} • `}
+                            Applied on {new Date(app.createdAt).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                        <Button variant="outline">View Details</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       )}
 
