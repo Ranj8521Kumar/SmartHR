@@ -83,6 +83,17 @@ export default function AdminDashboard({ user }) {
   const [logsPage, setLogsPage] = useState(1);
   const logsPerPage = 10;
   
+  // Settings state
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [profileData, setProfileData] = useState({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  
   // Form data for creating/editing users
   const [userForm, setUserForm] = useState({
     firstName: '',
@@ -802,6 +813,88 @@ export default function AdminDashboard({ user }) {
     } catch (error) {
       console.error('Failed to delete application:', error);
       alert('Failed to delete application');
+    }
+  };
+
+  // Settings handlers
+  const handleProfileChange = (field, value) => {
+    setProfileData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleUpdateProfile = async () => {
+    try {
+      if (!profileData.firstName || !profileData.lastName || !profileData.email) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const userId = user?._id || user?.id;
+      if (!userId) {
+        alert('User ID not found. Please log in again.');
+        return;
+      }
+
+      setSettingsSaving(true);
+      const updateData = {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        email: profileData.email
+      };
+
+      await userService.updateUser(userId, updateData);
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      alert('Failed to update profile: ' + error.message);
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    try {
+      if (!profileData.currentPassword || !profileData.newPassword || !profileData.confirmPassword) {
+        alert('Please fill in all password fields');
+        return;
+      }
+
+      if (profileData.newPassword !== profileData.confirmPassword) {
+        alert('New passwords do not match');
+        return;
+      }
+
+      if (profileData.newPassword.length < 6) {
+        alert('Password must be at least 6 characters long');
+        return;
+      }
+
+      const userId = user?._id || user?.id;
+      if (!userId) {
+        alert('User ID not found. Please log in again.');
+        return;
+      }
+
+      setSettingsSaving(true);
+      // Call password update endpoint
+      await userService.updateUser(userId, {
+        currentPassword: profileData.currentPassword,
+        password: profileData.newPassword
+      });
+
+      // Clear password fields
+      setProfileData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+
+      alert('Password changed successfully!');
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      alert('Failed to change password: ' + error.message);
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -2091,6 +2184,190 @@ export default function AdminDashboard({ user }) {
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {activeView === 'settings' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Settings</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage your account settings and preferences</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Profile Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="settingsFirstName">First Name *</Label>
+                    <Input
+                      id="settingsFirstName"
+                      value={profileData.firstName}
+                      onChange={(e) => handleProfileChange('firstName', e.target.value)}
+                      placeholder="John"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="settingsLastName">Last Name *</Label>
+                    <Input
+                      id="settingsLastName"
+                      value={profileData.lastName}
+                      onChange={(e) => handleProfileChange('lastName', e.target.value)}
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="settingsEmail">Email *</Label>
+                  <Input
+                    id="settingsEmail"
+                    type="email"
+                    value={profileData.email}
+                    onChange={(e) => handleProfileChange('email', e.target.value)}
+                    placeholder="john@company.com"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-500">Role</Label>
+                  <p className="font-medium capitalize">{user?.role?.replace('_', ' ')}</p>
+                </div>
+                {user?.department && (
+                  <div>
+                    <Label className="text-gray-500">Department</Label>
+                    <p className="font-medium">{user.department}</p>
+                  </div>
+                )}
+                <Button
+                  onClick={handleUpdateProfile}
+                  disabled={settingsSaving}
+                  className="w-full"
+                >
+                  {settingsSaving ? 'Saving...' : 'Update Profile'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Password Change */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Change Password</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="currentPassword">Current Password *</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    value={profileData.currentPassword}
+                    onChange={(e) => handleProfileChange('currentPassword', e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="newPassword">New Password *</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={profileData.newPassword}
+                    onChange={(e) => handleProfileChange('newPassword', e.target.value)}
+                    placeholder="••••••••"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters</p>
+                </div>
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm New Password *</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={profileData.confirmPassword}
+                    onChange={(e) => handleProfileChange('confirmPassword', e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <Button
+                  onClick={handleChangePassword}
+                  disabled={settingsSaving}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {settingsSaving ? 'Changing...' : 'Change Password'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Account Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-gray-500">User ID</Label>
+                  <p className="font-mono text-sm">{user?._id || user?.id || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Account Status</Label>
+                  <div className="mt-1">
+                    <Badge variant={user?.isActive ? 'default' : 'destructive'}>
+                      {user?.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Created At</Label>
+                  <p className="text-sm">
+                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Last Updated</Label>
+                  <p className="text-sm">
+                    {user?.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* System Preferences */}
+            <Card>
+              <CardHeader>
+                <CardTitle>System Preferences</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Notifications</Label>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Email Notifications</span>
+                    <Badge variant="secondary">Enabled</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Browser Notifications</span>
+                    <Badge variant="secondary">Enabled</Badge>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Privacy</Label>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Profile Visibility</span>
+                    <Badge variant="secondary">Internal</Badge>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Session</Label>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Auto Logout</span>
+                    <Badge variant="secondary">30 minutes</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 
