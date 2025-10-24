@@ -168,6 +168,39 @@ class DashboardService {
       throw error;
     }
   }
+
+  /**
+   * Get system logs
+   * @param {Object} params - Query parameters
+   * @returns {Promise} System logs
+   */
+  async getSystemLogs(params = {}) {
+    try {
+      const token = authService.getToken();
+      const queryString = new URLSearchParams(params).toString();
+      const url = `${API_ENDPOINTS.ANALYTICS}/logs${queryString ? '?' + queryString : ''}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch system logs');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Get system logs error:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

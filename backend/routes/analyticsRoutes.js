@@ -3,7 +3,8 @@ const {
   getDashboardAnalytics,
   getApplicationAnalytics,
   getJobAnalytics,
-  matchCandidates
+  matchCandidates,
+  getSystemLogs
 } = require('../controllers/analyticsController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -17,5 +18,6 @@ router.get('/dashboard', getDashboardAnalytics);
 router.get('/applications', getApplicationAnalytics);
 router.get('/jobs', getJobAnalytics);
 router.post('/candidate-match', matchCandidates);
+router.get('/logs', authorize('admin'), getSystemLogs);
 
 module.exports = router;

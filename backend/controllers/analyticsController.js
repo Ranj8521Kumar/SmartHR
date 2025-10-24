@@ -249,3 +249,28 @@ exports.matchCandidates = asyncHandler(async (req, res, next) => {
     data: filteredMatches
   });
 });
+
+// @desc    Get recent system logs
+// @route   GET /api/v1/analytics/logs
+// @access  Private (Admin)
+exports.getSystemLogs = asyncHandler(async (req, res, next) => {
+  const Log = require('../models/Log');
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const level = req.query.level; // filter by level: info, warn, error, debug
+  const category = req.query.category; // filter by category
+
+  const query = {};
+  if (level) query.level = level;
+  if (category) query.category = category;
+
+  const logs = await Log.find(query)
+    .populate('user', 'firstName lastName email')
+    .sort({ createdAt: -1 })
+    .limit(limit);
+
+  res.status(200).json({
+    success: true,
+    count: logs.length,
+    data: logs
+  });
+});
