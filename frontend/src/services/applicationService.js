@@ -104,6 +104,27 @@ const applicationService = {
 
     return response.json();
   },
+
+  // Create new application
+  async createApplication(applicationData) {
+    const token = authService.getToken();
+    
+    const response = await fetch(API_ENDPOINTS.APPLICATIONS, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(applicationData),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create application');
+    }
+
+    return response.json();
+  },
 };
 
 export default applicationService;

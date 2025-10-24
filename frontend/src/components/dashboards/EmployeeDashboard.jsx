@@ -23,6 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import jobService from '../../services/jobService';
 import applicationService from '../../services/applicationService';
+import JobDetailsDialog from '../jobs/JobDetailsDialog';
+import ApplyJobDialog from '../jobs/ApplyJobDialog';
+import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
 
 const statusColors = {
   'Interview Scheduled': 'bg-purple-100 text-purple-800',
@@ -70,6 +73,13 @@ export default function EmployeeDashboard({ user }) {
   const [applications, setApplications] = useState([]);
   const [loadingApplications, setLoadingApplications] = useState(false);
   const [applicationsError, setApplicationsError] = useState(null);
+
+  // Dialog states
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [isJobDetailsOpen, setIsJobDetailsOpen] = useState(false);
+  const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [isApplicationDetailsOpen, setIsApplicationDetailsOpen] = useState(false);
 
   // Fetch jobs from API
   useEffect(() => {
@@ -136,13 +146,25 @@ export default function EmployeeDashboard({ user }) {
   };
   
   const handleApplyJob = (job) => {
-    // TODO: Open application dialog/modal
-    alert(`Apply to: ${job.title}\n\nThis will open an application form in the full implementation.`);
+    setSelectedJob(job);
+    setIsApplyDialogOpen(true);
   };
   
   const handleViewJobDetails = (job) => {
-    // TODO: Open job details dialog/modal
-    alert(`View details for: ${job.title}\n\nFull job details:\n${job.description}`);
+    setSelectedJob(job);
+    setIsJobDetailsOpen(true);
+  };
+
+  const handleApplicationSuccess = (newApplication) => {
+    // Refresh applications list
+    setApplications(prev => [newApplication, ...prev]);
+    // Show success message or switch to applications view
+    setActiveView('applications');
+  };
+
+  const handleViewApplicationDetails = (application) => {
+    setSelectedApplication(application);
+    setIsApplicationDetailsOpen(true);
   };
 
   // Filter jobs for saved view
@@ -402,7 +424,12 @@ export default function EmployeeDashboard({ user }) {
                             })}
                           </div>
                         </div>
-                        <Button variant="outline">View Details</Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleViewApplicationDetails(app)}
+                        >
+                          View Details
+                        </Button>
                       </div>
 
                       {/* Timeline */}
@@ -462,7 +489,12 @@ export default function EmployeeDashboard({ user }) {
                             })}
                           </div>
                         </div>
-                        <Button variant="outline">View Details</Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleViewApplicationDetails(app)}
+                        >
+                          View Details
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -489,7 +521,12 @@ export default function EmployeeDashboard({ user }) {
                             })}
                           </div>
                         </div>
-                        <Button variant="outline">View Details</Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleViewApplicationDetails(app)}
+                        >
+                          View Details
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -564,6 +601,26 @@ export default function EmployeeDashboard({ user }) {
           </div>
         </div>
       )}
+
+      {/* Dialogs */}
+      <JobDetailsDialog
+        isOpen={isJobDetailsOpen}
+        onClose={() => setIsJobDetailsOpen(false)}
+        jobId={selectedJob?._id}
+      />
+      
+      <ApplyJobDialog
+        isOpen={isApplyDialogOpen}
+        onClose={() => setIsApplyDialogOpen(false)}
+        job={selectedJob}
+        onSuccess={handleApplicationSuccess}
+      />
+
+      <ApplicationDetailsDialog
+        isOpen={isApplicationDetailsOpen}
+        onClose={() => setIsApplicationDetailsOpen(false)}
+        applicationId={selectedApplication?._id}
+      />
     </DashboardLayout>
   );
 }
