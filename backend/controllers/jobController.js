@@ -6,10 +6,6 @@ const asyncHandler = require('../middleware/asyncHandler');
 // @route   GET /api/v1/jobs
 // @access  Public
 exports.getJobs = asyncHandler(async (req, res, next) => {
-  console.log('=== GET JOBS CALLED ===');
-  console.log('User:', req.user ? { id: req.user.id, role: req.user.role } : 'Not authenticated');
-  console.log('Query params:', req.query);
-  
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const skip = (page - 1) * limit;
@@ -20,10 +16,7 @@ exports.getJobs = asyncHandler(async (req, res, next) => {
   if (req.query.status) {
     query.status = req.query.status;
   } else if (!req.user || req.user.role === 'employee') {
-    console.log('Filtering to open jobs only');
     query.status = 'open';
-  } else {
-    console.log('Admin/HR user - showing all jobs');
   }
 
   // Filter by department
@@ -51,8 +44,6 @@ exports.getJobs = asyncHandler(async (req, res, next) => {
     query.$text = { $search: req.query.search };
   }
 
-  console.log('Final query:', query);
-
   const jobs = await Job.find(query)
     .populate('postedBy', 'firstName lastName email')
     .skip(skip)
@@ -60,9 +51,6 @@ exports.getJobs = asyncHandler(async (req, res, next) => {
     .sort({ createdAt: -1 });
 
   const total = await Job.countDocuments(query);
-
-  console.log(`Found ${jobs.length} jobs, total: ${total}`);
-  console.log('Job statuses:', jobs.map(j => ({ id: j._id, title: j.title, status: j.status })));
 
   res.status(200).json({
     success: true,
@@ -113,11 +101,6 @@ exports.createJob = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/v1/jobs/:id
 // @access  Private (HR/Recruiter/Manager)
 exports.updateJob = asyncHandler(async (req, res, next) => {
-  console.log('=== UPDATE JOB CALLED ===');
-  console.log('Job ID:', req.params.id);
-  console.log('Update data:', req.body);
-  console.log('User ID:', req.user?.id);
-  
   const job = await Job.findById(req.params.id);
 
   if (!job) {
@@ -134,8 +117,6 @@ exports.updateJob = asyncHandler(async (req, res, next) => {
     runValidators: true
   });
 
-  console.log('Job updated successfully:', updatedJob._id);
-  
   res.status(200).json({
     success: true,
     data: updatedJob
@@ -146,10 +127,6 @@ exports.updateJob = asyncHandler(async (req, res, next) => {
 // @route   DELETE /api/v1/jobs/:id
 // @access  Private (HR/Recruiter/Manager)
 exports.deleteJob = asyncHandler(async (req, res, next) => {
-  console.log('=== DELETE JOB CALLED ===');
-  console.log('Job ID:', req.params.id);
-  console.log('User ID:', req.user?.id);
-  
   const job = await Job.findById(req.params.id);
 
   if (!job) {
@@ -162,8 +139,6 @@ exports.deleteJob = asyncHandler(async (req, res, next) => {
   }
 
   await job.deleteOne();
-
-  console.log('Job deleted successfully');
 
   res.status(200).json({
     success: true,

@@ -640,16 +640,11 @@ export default function AdminDashboard({ user }) {
 
   const handleToggleJobStatus = async (jobId, currentStatus) => {
     try {
-      console.log('Toggle job status called with:', { jobId, currentStatus });
       const newStatus = currentStatus === 'open' ? 'closed' : 'open';
-      console.log('New status will be:', newStatus);
-      
-      const result = await jobService.updateJob(jobId, { status: newStatus });
-      console.log('Update result:', result);
+      await jobService.updateJob(jobId, { status: newStatus });
       
       // Refresh jobs list
       const response = await jobService.getJobs({ limit: 100 });
-      console.log('Fetched jobs after update:', response.data?.length);
       setJobs(response.data || []);
       
       alert(`Job ${newStatus === 'open' ? 'opened' : 'closed'} successfully!`);
