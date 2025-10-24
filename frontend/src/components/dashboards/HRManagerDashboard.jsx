@@ -1700,6 +1700,7 @@ export default function HRManagerDashboard({ user }) {
         onClose={() => setIsApplicationDetailsOpen(false)}
         applicationId={selectedApplicationId}
         onStatusUpdate={handleApplicationStatusUpdate}
+        user={user}
       />
 
       {/* Candidate Details Dialog */}

@@ -30,12 +30,15 @@ import {
 import { Progress } from '../ui/progress';
 import applicationService from '../../services/applicationService';
 
-export default function ApplicationDetailsDialog({ isOpen, onClose, applicationId, onStatusUpdate }) {
+export default function ApplicationDetailsDialog({ isOpen, onClose, applicationId, onStatusUpdate, user }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [application, setApplication] = useState(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState(null);
+
+  // Check if user has permission to update status
+  const canUpdateStatus = user && ['hr_recruiter', 'manager', 'admin'].includes(user.role);
 
   useEffect(() => {
     if (isOpen && applicationId) {
@@ -407,8 +410,8 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
               </TabsContent>
             </Tabs>
 
-            {/* Status Update Section */}
-            {application.status !== 'accepted' && application.status !== 'rejected' && (
+            {/* Status Update Section - Only for HR, Managers, and Admins */}
+            {canUpdateStatus && application.status !== 'accepted' && application.status !== 'rejected' && (
               <Card className="w-full max-w-full overflow-hidden">
                 <CardHeader className="px-4 sm:px-6">
                   <CardTitle className="text-base sm:text-lg">Update Application Status</CardTitle>

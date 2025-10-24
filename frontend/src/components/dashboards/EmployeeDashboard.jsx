@@ -620,6 +620,7 @@ export default function EmployeeDashboard({ user }) {
         isOpen={isApplicationDetailsOpen}
         onClose={() => setIsApplicationDetailsOpen(false)}
         applicationId={selectedApplication?._id}
+        user={user}
       />
     </DashboardLayout>
   );
