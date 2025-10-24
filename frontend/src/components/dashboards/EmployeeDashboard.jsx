@@ -327,12 +327,21 @@ export default function EmployeeDashboard({ user }) {
                     )}
 
                     <div className="flex gap-2">
-                      <Button 
-                        className="flex-1 bg-orange-600 hover:bg-orange-700"
-                        onClick={() => handleApplyJob(job)}
-                      >
-                        Apply Now
-                      </Button>
+                      {applications.some(app => app.job?._id === job._id || app.job === job._id) ? (
+                        <Button 
+                          className="flex-1 bg-gray-400 cursor-not-allowed"
+                          disabled
+                        >
+                          Already Applied
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="flex-1 bg-orange-600 hover:bg-orange-700"
+                          onClick={() => handleApplyJob(job)}
+                        >
+                          Apply Now
+                        </Button>
+                      )}
                       <Button 
                         variant="outline"
                         onClick={() => handleViewJobDetails(job)}
@@ -621,6 +630,7 @@ export default function EmployeeDashboard({ user }) {
         onClose={() => setIsApplyDialogOpen(false)}
         job={selectedJob}
         onSuccess={handleApplicationSuccess}
+        existingApplications={applications}
       />
 
       <ApplicationDetailsDialog

@@ -23,12 +23,13 @@ import {
 import applicationService from '../../services/applicationService';
 import resumeService from '../../services/resumeService';
 
-export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess }) {
+export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess, existingApplications = [] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [resumeId, setResumeId] = useState('');
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
   
   // File upload states
   const [selectedFile, setSelectedFile] = useState(null);
@@ -36,6 +37,16 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess }) {
   const [uploadedResume, setUploadedResume] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Check if user has already applied for this job
+  useEffect(() => {
+    if (isOpen && job && existingApplications.length > 0) {
+      const hasApplied = existingApplications.some(
+        app => app.job?._id === job._id || app.job === job._id
+      );
+      setAlreadyApplied(hasApplied);
+    }
+  }, [isOpen, job, existingApplications]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -196,6 +207,16 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess }) {
               </div>
             </div>
 
+            {/* Already Applied Warning */}
+            {alreadyApplied && (
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <strong>You have already applied for this position.</strong> You can view your application status in the "My Applications" section.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -330,13 +351,15 @@ export default function ApplyJobDialog({ isOpen, onClose, job, onSuccess }) {
               <Button
                 type="submit"
                 className="bg-orange-600 hover:bg-orange-700"
-                disabled={isSubmitting}
+                disabled={isSubmitting || alreadyApplied}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Submitting...
                   </>
+                ) : alreadyApplied ? (
+                  'Already Applied'
                 ) : (
                   'Submit Application'
                 )}
