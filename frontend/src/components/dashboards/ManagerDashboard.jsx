@@ -290,6 +290,172 @@ export default function ManagerDashboard({ user }) {
         </div>
       )}
 
+      {activeView === 'requisitions' && (
+        <div className="space-y-4 md:space-y-6">
+          {/* Header - Mobile Responsive */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Job Requisitions</h1>
+              <p className="text-sm md:text-base text-gray-600">Manage all job requisitions for your department</p>
+            </div>
+            <Button onClick={handleNewRequisition} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              <span>New Requisition</span>
+            </Button>
+          </div>
+
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Total Requisitions</p>
+                    <p className="text-xl md:text-2xl font-bold">{dashboardData.activeRequisitions.length}</p>
+                  </div>
+                  <Briefcase className="h-8 w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Open Positions</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {dashboardData.activeRequisitions.filter(r => r.status === 'open').length}
+                    </p>
+                  </div>
+                  <FileText className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Total Applications</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {dashboardData.activeRequisitions.reduce((sum, r) => sum + r.applicants, 0)}
+                    </p>
+                  </div>
+                  <Users className="h-8 w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Interviews</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {dashboardData.activeRequisitions.reduce((sum, r) => sum + r.interviews, 0)}
+                    </p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-orange-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Requisitions List */}
+          {dashboardData.activeRequisitions.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 md:p-12">
+                <div className="text-center text-gray-500">
+                  <Briefcase className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 md:mb-4 text-gray-400" />
+                  <p className="text-sm md:text-base mb-2">No job requisitions found</p>
+                  <p className="text-xs md:text-sm text-gray-400 mb-4">Create your first job requisition to start hiring</p>
+                  <Button onClick={handleNewRequisition}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Requisition
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3 md:space-y-4">
+              {dashboardData.activeRequisitions.map((req) => (
+                <Card key={req._id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 md:p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                      {/* Job Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <h3 className="text-base md:text-lg font-semibold text-gray-900">{req.title}</h3>
+                          <Badge variant={req.status === 'open' ? 'default' : 'secondary'} className="text-xs">
+                            {req.status}
+                          </Badge>
+                        </div>
+                        
+                        {/* Job Details Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                          <div>
+                            <p className="text-xs text-gray-500">Location</p>
+                            <p className="text-sm font-medium text-gray-900">{req.location || 'Remote'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Type</p>
+                            <p className="text-sm font-medium text-gray-900">{req.type || 'Full-time'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Department</p>
+                            <p className="text-sm font-medium text-gray-900">{req.department || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Posted</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {req.createdAt ? formatDate(req.createdAt) : 'Recently'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Statistics */}
+                        <div className="flex flex-wrap items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <Users className="h-4 w-4 text-blue-600" />
+                            <span className="text-gray-600">{req.applicants} applicants</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span className="text-gray-600">{req.interviews} interviews</span>
+                          </div>
+                          {req.salary && (
+                            <div className="flex items-center gap-1.5">
+                              <Star className="h-4 w-4 text-yellow-600" />
+                              <span className="text-gray-600">${req.salary.min}k - ${req.salary.max}k</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-40">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewJobDetails(req)}
+                          className="w-full text-xs md:text-sm"
+                        >
+                          View Details
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => handleReviewCandidates(req)}
+                          className="w-full text-xs md:text-sm"
+                        >
+                          Review Candidates
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeView === 'candidates' && (
         <div className="space-y-4 md:space-y-6">
           {/* Header - Mobile Responsive */}
