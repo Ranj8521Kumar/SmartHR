@@ -76,6 +76,13 @@ export default function AdminDashboard({ user }) {
   const [statusDistribution, setStatusDistribution] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
   
+  // Logs state
+  const [allLogs, setAllLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logLevelFilter, setLogLevelFilter] = useState('all');
+  const [logsPage, setLogsPage] = useState(1);
+  const logsPerPage = 10;
+  
   // Form data for creating/editing users
   const [userForm, setUserForm] = useState({
     firstName: '',
@@ -320,6 +327,30 @@ export default function AdminDashboard({ user }) {
     fetchApplications();
   }, [activeView]);
 
+  // Fetch logs when logs view is active
+  useEffect(() => {
+    const fetchLogs = async () => {
+      if (activeView === 'logs') {
+        try {
+          setLogsLoading(true);
+          const response = await dashboardService.getSystemLogs({ limit: 100 });
+          setAllLogs(response.data || []);
+        } catch (error) {
+          console.error('Failed to fetch logs:', error);
+        } finally {
+          setLogsLoading(false);
+        }
+      }
+    };
+
+    fetchLogs();
+  }, [activeView]);
+
+  // Reset logs page when filter changes
+  useEffect(() => {
+    setLogsPage(1);
+  }, [logLevelFilter]);
+
   // Filtered jobs based on status and type filters
   const filteredJobs = jobs.filter(job => {
     const statusMatch = jobStatusFilter === 'all' || job.status === jobStatusFilter;
@@ -331,6 +362,18 @@ export default function AdminDashboard({ user }) {
   const filteredApplications = applications.filter(app => {
     return applicationStatusFilter === 'all' || app.status === applicationStatusFilter;
   });
+
+  // Filtered logs based on level filter
+  const filteredLogs = allLogs.filter(log => {
+    return logLevelFilter === 'all' || log.level === logLevelFilter;
+  });
+
+  // Paginated logs for mobile view
+  const totalLogsPages = Math.ceil(filteredLogs.length / logsPerPage);
+  const paginatedLogs = filteredLogs.slice(
+    (logsPage - 1) * logsPerPage,
+    logsPage * logsPerPage
+  );
 
   // Handle form input changes
   const handleFormChange = (field, value) => {
@@ -1832,6 +1875,222 @@ export default function AdminDashboard({ user }) {
               </CardContent>
             </Card>
           </div>
+        </div>
+      )}
+
+      {activeView === 'logs' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">System Logs</h1>
+              <p className="text-sm sm:text-base text-gray-600">View system activity and audit logs</p>
+            </div>
+          </div>
+
+          {/* Filter Section */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
+                <div className="flex-1">
+                  <Label htmlFor="logLevelFilter">Filter by Level</Label>
+                  <Select value={logLevelFilter} onValueChange={setLogLevelFilter}>
+                    <SelectTrigger id="logLevelFilter">
+                      <SelectValue placeholder="All Levels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Levels</SelectItem>
+                      <SelectItem value="info">Info</SelectItem>
+                      <SelectItem value="warning">Warning</SelectItem>
+                      <SelectItem value="error">Error</SelectItem>
+                      <SelectItem value="debug">Debug</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLogLevelFilter('all')}
+                  className="w-full sm:w-auto"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+              {/* Show count text only on mobile, desktop DataTable has its own pagination info */}
+              <div className="mt-4 text-sm text-gray-600 md:hidden">
+                {filteredLogs.length > 0 ? (
+                  <>
+                    Showing {Math.min((logsPage - 1) * logsPerPage + 1, filteredLogs.length)} - {Math.min(logsPage * logsPerPage, filteredLogs.length)} of {filteredLogs.length} logs
+                  </>
+                ) : (
+                  'No logs to display'
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              {logsLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading logs...</p>
+                  </div>
+                </div>
+              ) : filteredLogs.length === 0 ? (
+                <div className="text-center py-12">
+                  <ScrollText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">No logs found matching your filters</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => setLogLevelFilter('all')}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Mobile Card View */}
+                  <div className="block md:hidden">
+                    <div className="space-y-3">
+                      {paginatedLogs.map((log) => (
+                        <div key={log._id} className="border rounded-lg p-4 space-y-3 bg-white shadow-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge variant={
+                              log.level === 'error' ? 'destructive' : 
+                              log.level === 'warning' ? 'secondary' : 
+                              'default'
+                            } className="font-semibold">
+                              {log.level.toUpperCase()}
+                            </Badge>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              {getTimeAgo(log.createdAt)}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-gray-900 break-words">
+                              {log.action || log.message}
+                            </p>
+                            {log.details && (
+                              <p className="text-xs text-gray-500 break-words">
+                                {log.details}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-xs border-t pt-2">
+                            <div className="flex items-center gap-1 text-gray-600">
+                              {log.user ? (
+                                <span className="truncate">
+                                  👤 {log.user.firstName} {log.user.lastName}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">⚙️ System</span>
+                              )}
+                            </div>
+                            <div className="text-gray-500 whitespace-nowrap">
+                              {new Date(log.createdAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Mobile Pagination */}
+                    {totalLogsPages > 1 && (
+                      <div className="mt-4 flex items-center justify-between border-t pt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLogsPage(prev => Math.max(1, prev - 1))}
+                          disabled={logsPage === 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-gray-600">
+                          Page {logsPage} of {totalLogsPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLogsPage(prev => Math.min(totalLogsPages, prev + 1))}
+                          disabled={logsPage === totalLogsPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block">
+                    <DataTable
+                      data={filteredLogs}
+                      columns={[
+                        { 
+                          header: 'Level', 
+                          accessor: (row) => (
+                            <Badge variant={
+                              row.level === 'error' ? 'destructive' : 
+                              row.level === 'warning' ? 'secondary' : 
+                              'default'
+                            }>
+                              {row.level.toUpperCase()}
+                            </Badge>
+                          )
+                        },
+                        { 
+                          header: 'Message', 
+                          accessor: (row) => (
+                            <div>
+                              <div className="font-medium">{row.action || row.message}</div>
+                              {row.details && (
+                                <div className="text-sm text-gray-500">{row.details}</div>
+                              )}
+                            </div>
+                          )
+                        },
+                        { 
+                          header: 'User', 
+                          accessor: (row) => (
+                            row.user ? (
+                              <div>
+                                <div>{row.user.firstName} {row.user.lastName}</div>
+                                <div className="text-sm text-gray-500">{row.user.email}</div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">System</span>
+                            )
+                          )
+                        },
+                        { 
+                          header: 'Timestamp', 
+                          accessor: (row) => (
+                            <div>
+                              <div>{new Date(row.createdAt).toLocaleDateString()}</div>
+                              <div className="text-sm text-gray-500">
+                                {new Date(row.createdAt).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          )
+                        },
+                        { 
+                          header: 'Time Ago', 
+                          accessor: (row) => (
+                            <span className="text-sm text-gray-600">{getTimeAgo(row.createdAt)}</span>
+                          )
+                        },
+                      ]}
+                      searchable
+                      searchPlaceholder="Search logs..."
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
