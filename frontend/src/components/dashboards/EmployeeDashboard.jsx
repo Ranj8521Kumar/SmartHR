@@ -102,6 +102,10 @@ export default function EmployeeDashboard({ user }) {
   const [resumeError, setResumeError] = useState(null);
   const [isDraggingResume, setIsDraggingResume] = useState(false);
 
+  // Notifications state
+  const [notifications, setNotifications] = useState([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
   // Load saved jobs from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(`savedJobs_${user.id}`);
@@ -139,6 +143,57 @@ export default function EmployeeDashboard({ user }) {
 
     fetchResumes();
   }, [activeView]);
+
+  // Generate notifications from applications
+  useEffect(() => {
+    if (activeView === 'notifications') {
+      setLoadingNotifications(true);
+      
+      // Generate notifications based on application status changes
+      const generatedNotifications = applications.map((app) => {
+        const job = jobs.find(j => j._id === app.job?._id) || app.job;
+        const timeAgo = formatTimeAgo(new Date(app.updatedAt));
+        
+        let type = 'info';
+        let message = '';
+        
+        switch(app.status) {
+          case 'Accepted':
+            type = 'success';
+            message = `Your application for ${job?.title || 'a position'} has been accepted!`;
+            break;
+          case 'Rejected':
+            type = 'error';
+            message = `Your application for ${job?.title || 'a position'} was not successful.`;
+            break;
+          case 'Interview':
+            type = 'warning';
+            message = `You have been invited for an interview for ${job?.title || 'a position'}!`;
+            break;
+          case 'Reviewed':
+            type = 'info';
+            message = `Your application for ${job?.title || 'a position'} is under review.`;
+            break;
+          default:
+            type = 'info';
+            message = `Your application for ${job?.title || 'a position'} has been submitted.`;
+        }
+        
+        return {
+          id: app._id,
+          type,
+          message,
+          time: timeAgo,
+          read: false,
+          applicationId: app._id,
+          jobId: job?._id
+        };
+      }).reverse(); // Show newest first
+      
+      setNotifications(generatedNotifications);
+      setLoadingNotifications(false);
+    }
+  }, [activeView, applications, jobs]);
 
   // Fetch jobs from API
   useEffect(() => {
@@ -195,7 +250,7 @@ export default function EmployeeDashboard({ user }) {
     { icon: <Bookmark className="h-5 w-5" />, label: 'Saved Jobs', active: activeView === 'saved', onClick: () => setActiveView('saved'), badge: savedJobs.length },
     { icon: <FileText className="h-5 w-5" />, label: 'My Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: applications.length },
     { icon: <User className="h-5 w-5" />, label: 'Profile', active: activeView === 'profile', onClick: () => setActiveView('profile') },
-    { icon: <Bell className="h-5 w-5" />, label: 'Notifications', active: activeView === 'notifications', onClick: () => setActiveView('notifications'), badge: 2 },
+    { icon: <Bell className="h-5 w-5" />, label: 'Notifications', active: activeView === 'notifications', onClick: () => setActiveView('notifications'), badge: notifications.filter(n => !n.read).length },
   ];
 
   const toggleSaveJob = (jobId) => {
@@ -344,6 +399,42 @@ export default function EmployeeDashboard({ user }) {
     if (diffDays < 7) return `${diffDays} days ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
     return date.toLocaleDateString();
+  };
+
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffMinutes = Math.floor(diffTime / (1000 * 60));
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return date.toLocaleDateString();
+  };
+
+  const handleMarkNotificationRead = (notificationId) => {
+    setNotifications(prev => 
+      prev.map(notif => 
+        notif.id === notificationId ? { ...notif, read: true } : notif
+      )
+    );
+  };
+
+  const handleMarkAllRead = () => {
+    setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+  };
+
+  const handleNotificationClick = (notification) => {
+    handleMarkNotificationRead(notification.id);
+    if (notification.applicationId) {
+      const application = applications.find(app => app._id === notification.applicationId);
+      if (application) {
+        handleViewApplicationDetails(application);
+      }
+    }
   };
 
   // Filter jobs for saved view
@@ -1063,6 +1154,109 @@ export default function EmployeeDashboard({ user }) {
               </CardContent>
             </Card>
           </div>
+        </div>
+      )}
+
+      {/* Notifications View */}
+      {activeView === 'notifications' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
+              <p className="text-sm sm:text-base text-gray-600">
+                Stay updated on your application status
+              </p>
+            </div>
+            {notifications.some(n => !n.read) && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleMarkAllRead}
+                className="w-full sm:w-auto"
+              >
+                Mark all as read
+              </Button>
+            )}
+          </div>
+
+          {loadingNotifications ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+              <span className="ml-2 text-gray-600">Loading notifications...</span>
+            </div>
+          ) : notifications.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 sm:p-12 text-center">
+                <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No notifications yet</h3>
+                <p className="text-sm sm:text-base text-gray-600">
+                  You'll receive notifications about your job applications here
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {notifications.map((notification) => (
+                <Card 
+                  key={notification.id}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    !notification.read ? 'border-l-4 border-l-orange-500 bg-orange-50/30' : ''
+                  }`}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      {/* Icon based on notification type */}
+                      <div className={`flex-shrink-0 rounded-full p-2 sm:p-3 ${
+                        notification.type === 'success' ? 'bg-green-100' :
+                        notification.type === 'error' ? 'bg-red-100' :
+                        notification.type === 'warning' ? 'bg-yellow-100' :
+                        'bg-blue-100'
+                      }`}>
+                        {notification.type === 'success' && (
+                          <svg className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {notification.type === 'error' && (
+                          <svg className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                        {notification.type === 'warning' && (
+                          <svg className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        )}
+                        {notification.type === 'info' && (
+                          <svg className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Notification content */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm sm:text-base ${
+                          !notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'
+                        }`}>
+                          {notification.message}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">{notification.time}</p>
+                      </div>
+
+                      {/* Unread indicator */}
+                      {!notification.read && (
+                        <div className="flex-shrink-0">
+                          <div className="h-2 w-2 rounded-full bg-orange-500"></div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
