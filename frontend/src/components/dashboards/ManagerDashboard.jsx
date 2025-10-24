@@ -58,6 +58,12 @@ export default function ManagerDashboard({ user }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
+
+  // Candidates page state
+  const [candidates, setCandidates] = useState([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
+  const [candidateFilter, setCandidateFilter] = useState('all');
   
   const [dashboardData, setDashboardData] = useState({
     stats: {
@@ -80,6 +86,12 @@ export default function ManagerDashboard({ user }) {
   useEffect(() => {
     if (activeView === 'applications') {
       fetchApplications();
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    if (activeView === 'candidates') {
+      fetchCandidates();
     }
   }, [activeView]);
 
@@ -111,6 +123,23 @@ export default function ManagerDashboard({ user }) {
       console.error('Failed to fetch applications:', error);
     } finally {
       setLoadingApplications(false);
+    }
+  };
+
+  const fetchCandidates = async () => {
+    try {
+      setLoadingCandidates(true);
+      // Fetch applications with shortlisted or higher status
+      const response = await dashboardService.getApplications({
+        status: 'shortlisted,interview_scheduled,interviewed,offer_extended'
+      });
+      if (response.success) {
+        setCandidates(response.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch candidates:', error);
+    } finally {
+      setLoadingCandidates(false);
     }
   };
 
@@ -172,6 +201,33 @@ export default function ManagerDashboard({ user }) {
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(app =>
+        app.applicant?.firstName?.toLowerCase().includes(query) ||
+        app.applicant?.lastName?.toLowerCase().includes(query) ||
+        app.applicant?.email?.toLowerCase().includes(query) ||
+        app.job?.title?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  };
+
+  const getFilteredCandidates = () => {
+    let filtered = candidates;
+
+    // Filter by status
+    if (candidateFilter !== 'all') {
+      const statusMap = {
+        'shortlisted': ['shortlisted'],
+        'interview': ['interview_scheduled', 'interviewed'],
+        'offer': ['offer_extended']
+      };
+      filtered = filtered.filter(app => statusMap[candidateFilter]?.includes(app.status));
+    }
+
+    // Filter by search query
+    if (candidateSearchQuery) {
+      const query = candidateSearchQuery.toLowerCase();
       filtered = filtered.filter(app =>
         app.applicant?.firstName?.toLowerCase().includes(query) ||
         app.applicant?.lastName?.toLowerCase().includes(query) ||
@@ -833,79 +889,204 @@ export default function ManagerDashboard({ user }) {
           {/* Header - Mobile Responsive */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Candidate Comparison</h1>
-              <p className="text-sm md:text-base text-gray-600">Compare and review shortlisted candidates</p>
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">Candidates</h1>
+              <p className="text-sm md:text-base text-gray-600">Review and compare shortlisted candidates</p>
             </div>
-            {selectedCandidates.length > 0 && (
-              <Button className="w-full sm:w-auto">
-                Compare Selected ({selectedCandidates.length})
+            <div className="flex gap-2">
+              {selectedCandidates.length > 0 && (
+                <Button className="flex-1 sm:flex-none">
+                  <Users className="h-4 w-4 mr-2" />
+                  Compare ({selectedCandidates.length})
+                </Button>
+              )}
+              <Button onClick={fetchCandidates} variant="outline" className="flex-1 sm:flex-none">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
               </Button>
-            )}
+            </div>
           </div>
 
-          {dashboardData.topCandidates.length === 0 ? (
+          {/* Search and Filter */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search candidates by name or email..."
+                    value={candidateSearchQuery}
+                    onChange={(e) => setCandidateSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="w-full sm:w-56">
+                  <Tabs value={candidateFilter} onValueChange={setCandidateFilter} className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                      <TabsTrigger value="shortlisted" className="text-xs">Shortlisted</TabsTrigger>
+                      <TabsTrigger value="interview" className="text-xs">Interview</TabsTrigger>
+                      <TabsTrigger value="offer" className="text-xs">Offer</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Candidates Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Total</p>
+                    <p className="text-xl md:text-2xl font-bold">{candidates.length}</p>
+                  </div>
+                  <Users className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Shortlisted</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {candidates.filter(c => c.status === 'shortlisted').length}
+                    </p>
+                  </div>
+                  <Star className="h-6 w-6 md:h-8 md:w-8 text-yellow-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Interview</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {candidates.filter(c => ['interview_scheduled', 'interviewed'].includes(c.status)).length}
+                    </p>
+                  </div>
+                  <Calendar className="h-6 w-6 md:h-8 md:w-8 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Offers</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      {candidates.filter(c => c.status === 'offer_extended').length}
+                    </p>
+                  </div>
+                  <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Candidates List */}
+          {loadingCandidates ? (
+            <Card>
+              <CardContent className="p-12">
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <span className="ml-3 text-gray-600">Loading candidates...</span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : getFilteredCandidates().length === 0 ? (
             <Card>
               <CardContent className="p-8 md:p-12">
                 <div className="text-center text-gray-500">
                   <Users className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 md:mb-4 text-gray-400" />
-                  <p className="text-sm md:text-base">No candidates available for review</p>
+                  <p className="text-sm md:text-base mb-2">No candidates available for review</p>
+                  <p className="text-xs md:text-sm text-gray-400">
+                    {candidateSearchQuery || candidateFilter !== 'all'
+                      ? 'Try adjusting your filters'
+                      : 'Candidates will appear here after being shortlisted'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-              {dashboardData.topCandidates.map((candidate) => (
+              {getFilteredCandidates().map((candidate) => (
                 <Card 
                   key={candidate._id}
-                  className={selectedCandidates.includes(candidate._id) ? 'ring-2 ring-green-600' : ''}
+                  className={`hover:shadow-lg transition-shadow ${selectedCandidates.includes(candidate._id) ? 'ring-2 ring-green-600' : ''}`}
                 >
                   <CardContent className="p-4 md:p-6">
                     <div className="flex items-start justify-between mb-4 gap-3">
                       <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                         <img 
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidate.name}`} 
-                          alt={candidate.name} 
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidate.applicant?.email || 'default'}`} 
+                          alt={`${candidate.applicant?.firstName} ${candidate.applicant?.lastName}`}
                           className="w-12 h-12 md:w-16 md:h-16 rounded-full flex-shrink-0" 
                         />
-                        <div>
-                          <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-1 truncate">{candidate.name}</h3>
-                          <p className="text-xs md:text-sm text-gray-600 truncate">{candidate.position}</p>
-                          <p className="text-xs text-gray-500">{candidate.experience} experience</p>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-1 truncate">
+                            {candidate.applicant?.firstName} {candidate.applicant?.lastName}
+                          </h3>
+                          <p className="text-xs md:text-sm text-gray-600 truncate">{candidate.job?.title || 'Position'}</p>
+                          <p className="text-xs text-gray-500">Applied {formatDate(candidate.createdAt)}</p>
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-xs md:text-sm text-green-600 mb-1">Match Score</div>
-                        <div className="text-lg md:text-xl font-bold text-gray-900">{Math.round(candidate.score)}%</div>
-                      </div>
+                      {candidate.aiMatchScore !== undefined && (
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-xs md:text-sm text-green-600 mb-1">Match</div>
+                          <div className="text-lg md:text-xl font-bold text-gray-900">{Math.round(candidate.aiMatchScore)}%</div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="mb-4">
-                      <p className="text-xs md:text-sm text-gray-600 mb-2">Key Skills:</p>
-                      <div className="flex flex-wrap gap-1.5 md:gap-2">
-                        {candidate.skills.slice(0, 5).map((skill, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">{skill}</Badge>
-                        ))}
-                        {candidate.skills.length > 5 && (
-                          <Badge variant="outline" className="text-xs">+{candidate.skills.length - 5} more</Badge>
-                        )}
+                    {/* Contact Info */}
+                    <div className="mb-4 space-y-2">
+                      <div className="flex items-center gap-2 text-xs md:text-sm text-gray-600">
+                        <Mail className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                        <span className="truncate">{candidate.applicant?.email}</span>
                       </div>
+                      {candidate.applicant?.phone && (
+                        <div className="flex items-center gap-2 text-xs md:text-sm text-gray-600">
+                          <Phone className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                          <span>{candidate.applicant.phone}</span>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Skills */}
+                    {candidate.applicant?.skills && candidate.applicant.skills.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs md:text-sm text-gray-600 mb-2">Key Skills:</p>
+                        <div className="flex flex-wrap gap-1.5 md:gap-2">
+                          {candidate.applicant.skills.slice(0, 5).map((skill, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">{skill}</Badge>
+                          ))}
+                          {candidate.applicant.skills.length > 5 && (
+                            <Badge variant="outline" className="text-xs">+{candidate.applicant.skills.length - 5} more</Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <div>
-                        <Label className="text-xs md:text-sm">Interview Status</Label>
+                        <Label className="text-xs md:text-sm">Status</Label>
                         <div className="mt-1">
-                          <Badge variant={candidate.status === 'interviewed' ? 'default' : 'secondary'} className="text-xs">
-                            {candidate.status.replace('_', ' ')}
+                          <Badge variant={getStatusBadgeVariant(candidate.status)} className="text-xs">
+                            {getStatusLabel(candidate.status)}
                           </Badge>
                         </div>
                       </div>
 
                       <div>
-                        <Label className="text-xs md:text-sm">Feedback</Label>
+                        <Label className="text-xs md:text-sm">Notes</Label>
                         <Textarea 
-                          placeholder="Add your interview feedback..." 
+                          placeholder="Add interview feedback or notes..." 
                           className="mt-1 text-xs md:text-sm min-h-[60px] md:min-h-[80px]" 
+                          defaultValue={candidate.notes || ''}
                         />
                       </div>
 
@@ -915,14 +1096,27 @@ export default function ManagerDashboard({ user }) {
                           className="flex-1 text-xs md:text-sm"
                           onClick={() => toggleCandidateSelection(candidate._id)}
                         >
-                          <span className="hidden sm:inline">
-                            {selectedCandidates.includes(candidate._id) ? 'Selected' : 'Select for Comparison'}
-                          </span>
-                          <span className="sm:hidden">
-                            {selectedCandidates.includes(candidate._id) ? 'Selected' : 'Select'}
-                          </span>
+                          {selectedCandidates.includes(candidate._id) ? (
+                            <>
+                              <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                              <span className="hidden sm:inline">Selected</span>
+                              <span className="sm:hidden">Selected</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="hidden sm:inline">Select for Comparison</span>
+                              <span className="sm:hidden">Select</span>
+                            </>
+                          )}
                         </Button>
-                        <Button variant="outline" className="flex-1 text-xs md:text-sm">View Resume</Button>
+                        <Button 
+                          variant="outline" 
+                          className="flex-1 text-xs md:text-sm"
+                          onClick={() => handleViewCandidate(candidate)}
+                        >
+                          <Eye className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                          View Profile
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
