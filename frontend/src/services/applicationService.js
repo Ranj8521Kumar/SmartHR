@@ -48,7 +48,7 @@ const applicationService = {
   async updateApplicationStatus(id, status, notes = '') {
     const token = authService.getToken();
     
-    const response = await fetch(`${API_ENDPOINTS.APPLICATIONS}/${id}/status`, {
+    const response = await fetch(`${API_ENDPOINTS.APPLICATIONS}/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

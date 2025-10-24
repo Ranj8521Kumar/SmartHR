@@ -21,6 +21,7 @@ import {
 import dashboardService from '../../services/dashboardService';
 import userService from '../../services/userService';
 import jobService from '../../services/jobService';
+import applicationService from '../../services/applicationService';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -55,6 +56,13 @@ export default function AdminDashboard({ user }) {
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
   const [isEditJobOpen, setIsEditJobOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  
+  // Applications state
+  const [applications, setApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState('all');
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [isViewApplicationOpen, setIsViewApplicationOpen] = useState(false);
   
   // Job filters
   const [jobStatusFilter, setJobStatusFilter] = useState('all');
@@ -94,6 +102,13 @@ export default function AdminDashboard({ user }) {
     openings: 1,
     deadline: ''
   });
+
+  // Helper function to format status text
+  const formatStatus = (status) => {
+    return status.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
 
   // Helper function to get time ago
   const getTimeAgo = (date) => {
@@ -286,11 +301,35 @@ export default function AdminDashboard({ user }) {
     fetchJobs();
   }, [activeView]);
 
+  // Fetch applications when applications view is active
+  useEffect(() => {
+    const fetchApplications = async () => {
+      if (activeView === 'applications') {
+        try {
+          setApplicationsLoading(true);
+          const response = await applicationService.getApplications({ limit: 100 });
+          setApplications(response.data || []);
+        } catch (error) {
+          console.error('Failed to fetch applications:', error);
+        } finally {
+          setApplicationsLoading(false);
+        }
+      }
+    };
+
+    fetchApplications();
+  }, [activeView]);
+
   // Filtered jobs based on status and type filters
   const filteredJobs = jobs.filter(job => {
     const statusMatch = jobStatusFilter === 'all' || job.status === jobStatusFilter;
     const typeMatch = jobTypeFilter === 'all' || job.employmentType === jobTypeFilter;
     return statusMatch && typeMatch;
+  });
+
+  // Filtered applications based on status filter
+  const filteredApplications = applications.filter(app => {
+    return applicationStatusFilter === 'all' || app.status === applicationStatusFilter;
   });
 
   // Handle form input changes
@@ -673,6 +712,56 @@ export default function AdminDashboard({ user }) {
     }
   };
 
+  // Application handlers
+  const handleViewApplication = async (applicationId) => {
+    try {
+      const response = await applicationService.getApplicationById(applicationId);
+      setSelectedApplication(response.data);
+      setIsViewApplicationOpen(true);
+    } catch (error) {
+      console.error('Failed to fetch application:', error);
+      alert('Failed to load application details');
+    }
+  };
+
+  const handleUpdateApplicationStatus = async (applicationId, newStatus) => {
+    try {
+      await applicationService.updateApplicationStatus(applicationId, newStatus);
+      
+      // Refresh applications list
+      const response = await applicationService.getApplications({ limit: 100 });
+      setApplications(response.data || []);
+      
+      // Close dialog if open
+      setIsViewApplicationOpen(false);
+      setSelectedApplication(null);
+      
+      alert(`Application status updated to ${newStatus.replace('_', ' ')}!`);
+    } catch (error) {
+      console.error('Failed to update application status:', error);
+      alert('Failed to update application status: ' + error.message);
+    }
+  };
+
+  const handleDeleteApplication = async (applicationId) => {
+    if (!window.confirm('Are you sure you want to delete this application? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await applicationService.deleteApplication(applicationId);
+      
+      // Refresh applications list
+      const response = await applicationService.getApplications({ limit: 100 });
+      setApplications(response.data || []);
+      
+      alert('Application deleted successfully!');
+    } catch (error) {
+      console.error('Failed to delete application:', error);
+      alert('Failed to delete application');
+    }
+  };
+
   // Reset form when dialogs close
   const handleCloseCreateDialog = (open) => {
     setIsCreateUserOpen(open);
@@ -754,7 +843,7 @@ export default function AdminDashboard({ user }) {
     { icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', active: activeView === 'dashboard', onClick: () => setActiveView('dashboard') },
     { icon: <Users className="h-5 w-5" />, label: 'Users', active: activeView === 'users', onClick: () => setActiveView('users') },
     { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs'), badge: jobs.length },
-    { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: dashboardData?.summary?.pendingApplications || 0 },
+    { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: applications.length },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
     { icon: <ScrollText className="h-5 w-5" />, label: 'Logs', active: activeView === 'logs', onClick: () => setActiveView('logs') },
     { icon: <Settings className="h-5 w-5" />, label: 'Settings', active: activeView === 'settings', onClick: () => setActiveView('settings') },
@@ -1741,6 +1830,308 @@ export default function AdminDashboard({ user }) {
               </CardContent>
             </Card>
           </div>
+        </div>
+      )}
+
+      {activeView === 'applications' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Application Management</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage and review job applications</p>
+            </div>
+          </div>
+
+          {/* Filter Section */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
+                <div className="flex-1">
+                  <Label htmlFor="applicationStatusFilter">Filter by Status</Label>
+                  <Select value={applicationStatusFilter} onValueChange={setApplicationStatusFilter}>
+                    <SelectTrigger id="applicationStatusFilter">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="submitted">Submitted</SelectItem>
+                      <SelectItem value="under_review">Under Review</SelectItem>
+                      <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                      <SelectItem value="interview_scheduled">Interview Scheduled</SelectItem>
+                      <SelectItem value="interviewed">Interviewed</SelectItem>
+                      <SelectItem value="offer_extended">Offer Extended</SelectItem>
+                      <SelectItem value="accepted">Accepted</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setApplicationStatusFilter('all')}
+                  className="w-full sm:w-auto"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+              <div className="mt-4 text-sm text-gray-600">
+                Showing {filteredApplications.length} of {applications.length} applications
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Application Details Dialog */}
+          <Dialog open={isViewApplicationOpen} onOpenChange={setIsViewApplicationOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
+              <DialogHeader>
+                <DialogTitle>Application Details</DialogTitle>
+                <DialogDescription>Review and manage application</DialogDescription>
+              </DialogHeader>
+              {selectedApplication && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-500">Applicant Name</Label>
+                      <p className="font-medium">
+                        {selectedApplication.applicant?.firstName} {selectedApplication.applicant?.lastName}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-500">Email</Label>
+                      <p className="font-medium">{selectedApplication.applicant?.email}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-500">Job Position</Label>
+                      <p className="font-medium">{selectedApplication.job?.title}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-500">Applied Date</Label>
+                      <p className="font-medium">
+                        {new Date(selectedApplication.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-500">Current Status</Label>
+                      <div className="mt-1">
+                        <Badge>{formatStatus(selectedApplication.status)}</Badge>
+                      </div>
+                    </div>
+                    {selectedApplication.aiScore?.overallScore && (
+                      <div>
+                        <Label className="text-gray-500">AI Score</Label>
+                        <p className="font-medium">{selectedApplication.aiScore.overallScore}%</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedApplication.coverLetter && (
+                    <div>
+                      <Label className="text-gray-500">Cover Letter</Label>
+                      <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
+                        {selectedApplication.coverLetter}
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="updateStatus">Update Status</Label>
+                    <Select
+                      defaultValue={selectedApplication.status}
+                      onValueChange={(value) => handleUpdateApplicationStatus(selectedApplication._id, value)}
+                    >
+                      <SelectTrigger id="updateStatus">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="submitted">Submitted</SelectItem>
+                        <SelectItem value="under_review">Under Review</SelectItem>
+                        <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                        <SelectItem value="interview_scheduled">Interview Scheduled</SelectItem>
+                        <SelectItem value="interviewed">Interviewed</SelectItem>
+                        <SelectItem value="offer_extended">Offer Extended</SelectItem>
+                        <SelectItem value="accepted">Accepted</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <Card>
+            <CardContent className="pt-6">
+              {applicationsLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading applications...</p>
+                  </div>
+                </div>
+              ) : filteredApplications.length === 0 ? (
+                <div className="text-center py-12">
+                  <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">No applications found matching your filters</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => setApplicationStatusFilter('all')}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Mobile Card View */}
+                  <div className="block md:hidden space-y-4">
+                    {filteredApplications.map((app) => (
+                      <div key={app._id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900">
+                              {app.applicant?.firstName} {app.applicant?.lastName}
+                            </h3>
+                            <p className="text-sm text-gray-600">{app.job?.title}</p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-gray-100 transition-colors">
+                              <MoreVertical className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewApplication(app._id)}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleUpdateApplicationStatus(app._id, 'shortlisted')}>
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Shortlist
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleUpdateApplicationStatus(app._id, 'rejected')}>
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                                Reject
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteApplication(app._id)}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-500">Email:</span>
+                            <p className="font-medium truncate">{app.applicant?.email}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Applied:</span>
+                            <p className="font-medium">
+                              {new Date(app.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Status:</span>
+                            <div className="mt-1">
+                              <Badge variant={
+                                app.status === 'accepted' ? 'default' : 
+                                app.status === 'rejected' ? 'destructive' : 
+                                'secondary'
+                              }>
+                                {formatStatus(app.status)}
+                              </Badge>
+                            </div>
+                          </div>
+                          {app.aiScore?.overallScore && (
+                            <div>
+                              <span className="text-gray-500">AI Score:</span>
+                              <p className="font-medium">{app.aiScore.overallScore}%</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block">
+                    <DataTable
+                      data={filteredApplications}
+                      columns={[
+                        { 
+                          header: 'Applicant', 
+                          accessor: (row) => (
+                            <div>
+                              <div className="font-medium">
+                                {row.applicant?.firstName} {row.applicant?.lastName}
+                              </div>
+                              <div className="text-sm text-gray-500">{row.applicant?.email}</div>
+                            </div>
+                          )
+                        },
+                        { 
+                          header: 'Job Position', 
+                          accessor: (row) => row.job?.title || 'N/A'
+                        },
+                        { 
+                          header: 'Applied Date', 
+                          accessor: (row) => new Date(row.createdAt).toLocaleDateString()
+                        },
+                        { 
+                          header: 'AI Score', 
+                          accessor: (row) => (
+                            <span className="font-medium">
+                              {row.aiScore?.overallScore ? `${row.aiScore.overallScore}%` : 'N/A'}
+                            </span>
+                          )
+                        },
+                        { 
+                          header: 'Status', 
+                          accessor: (row) => (
+                            <Badge variant={
+                              row.status === 'accepted' ? 'default' : 
+                              row.status === 'rejected' ? 'destructive' : 
+                              'secondary'
+                            }>
+                              {formatStatus(row.status)}
+                            </Badge>
+                          )
+                        },
+                        { 
+                          header: 'Actions', 
+                          accessor: (row) => (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 px-2 rounded-md hover:bg-gray-100 transition-colors">
+                                <MoreVertical className="h-4 w-4" />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleViewApplication(row._id)}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateApplicationStatus(row._id, 'shortlisted')}>
+                                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                                  Shortlist
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateApplicationStatus(row._id, 'rejected')}>
+                                  <AlertCircle className="h-4 w-4 mr-2" />
+                                  Reject
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteApplication(row._id)}>
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )
+                        },
+                      ]}
+                      searchable
+                      searchPlaceholder="Search applications..."
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
         </>
