@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Progress } from '../ui/progress';
 import dashboardService from '../../services/dashboardService';
+import applicationService from '../../services/applicationService';
 
 export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -32,6 +33,8 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [filteredApplications, setFilteredApplications] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [approvingId, setApprovingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
 
   useEffect(() => {
     if (isOpen && job) {
@@ -121,6 +124,42 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
       'withdrawn': 'Withdrawn'
     };
     return labels[status] || status;
+  };
+
+  const handleApprove = async (application) => {
+    try {
+      setApprovingId(application._id);
+      await applicationService.updateApplicationStatus(
+        application._id, 
+        'shortlisted',
+        'Application approved by manager'
+      );
+      // Refresh applications list
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error approving application:', error);
+      alert('Failed to approve application. Please try again.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (application) => {
+    try {
+      setRejectingId(application._id);
+      await applicationService.updateApplicationStatus(
+        application._id, 
+        'rejected',
+        'Application rejected by manager'
+      );
+      // Refresh applications list
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error rejecting application:', error);
+      alert('Failed to reject application. Please try again.');
+    } finally {
+      setRejectingId(null);
+    }
   };
 
   const getStatusCounts = () => {
@@ -251,12 +290,40 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                               </Button>
                               {app.status !== 'accepted' && app.status !== 'rejected' && (
                                 <>
-                                  <Button size="sm" variant="outline" title="Approve" className="flex-1 lg:flex-none">
-                                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    title="Approve" 
+                                    className="flex-1 lg:flex-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleApprove(app);
+                                    }}
+                                    disabled={approvingId === app._id || rejectingId === app._id}
+                                  >
+                                    {approvingId === app._id ? (
+                                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                    )}
                                     <span className="ml-1 lg:hidden text-xs">Approve</span>
                                   </Button>
-                                  <Button size="sm" variant="outline" title="Reject" className="flex-1 lg:flex-none">
-                                    <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    title="Reject" 
+                                    className="flex-1 lg:flex-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleReject(app);
+                                    }}
+                                    disabled={approvingId === app._id || rejectingId === app._id}
+                                  >
+                                    {rejectingId === app._id ? (
+                                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                                    ) : (
+                                      <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
+                                    )}
                                     <span className="ml-1 lg:hidden text-xs">Reject</span>
                                   </Button>
                                 </>
