@@ -22,6 +22,8 @@ import dashboardService from '../../services/dashboardService';
 import userService from '../../services/userService';
 import jobService from '../../services/jobService';
 import applicationService from '../../services/applicationService';
+import authService from '../../services/authService';
+import { useAuth } from '../../hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -45,7 +47,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function AdminDashboard({ user }) {
+  const { user: authUser } = useAuth();
   const [activeView, setActiveView] = useState('dashboard');
+  const [currentUser, setCurrentUser] = useState(user || authUser);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -361,6 +365,36 @@ export default function AdminDashboard({ user }) {
   useEffect(() => {
     setLogsPage(1);
   }, [logLevelFilter]);
+
+  // Refresh current user data when settings view is active
+  useEffect(() => {
+    const refreshUserData = async () => {
+      if (activeView === 'settings') {
+        try {
+          const response = await authService.getCurrentUser();
+          if (response && response.data) {
+            setCurrentUser(response.data);
+          }
+        } catch (error) {
+          console.error('Failed to refresh user data:', error);
+        }
+      }
+    };
+
+    refreshUserData();
+  }, [activeView]);
+
+  // Update profileData when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      setProfileData(prev => ({
+        ...prev,
+        firstName: currentUser.firstName || '',
+        lastName: currentUser.lastName || '',
+        email: currentUser.email || ''
+      }));
+    }
+  }, [currentUser]);
 
   // Filtered jobs based on status and type filters
   const filteredJobs = jobs.filter(job => {
@@ -828,7 +862,7 @@ export default function AdminDashboard({ user }) {
         return;
       }
 
-      const userId = user?._id || user?.id;
+      const userId = currentUser?._id || currentUser?.id;
       if (!userId) {
         alert('User ID not found. Please log in again.');
         return;
@@ -842,6 +876,13 @@ export default function AdminDashboard({ user }) {
       };
 
       await userService.updateUser(userId, updateData);
+      
+      // Refresh user data after update
+      const response = await authService.getCurrentUser();
+      if (response && response.data) {
+        setCurrentUser(response.data);
+      }
+      
       alert('Profile updated successfully!');
     } catch (error) {
       console.error('Failed to update profile:', error);
@@ -868,7 +909,7 @@ export default function AdminDashboard({ user }) {
         return;
       }
 
-      const userId = user?._id || user?.id;
+      const userId = currentUser?._id || currentUser?.id;
       if (!userId) {
         alert('User ID not found. Please log in again.');
         return;
@@ -2235,12 +2276,12 @@ export default function AdminDashboard({ user }) {
                 </div>
                 <div>
                   <Label className="text-gray-500">Role</Label>
-                  <p className="font-medium capitalize">{user?.role?.replace('_', ' ')}</p>
+                  <p className="font-medium capitalize">{currentUser?.role?.replace('_', ' ')}</p>
                 </div>
-                {user?.department && (
+                {currentUser?.department && (
                   <div>
                     <Label className="text-gray-500">Department</Label>
-                    <p className="font-medium">{user.department}</p>
+                    <p className="font-medium">{currentUser.department}</p>
                   </div>
                 )}
                 <Button
@@ -2309,26 +2350,26 @@ export default function AdminDashboard({ user }) {
               <CardContent className="space-y-4">
                 <div>
                   <Label className="text-gray-500">User ID</Label>
-                  <p className="font-mono text-sm">{user?._id || user?.id || 'N/A'}</p>
+                  <p className="font-mono text-sm">{currentUser?._id || currentUser?.id || 'N/A'}</p>
                 </div>
                 <div>
                   <Label className="text-gray-500">Account Status</Label>
                   <div className="mt-1">
-                    <Badge variant={user?.isActive ? 'default' : 'destructive'}>
-                      {user?.isActive ? 'Active' : 'Inactive'}
+                    <Badge variant={currentUser?.isActive ? 'default' : 'destructive'}>
+                      {currentUser?.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
                 </div>
                 <div>
                   <Label className="text-gray-500">Created At</Label>
                   <p className="text-sm">
-                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                    {currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-gray-500">Last Updated</Label>
                   <p className="text-sm">
-                    {user?.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}
+                    {currentUser?.updatedAt ? new Date(currentUser.updatedAt).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
               </CardContent>
