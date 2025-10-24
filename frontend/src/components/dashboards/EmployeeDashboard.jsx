@@ -472,8 +472,8 @@ export default function EmployeeDashboard({ user }) {
       {activeView === 'browse' && (
         <div className="space-y-6">
           <div>
-            <h1 className="text-gray-900 mb-2">Browse Jobs</h1>
-            <p className="text-gray-600">Find your next opportunity</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Browse Jobs</h1>
+            <p className="text-sm sm:text-base text-gray-600">Find your next opportunity</p>
           </div>
 
           {/* Search and Filters */}
@@ -653,8 +653,8 @@ export default function EmployeeDashboard({ user }) {
       {activeView === 'saved' && (
         <div className="space-y-6">
           <div>
-            <h1 className="text-gray-900 mb-2">Saved Jobs</h1>
-            <p className="text-gray-600">Your bookmarked job opportunities</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Saved Jobs</h1>
+            <p className="text-sm sm:text-base text-gray-600">Your bookmarked job opportunities</p>
           </div>
 
           {/* Loading State */}
@@ -793,7 +793,7 @@ export default function EmployeeDashboard({ user }) {
       {activeView === 'applications' && (
         <div className="space-y-4 sm:space-y-6">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl text-gray-900 mb-2">My Applications</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">My Applications</h1>
             <p className="text-sm sm:text-base text-gray-600">Track your application progress</p>
           </div>
 
@@ -989,8 +989,8 @@ export default function EmployeeDashboard({ user }) {
       {activeView === 'profile' && (
         <div className="space-y-6">
           <div>
-            <h1 className="text-gray-900 mb-2">My Profile</h1>
-            <p className="text-gray-600">Manage your profile and resume</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage your profile and resume</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
