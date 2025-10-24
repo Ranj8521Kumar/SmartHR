@@ -958,8 +958,8 @@ export default function AdminDashboard({ user }) {
           {activeView === 'dashboard' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-gray-900 mb-2">Admin Dashboard</h1>
-                <p className="text-gray-600">System overview and management</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+                <p className="text-sm sm:text-base text-gray-600">System overview and management</p>
               </div>
 
           {/* Stats Grid */}
@@ -1777,9 +1777,11 @@ export default function AdminDashboard({ user }) {
 
       {activeView === 'analytics' && (
         <div className="space-y-6">
-          <div>
-            <h1 className="text-gray-900 mb-2">Analytics</h1>
-            <p className="text-gray-600">System-wide metrics and insights</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Analytics</h1>
+              <p className="text-sm sm:text-base text-gray-600">System-wide metrics and insights</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
