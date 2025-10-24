@@ -195,7 +195,7 @@ export default function EmployeeDashboard({ user }) {
     }
   }, [activeView, applications, jobs]);
 
-  // Fetch jobs from API
+  // Fetch jobs from API on mount and when filters change
   useEffect(() => {
     const fetchJobs = async () => {
       setLoadingJobs(true);
@@ -219,12 +219,10 @@ export default function EmployeeDashboard({ user }) {
       }
     };
 
-    if (activeView === 'browse' || activeView === 'saved') {
-      fetchJobs();
-    }
-  }, [activeView, searchQuery, departmentFilter, typeFilter]);
+    fetchJobs();
+  }, [searchQuery, departmentFilter, typeFilter]); // Fetch on mount and when filters change
 
-  // Fetch applications from API
+  // Fetch applications from API on mount (always load to check "already applied" status)
   useEffect(() => {
     const fetchApplications = async () => {
       setLoadingApplications(true);
@@ -240,10 +238,8 @@ export default function EmployeeDashboard({ user }) {
       }
     };
 
-    if (activeView === 'applications') {
-      fetchApplications();
-    }
-  }, [activeView]);
+    fetchApplications();
+  }, []); // Run once on mount
 
   const sidebarItems = [
     { icon: <Search className="h-5 w-5" />, label: 'Browse Jobs', active: activeView === 'browse', onClick: () => setActiveView('browse') },
