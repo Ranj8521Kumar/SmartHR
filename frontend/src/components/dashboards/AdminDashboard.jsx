@@ -23,6 +23,7 @@ import userService from '../../services/userService';
 import jobService from '../../services/jobService';
 import applicationService from '../../services/applicationService';
 import authService from '../../services/authService';
+import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -99,6 +100,8 @@ export default function AdminDashboard({ user }) {
   const [logLevelFilter, setLogLevelFilter] = useState('all');
   const [logsPage, setLogsPage] = useState(1);
   const logsPerPage = 10;
+  const [selectedLogs, setSelectedLogs] = useState([]);
+  const [isDeletingLogs, setIsDeletingLogs] = useState(false);
   
   // Settings state
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -374,7 +377,8 @@ export default function AdminDashboard({ user }) {
       if (activeView === 'logs') {
         try {
           setLogsLoading(true);
-          const response = await dashboardService.getSystemLogs({ limit: 100 });
+          // Fetch all logs from database without any limit
+          const response = await dashboardService.getSystemLogs({});
           setAllLogs(response.data || []);
         } catch (error) {
           console.error('Failed to fetch logs:', error);
@@ -387,10 +391,16 @@ export default function AdminDashboard({ user }) {
     fetchLogs();
   }, [activeView]);
 
-  // Reset logs page when filter changes
+  // Reset logs page and selection when filter changes
   useEffect(() => {
     setLogsPage(1);
+    setSelectedLogs([]);
   }, [logLevelFilter]);
+
+  // Clear selection when changing pages
+  useEffect(() => {
+    setSelectedLogs([]);
+  }, [logsPage]);
 
   // Refresh current user data when settings view is active
   useEffect(() => {
@@ -873,6 +883,82 @@ export default function AdminDashboard({ user }) {
     } catch (error) {
       console.error('Failed to delete application:', error);
       alert('Failed to delete application');
+    }
+  };
+
+  // Log selection handlers
+  const handleSelectLog = (logId) => {
+    setSelectedLogs(prev => {
+      if (prev.includes(logId)) {
+        return prev.filter(id => id !== logId);
+      } else {
+        return [...prev, logId];
+      }
+    });
+  };
+
+  const handleSelectAllLogs = () => {
+    const currentPageLogs = paginatedLogs.map(log => log._id);
+    const allSelected = currentPageLogs.every(id => selectedLogs.includes(id));
+    
+    if (allSelected) {
+      // Deselect all on current page
+      setSelectedLogs(prev => prev.filter(id => !currentPageLogs.includes(id)));
+    } else {
+      // Select all on current page
+      setSelectedLogs(prev => {
+        const newSelection = [...prev];
+        currentPageLogs.forEach(id => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
+    }
+  };
+
+  const handleDeleteSelectedLogs = async () => {
+    if (selectedLogs.length === 0) {
+      alert('Please select logs to delete');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedLogs.length} selected log(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setIsDeletingLogs(true);
+      
+      // Use batch delete endpoint - creates only one audit log
+      const response = await fetch(`${API_ENDPOINTS.ANALYTICS}/logs/delete-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authService.getToken()}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({ logIds: selectedLogs })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to delete logs');
+      }
+
+      // Refresh logs list
+      const logsResponse = await dashboardService.getSystemLogs({});
+      setAllLogs(logsResponse.data || []);
+      setSelectedLogs([]);
+      
+      alert(`Successfully deleted ${data.deletedCount} log(s)!`);
+    } catch (error) {
+      console.error('Failed to delete logs:', error);
+      alert(error.message || 'Failed to delete selected logs');
+    } finally {
+      setIsDeletingLogs(false);
     }
   };
 
@@ -2054,6 +2140,16 @@ export default function AdminDashboard({ user }) {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">System Logs</h1>
               <p className="text-sm sm:text-base text-gray-600">View system activity and audit logs</p>
             </div>
+            {selectedLogs.length > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteSelectedLogs}
+                disabled={isDeletingLogs}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete {selectedLogs.length} Selected
+              </Button>
+            )}
           </div>
 
           {/* Filter Section */}
@@ -2121,22 +2217,44 @@ export default function AdminDashboard({ user }) {
                 <>
                   {/* Mobile Card View */}
                   <div className="block md:hidden">
+                    {/* Select All for Mobile */}
+                    {paginatedLogs.length > 0 && (
+                      <div className="mb-4 flex items-center gap-2 pb-3 border-b">
+                        <input
+                          type="checkbox"
+                          checked={paginatedLogs.every(log => selectedLogs.includes(log._id))}
+                          onChange={handleSelectAllLogs}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <label className="text-sm font-medium">
+                          Select All ({paginatedLogs.length})
+                        </label>
+                      </div>
+                    )}
                     <div className="space-y-3">
                       {paginatedLogs.map((log) => (
                         <div key={log._id} className="border rounded-lg p-4 space-y-3 bg-white shadow-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge variant={
-                              log.level === 'error' ? 'destructive' : 
-                              log.level === 'warning' ? 'secondary' : 
-                              'default'
-                            } className="font-semibold">
-                              {log.level.toUpperCase()}
-                            </Badge>
-                            <span className="text-xs text-gray-500 whitespace-nowrap">
-                              {getTimeAgo(log.createdAt)}
-                            </span>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedLogs.includes(log._id)}
+                              onChange={() => handleSelectLog(log._id)}
+                              className="h-4 w-4 rounded border-gray-300"
+                            />
+                            <div className="flex-1 flex items-center justify-between gap-2">
+                              <Badge variant={
+                                log.level === 'error' ? 'destructive' : 
+                                log.level === 'warning' ? 'secondary' : 
+                                'default'
+                              } className="font-semibold">
+                                {log.level.toUpperCase()}
+                              </Badge>
+                              <span className="text-xs text-gray-500 whitespace-nowrap">
+                                {getTimeAgo(log.createdAt)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-2 ml-7">
                             <p className="text-sm font-medium text-gray-900 break-words">
                               {log.action || log.message}
                             </p>
@@ -2146,7 +2264,7 @@ export default function AdminDashboard({ user }) {
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center justify-between text-xs border-t pt-2">
+                          <div className="flex items-center justify-between text-xs border-t pt-2 ml-7">
                             <div className="flex items-center gap-1 text-gray-600">
                               {log.user ? (
                                 <span className="truncate">
@@ -2195,9 +2313,35 @@ export default function AdminDashboard({ user }) {
 
                   {/* Desktop Table View */}
                   <div className="hidden md:block">
+                    {/* Select All for Desktop */}
+                    {paginatedLogs.length > 0 && (
+                      <div className="mb-4 flex items-center gap-2 pb-3 border-b">
+                        <input
+                          type="checkbox"
+                          checked={paginatedLogs.every(log => selectedLogs.includes(log._id))}
+                          onChange={handleSelectAllLogs}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <label className="text-sm font-medium">
+                          Select All on Page ({paginatedLogs.length})
+                        </label>
+                      </div>
+                    )}
                     <DataTable
-                      data={filteredLogs}
+                      data={paginatedLogs}
                       columns={[
+                        {
+                          header: '',
+                          accessor: (row) => (
+                            <input
+                              type="checkbox"
+                              checked={selectedLogs.includes(row._id)}
+                              onChange={() => handleSelectLog(row._id)}
+                              className="h-4 w-4 rounded border-gray-300"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )
+                        },
                         { 
                           header: 'Level', 
                           accessor: (row) => (
@@ -2252,9 +2396,38 @@ export default function AdminDashboard({ user }) {
                           )
                         },
                       ]}
-                      searchable
-                      searchPlaceholder="Search logs..."
+                      searchable={false}
                     />
+                    
+                    {/* Desktop Pagination */}
+                    {totalLogsPages > 1 && (
+                      <div className="mt-4 flex items-center justify-between border-t pt-4">
+                        <div className="text-sm text-gray-600">
+                          Showing {Math.min((logsPage - 1) * logsPerPage + 1, filteredLogs.length)} - {Math.min(logsPage * logsPerPage, filteredLogs.length)} of {filteredLogs.length} logs
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLogsPage(prev => Math.max(1, prev - 1))}
+                            disabled={logsPage === 1}
+                          >
+                            Previous
+                          </Button>
+                          <span className="text-sm text-gray-600">
+                            Page {logsPage} of {totalLogsPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLogsPage(prev => Math.min(totalLogsPages, prev + 1))}
+                            disabled={logsPage === totalLogsPages}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

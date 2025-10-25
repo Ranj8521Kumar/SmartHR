@@ -255,7 +255,7 @@ exports.matchCandidates = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin)
 exports.getSystemLogs = asyncHandler(async (req, res, next) => {
   const Log = require('../models/Log');
-  const limit = parseInt(req.query.limit, 10) || 10;
+  const limit = req.query.limit ? parseInt(req.query.limit, 10) : null;
   const level = req.query.level; // filter by level: info, warn, error, debug
   const category = req.query.category; // filter by category
 
@@ -263,15 +263,109 @@ exports.getSystemLogs = asyncHandler(async (req, res, next) => {
   if (level) query.level = level;
   if (category) query.category = category;
 
-  const logs = await Log.find(query)
+  // Get total count for the query
+  const totalCount = await Log.countDocuments(query);
+
+  // Build the base query
+  let logsQuery = Log.find(query)
     .populate('user', 'firstName lastName email')
-    .sort({ createdAt: -1 })
-    .limit(limit);
+    .sort({ createdAt: -1 });
+
+  // Apply limit only if specified and is a positive number
+  if (limit && limit > 0) {
+    logsQuery = logsQuery.limit(limit);
+  }
+  // If no limit specified, fetch all logs
+
+  const logs = await logsQuery;
 
   res.status(200).json({
     success: true,
     count: logs.length,
+    total: totalCount,
     data: logs
+  });
+});
+
+// @desc    Delete a log entry
+// @route   DELETE /api/v1/analytics/logs/:id
+// @access  Private (Admin)
+exports.deleteLog = asyncHandler(async (req, res, next) => {
+  const Log = require('../models/Log');
+  const log = await Log.findById(req.params.id);
+
+  if (!log) {
+    return res.status(404).json({
+      success: false,
+      message: 'Log not found'
+    });
+  }
+
+  const deletedLogInfo = {
+    level: log.level,
+    message: log.message,
+    action: log.action
+  };
+
+  await log.deleteOne();
+
+  // Create audit log for deletion
+  await Log.create({
+    level: 'info',
+    message: 'Log entry deleted',
+    action: 'DELETE_LOG',
+    details: `Deleted log: ${deletedLogInfo.action || deletedLogInfo.message}`,
+    user: req.user.id,
+    category: 'system'
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Log deleted successfully'
+  });
+});
+
+// @desc    Delete multiple log entries
+// @route   POST /api/v1/analytics/logs/delete-batch
+// @access  Private (Admin)
+exports.deleteBatchLogs = asyncHandler(async (req, res, next) => {
+  const Log = require('../models/Log');
+  const { logIds } = req.body;
+
+  if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide an array of log IDs to delete'
+    });
+  }
+
+  // Fetch logs to be deleted for audit trail
+  const logsToDelete = await Log.find({ _id: { $in: logIds } });
+  
+  if (logsToDelete.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'No logs found with the provided IDs'
+    });
+  }
+
+  // Delete all logs
+  const deleteResult = await Log.deleteMany({ _id: { $in: logIds } });
+
+  // Create a single audit log for the batch deletion
+  await Log.create({
+    level: 'info',
+    message: `Batch deletion of ${deleteResult.deletedCount} log entries`,
+    action: 'DELETE_LOGS_BATCH',
+    details: `Admin deleted ${deleteResult.deletedCount} log entries. IDs: ${logIds.slice(0, 5).join(', ')}${logIds.length > 5 ? '...' : ''}`,
+    user: req.user.id,
+    category: 'system'
+  });
+
+  res.status(200).json({
+    success: true,
+    message: `Successfully deleted ${deleteResult.deletedCount} log entries`,
+    deletedCount: deleteResult.deletedCount
   });
 });
 
