@@ -48,6 +48,7 @@ import applicationService from '../../services/applicationService';
 import candidateService from '../../services/candidateService';
 import interviewService from '../../services/interviewService';
 import communicationService from '../../services/communicationService';
+import analyticsService from '../../services/analyticsService';
 
 const kanbanStages = [
   { 
@@ -166,6 +167,14 @@ export default function HRManagerDashboard({ user }) {
   const [communicationTypeFilter, setCommunicationTypeFilter] = useState('all');
   const [isCommunicationDetailsOpen, setIsCommunicationDetailsOpen] = useState(false);
   const [selectedCommunication, setSelectedCommunication] = useState(null);
+
+  // Analytics page state
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [applicationAnalytics, setApplicationAnalytics] = useState(null);
+  const [jobAnalytics, setJobAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState(null);
+  const [dateRange, setDateRange] = useState('30'); // days
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -615,6 +624,45 @@ export default function HRManagerDashboard({ user }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communicationTypeFilter, communicationSearchQuery]);
+
+  // Fetch analytics data
+  const fetchAnalyticsData = async () => {
+    try {
+      setAnalyticsLoading(true);
+      setAnalyticsError(null);
+
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(dateRange));
+
+      const [dashboardAnalytics, appAnalytics, jobsAnalytics] = await Promise.all([
+        analyticsService.getDashboardAnalytics(),
+        analyticsService.getApplicationAnalytics({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        }),
+        analyticsService.getJobAnalytics()
+      ]);
+
+      setAnalyticsData(dashboardAnalytics.data);
+      setApplicationAnalytics(appAnalytics.data);
+      setJobAnalytics(jobsAnalytics.data);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      setAnalyticsError(err.message);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  // Effect to fetch analytics when view changes
+  useEffect(() => {
+    if (activeView === 'analytics') {
+      fetchAnalyticsData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, dateRange]);
 
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
@@ -1709,6 +1757,343 @@ export default function HRManagerDashboard({ user }) {
                   : 'No communications yet'}
               </p>
             </div>
+          )}
+        </div>
+      )}
+
+      {activeView === 'analytics' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Analytics</h1>
+              <p className="text-sm md:text-base text-gray-600">Insights and metrics for recruitment performance</p>
+            </div>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+                <SelectItem value="365">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {analyticsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : analyticsError ? (
+            <div className="text-center py-12 border-2 border-dashed rounded-lg">
+              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-red-600 mb-4">Error loading analytics: {analyticsError}</p>
+              <Button onClick={fetchAnalyticsData}>Retry</Button>
+            </div>
+          ) : (
+            <>
+              {/* Overview Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Total Jobs</div>
+                      <Briefcase className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {analyticsData?.summary?.totalJobs || 0}
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">
+                      {analyticsData?.summary?.openJobs || 0} open positions
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Total Applications</div>
+                      <FileText className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {applicationAnalytics?.totalApplications || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      In selected period
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Avg. Time to Hire</div>
+                      <Clock className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {applicationAnalytics?.avgTimeToHire || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">days</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Active Users</div>
+                      <Users className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {analyticsData?.summary?.activeUsers || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      of {analyticsData?.summary?.totalUsers || 0} total
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Conversion Rates */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Conversion Rates</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-around divide-x divide-gray-200">
+                    <div className="flex-1 px-4 text-center">
+                      <div className="text-sm text-gray-600 mb-3">Application to Shortlist</div>
+                      <div className="text-3xl font-bold text-purple-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.applicationToShortlist || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.applicationToShortlist || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                    <div className="flex-1 px-4 text-center">
+                      <div className="text-sm text-gray-600 mb-3">Shortlist to Interview</div>
+                      <div className="text-3xl font-bold text-blue-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.shortlistToInterview || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.shortlistToInterview || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                    <div className="flex-1 px-4 text-center">
+                      <div className="text-sm text-gray-600 mb-3">Interview to Hire</div>
+                      <div className="text-3xl font-bold text-green-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.interviewToHire || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.interviewToHire || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Applications by Status */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Applications by Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {analyticsData?.applicationsByStatus?.map((item, index) => {
+                        const statusColors = {
+                          'submitted': 'bg-gray-500',
+                          'under_review': 'bg-blue-500',
+                          'shortlisted': 'bg-purple-500',
+                          'interview_scheduled': 'bg-yellow-500',
+                          'interviewed': 'bg-orange-500',
+                          'offer_extended': 'bg-green-500',
+                          'accepted': 'bg-emerald-600',
+                          'rejected': 'bg-red-500',
+                          'withdrawn': 'bg-gray-400'
+                        };
+                        
+                        const statusLabels = {
+                          'submitted': 'Submitted',
+                          'under_review': 'Under Review',
+                          'shortlisted': 'Shortlisted',
+                          'interview_scheduled': 'Interview Scheduled',
+                          'interviewed': 'Interviewed',
+                          'offer_extended': 'Offer Extended',
+                          'accepted': 'Accepted',
+                          'rejected': 'Rejected',
+                          'withdrawn': 'Withdrawn'
+                        };
+
+                        const total = analyticsData?.applicationsByStatus?.reduce((sum, s) => sum + s.count, 0) || 1;
+                        const percentage = ((item.count / total) * 100).toFixed(1);
+
+                        return (
+                          <div key={index}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-700">
+                                {statusLabels[item._id] || item._id}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {item.count} ({percentage}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`${statusColors[item._id] || 'bg-gray-500'} h-2 rounded-full`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Jobs by Department */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Jobs by Department</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {analyticsData?.jobsByDepartment?.map((item, index) => {
+                        const total = analyticsData?.jobsByDepartment?.reduce((sum, d) => sum + d.count, 0) || 1;
+                        const percentage = ((item.count / total) * 100).toFixed(1);
+                        const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-pink-500'];
+
+                        return (
+                          <div key={index}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-700">
+                                {item._id || 'Not Specified'}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {item.count} jobs ({item.openPositions} open)
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`${colors[index % colors.length]} h-2 rounded-full`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Top Jobs by Applications */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Jobs by Applications</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {analyticsData?.topJobs?.length > 0 ? (
+                      analyticsData.topJobs.map((job, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{job.title}</h4>
+                            <p className="text-sm text-gray-600">{job.department}</p>
+                          </div>
+                          <div className="flex gap-6 items-center">
+                            <div className="text-center">
+                              <div className="text-sm text-gray-600">Applications</div>
+                              <div className="text-xl font-bold text-purple-600">
+                                {job.applicationsCount || 0}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-sm text-gray-600">Views</div>
+                              <div className="text-xl font-bold text-blue-600">
+                                {job.viewsCount || 0}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <BarChart3 className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                        <p>No job data available</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Jobs by Employment Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Jobs by Employment Type</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {jobAnalytics?.jobsByEmploymentType?.map((item, index) => {
+                      const typeLabels = {
+                        'full-time': 'Full-Time',
+                        'part-time': 'Part-Time',
+                        'contract': 'Contract',
+                        'internship': 'Internship',
+                        'temporary': 'Temporary'
+                      };
+
+                      return (
+                        <div key={index} className="text-center p-4 bg-purple-50 rounded-lg">
+                          <div className="text-3xl font-bold text-purple-600 mb-1">
+                            {item.count}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {typeLabels[item._id] || item._id}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Most Viewed Jobs */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Most Viewed Jobs</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {jobAnalytics?.mostViewedJobs?.length > 0 ? (
+                      jobAnalytics.mostViewedJobs.slice(0, 5).map((job, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{job.title}</p>
+                            <p className="text-sm text-gray-600">{job.department}</p>
+                          </div>
+                          <div className="flex gap-4 items-center">
+                            <div className="text-center">
+                              <Eye className="h-4 w-4 text-blue-600 mx-auto mb-1" />
+                              <span className="text-sm font-semibold">{job.viewsCount || 0}</span>
+                            </div>
+                            <div className="text-center">
+                              <FileText className="h-4 w-4 text-purple-600 mx-auto mb-1" />
+                              <span className="text-sm font-semibold">{job.applicationsCount || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Eye className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                        <p>No view data available</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       )}
