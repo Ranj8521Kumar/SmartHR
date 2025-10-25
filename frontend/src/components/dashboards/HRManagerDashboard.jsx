@@ -172,6 +172,8 @@ export default function HRManagerDashboard({ user }) {
   const [communicationTypeFilter, setCommunicationTypeFilter] = useState('all');
   const [isCommunicationDetailsOpen, setIsCommunicationDetailsOpen] = useState(false);
   const [selectedCommunication, setSelectedCommunication] = useState(null);
+  const [currentCommunicationsPage, setCurrentCommunicationsPage] = useState(1);
+  const [communicationsPerPage] = useState(10);
 
   // Analytics page state
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -632,6 +634,7 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allCommunications.length > 0) {
       filterCommunicationsByType(allCommunications, communicationTypeFilter, communicationSearchQuery);
+      setCurrentCommunicationsPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communicationTypeFilter, communicationSearchQuery]);
@@ -757,6 +760,24 @@ export default function HRManagerDashboard({ user }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Get paginated communications
+  const getPaginatedCommunications = () => {
+    const startIndex = (currentCommunicationsPage - 1) * communicationsPerPage;
+    const endIndex = startIndex + communicationsPerPage;
+    return filteredCommunications.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for communications
+  const getTotalCommunicationsPages = () => {
+    return Math.ceil(filteredCommunications.length / communicationsPerPage);
+  };
+
+  // Handle communications page change
+  const handleCommunicationsPageChange = (newPage) => {
+    setCurrentCommunicationsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
     if (!applicationsData.length) return kanbanStages;
@@ -809,7 +830,7 @@ export default function HRManagerDashboard({ user }) {
     { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: summary.totalApplications || 0 },
     { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates'), badge: allCandidates.length || 0 },
     { icon: <Calendar className="h-5 w-5" />, label: 'Interviews', active: activeView === 'interviews', onClick: () => setActiveView('interviews'), badge: allInterviews.length || 0 },
-    { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications') },
+    { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications'), badge: allCommunications.length || 0 },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
   ];
 
@@ -1830,7 +1851,7 @@ export default function HRManagerDashboard({ user }) {
             </div>
           ) : filteredCommunications.length > 0 ? (
             <div className="space-y-3">
-              {filteredCommunications.map((communication) => {
+              {getPaginatedCommunications().map((communication) => {
                 const getTypeColor = (type) => {
                   const colors = {
                     'application': 'bg-blue-100 text-blue-800',
@@ -1936,6 +1957,42 @@ export default function HRManagerDashboard({ user }) {
                   : 'No communications yet'}
               </p>
             </div>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredCommunications.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {getPaginatedCommunications().length} of {filteredCommunications.length} communications
+                    {getTotalCommunicationsPages() > 1 && (
+                      <span> • Page {currentCommunicationsPage} of {getTotalCommunicationsPages()}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCommunicationsPageChange(currentCommunicationsPage - 1)}
+                      disabled={currentCommunicationsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCommunicationsPageChange(currentCommunicationsPage + 1)}
+                      disabled={currentCommunicationsPage >= getTotalCommunicationsPages()}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       )}
