@@ -88,6 +88,11 @@ export default function AdminDashboard({ user }) {
   const [statusDistribution, setStatusDistribution] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
   
+  // Badge counts for sidebar - loaded immediately
+  const [usersCount, setUsersCount] = useState(0);
+  const [jobsCount, setJobsCount] = useState(0);
+  const [applicationsCount, setApplicationsCount] = useState(0);
+  
   // Logs state
   const [allLogs, setAllLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -229,6 +234,13 @@ export default function AdminDashboard({ user }) {
         const response = await dashboardService.getDashboardAnalytics();
         setDashboardData(response.data);
         
+        // Set counts for sidebar badges from dashboard data
+        if (response.data?.summary) {
+          setUsersCount(response.data.summary.totalUsers || 0);
+          setJobsCount(response.data.summary.totalJobs || 0);
+          setApplicationsCount(response.data.summary.totalApplications || 0);
+        }
+        
         // Transform application trends data for chart
         if (response.data.recentApplications) {
           const last6Months = transformApplicationTrends(response.data.recentApplications);
@@ -300,6 +312,8 @@ export default function AdminDashboard({ user }) {
             lastLogin: u.lastLogin ? getTimeAgo(u.lastLogin) : 'Never'
           }));
           setUsers(transformedUsers);
+          // Update the badge count when users are fetched
+          setUsersCount(response.data?.length || 0);
         } catch (error) {
           console.error('Failed to fetch users:', error);
         } finally {
@@ -320,6 +334,8 @@ export default function AdminDashboard({ user }) {
           // Don't pass status parameter - backend will return all jobs for admin users
           const response = await jobService.getJobs({ limit: 100 });
           setJobs(response.data || []);
+          // Update the badge count when jobs are fetched
+          setJobsCount(response.data?.length || 0);
         } catch (error) {
           console.error('Failed to fetch jobs:', error);
         } finally {
@@ -339,6 +355,8 @@ export default function AdminDashboard({ user }) {
           setApplicationsLoading(true);
           const response = await applicationService.getApplications({ limit: 100 });
           setApplications(response.data || []);
+          // Update the badge count when applications are fetched
+          setApplicationsCount(response.data?.length || 0);
         } catch (error) {
           console.error('Failed to fetch applications:', error);
         } finally {
@@ -1026,9 +1044,9 @@ export default function AdminDashboard({ user }) {
 
   const sidebarItems = [
     { icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', active: activeView === 'dashboard', onClick: () => setActiveView('dashboard') },
-    { icon: <Users className="h-5 w-5" />, label: 'Users', active: activeView === 'users', onClick: () => setActiveView('users') },
-    { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs'), badge: jobs.length },
-    { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: applications.length },
+    { icon: <Users className="h-5 w-5" />, label: 'Users', active: activeView === 'users', onClick: () => setActiveView('users'), badge: usersCount || users.length },
+    { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs'), badge: jobsCount || jobs.length },
+    { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: applicationsCount || applications.length },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
     { icon: <ScrollText className="h-5 w-5" />, label: 'Logs', active: activeView === 'logs', onClick: () => setActiveView('logs') },
     { icon: <Settings className="h-5 w-5" />, label: 'Settings', active: activeView === 'settings', onClick: () => setActiveView('settings') },
