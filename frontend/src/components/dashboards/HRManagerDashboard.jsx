@@ -114,6 +114,8 @@ export default function HRManagerDashboard({ user }) {
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentApplicationsPage, setCurrentApplicationsPage] = useState(1);
+  const [applicationsPerPage] = useState(10);
 
   // Candidates page state
   const [allCandidates, setAllCandidates] = useState([]);
@@ -326,7 +328,7 @@ export default function HRManagerDashboard({ user }) {
   const fetchAllApplications = async () => {
     setApplicationsLoading(true);
     try {
-      const response = await applicationService.getApplications({ limit: 100 });
+      const response = await applicationService.getApplications({ limit: 1000 });
       if (response.success && response.data) {
         setAllApplications(response.data);
         filterApplicationsByStatus(response.data, statusFilter, searchQuery);
@@ -404,6 +406,7 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allApplications.length > 0) {
       filterApplicationsByStatus(allApplications, statusFilter, searchQuery);
+      setCurrentApplicationsPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchQuery]);
@@ -715,6 +718,24 @@ export default function HRManagerDashboard({ user }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Get paginated applications
+  const getPaginatedApplications = () => {
+    const startIndex = (currentApplicationsPage - 1) * applicationsPerPage;
+    const endIndex = startIndex + applicationsPerPage;
+    return filteredApplications.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for applications
+  const getTotalApplicationsPages = () => {
+    return Math.ceil(filteredApplications.length / applicationsPerPage);
+  };
+
+  // Handle applications page change
+  const handleApplicationsPageChange = (newPage) => {
+    setCurrentApplicationsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
     if (!applicationsData.length) return kanbanStages;
@@ -765,7 +786,7 @@ export default function HRManagerDashboard({ user }) {
     { icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', active: activeView === 'dashboard', onClick: () => setActiveView('dashboard') },
     { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs'), badge: allJobs.length || 0 },
     { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: summary.totalApplications || 0 },
-    { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates') },
+    { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates'), badge: allCandidates.length || 0 },
     { icon: <Calendar className="h-5 w-5" />, label: 'Interviews', active: activeView === 'interviews', onClick: () => setActiveView('interviews'), badge: allInterviews.length || 0 },
     { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications') },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
@@ -1089,7 +1110,7 @@ export default function HRManagerDashboard({ user }) {
             </div>
           ) : filteredApplications.length > 0 ? (
             <div className="space-y-4">
-              {filteredApplications.map((app) => {
+              {getPaginatedApplications().map((app) => {
                 const candidateName = app.applicant 
                   ? `${app.applicant.firstName} ${app.applicant.lastName}` 
                   : 'Unknown Candidate';
@@ -1212,6 +1233,42 @@ export default function HRManagerDashboard({ user }) {
                   : 'No applications yet'}
               </p>
             </div>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredApplications.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {getPaginatedApplications().length} of {filteredApplications.length} applications
+                    {getTotalApplicationsPages() > 1 && (
+                      <span> • Page {currentApplicationsPage} of {getTotalApplicationsPages()}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleApplicationsPageChange(currentApplicationsPage - 1)}
+                      disabled={currentApplicationsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleApplicationsPageChange(currentApplicationsPage + 1)}
+                      disabled={currentApplicationsPage >= getTotalApplicationsPages()}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       )}
