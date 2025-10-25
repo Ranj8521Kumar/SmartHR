@@ -294,20 +294,72 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                         </div>
                         {application.resume.isParsed && application.resume.parsedData && (
                           <div className="space-y-3 mt-4 w-full max-w-full overflow-hidden">
-                            {application.resume.parsedData.skills && (
+                            {application.resume.parsedData.skills && Array.isArray(application.resume.parsedData.skills) && application.resume.parsedData.skills.length > 0 && (
                               <div className="w-full max-w-full overflow-hidden">
                                 <h4 className="font-semibold mb-2 text-sm sm:text-base">Skills</h4>
                                 <div className="flex flex-wrap gap-2 w-full">
                                   {application.resume.parsedData.skills.map((skill, idx) => (
-                                    <Badge key={idx} variant="secondary" className="text-xs shrink-0">{skill}</Badge>
+                                    <Badge key={idx} variant="secondary" className="text-xs shrink-0">
+                                      {typeof skill === 'string' ? skill : skill.name || 'N/A'}
+                                    </Badge>
                                   ))}
                                 </div>
                               </div>
                             )}
-                            {application.resume.parsedData.experience && (
+                            {application.resume.parsedData.experience && Array.isArray(application.resume.parsedData.experience) && application.resume.parsedData.experience.length > 0 && (
                               <div className="w-full max-w-full overflow-hidden">
                                 <h4 className="font-semibold mb-2 text-sm sm:text-base">Experience</h4>
-                                <p className="text-gray-700 text-sm sm:text-base break-words overflow-wrap-anywhere">{application.resume.parsedData.experience}</p>
+                                <div className="space-y-3">
+                                  {application.resume.parsedData.experience.map((exp, idx) => (
+                                    <div key={idx} className="border-l-2 border-purple-200 pl-4">
+                                      <h5 className="font-semibold text-sm sm:text-base">{exp.position || 'Position'}</h5>
+                                      <p className="text-sm text-gray-600">{exp.company || 'Company'}</p>
+                                      {(exp.startDate || exp.endDate) && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          {exp.startDate || 'Start'} - {exp.current ? 'Present' : (exp.endDate || 'End')}
+                                        </p>
+                                      )}
+                                      {exp.description && (
+                                        <p className="text-sm text-gray-700 mt-2">{exp.description}</p>
+                                      )}
+                                      {exp.responsibilities && Array.isArray(exp.responsibilities) && exp.responsibilities.length > 0 && (
+                                        <ul className="list-disc list-inside mt-2 text-sm text-gray-700">
+                                          {exp.responsibilities.map((resp, ridx) => (
+                                            <li key={ridx}>{resp}</li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {application.resume.parsedData.education && Array.isArray(application.resume.parsedData.education) && application.resume.parsedData.education.length > 0 && (
+                              <div className="w-full max-w-full overflow-hidden">
+                                <h4 className="font-semibold mb-2 text-sm sm:text-base">Education</h4>
+                                <div className="space-y-3">
+                                  {application.resume.parsedData.education.map((edu, idx) => (
+                                    <div key={idx} className="border-l-2 border-blue-200 pl-4">
+                                      <h5 className="font-semibold text-sm sm:text-base">{edu.degree || 'Degree'}</h5>
+                                      <p className="text-sm text-gray-600">{edu.institution || 'Institution'}</p>
+                                      {edu.field && <p className="text-sm text-gray-600">{edu.field}</p>}
+                                      {(edu.startDate || edu.endDate) && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          {edu.startDate || 'Start'} - {edu.endDate || 'End'}
+                                        </p>
+                                      )}
+                                      {edu.gpa && <p className="text-sm text-gray-700 mt-1">GPA: {edu.gpa}</p>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {application.resume.parsedData.summary && (
+                              <div className="w-full max-w-full overflow-hidden">
+                                <h4 className="font-semibold mb-2 text-sm sm:text-base">Summary</h4>
+                                <p className="text-gray-700 text-sm sm:text-base break-words overflow-wrap-anywhere">
+                                  {application.resume.parsedData.summary}
+                                </p>
                               </div>
                             )}
                           </div>
