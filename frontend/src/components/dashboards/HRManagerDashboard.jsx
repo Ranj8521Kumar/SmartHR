@@ -125,6 +125,8 @@ export default function HRManagerDashboard({ user }) {
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('all');
   const [isCandidateDetailsOpen, setIsCandidateDetailsOpen] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+  const [currentCandidatesPage, setCurrentCandidatesPage] = useState(1);
+  const [candidatesPerPage] = useState(10);
 
   // Interviews page state
   const [allInterviews, setAllInterviews] = useState([]);
@@ -546,6 +548,7 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allCandidates.length > 0) {
       filterCandidatesByStatus(allCandidates, candidateStatusFilter, candidateSearchQuery);
+      setCurrentCandidatesPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateStatusFilter, candidateSearchQuery]);
@@ -733,6 +736,24 @@ export default function HRManagerDashboard({ user }) {
   // Handle applications page change
   const handleApplicationsPageChange = (newPage) => {
     setCurrentApplicationsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get paginated candidates
+  const getPaginatedCandidates = () => {
+    const startIndex = (currentCandidatesPage - 1) * candidatesPerPage;
+    const endIndex = startIndex + candidatesPerPage;
+    return filteredCandidates.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for candidates
+  const getTotalCandidatesPages = () => {
+    return Math.ceil(filteredCandidates.length / candidatesPerPage);
+  };
+
+  // Handle candidates page change
+  const handleCandidatesPageChange = (newPage) => {
+    setCurrentCandidatesPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1359,7 +1380,7 @@ export default function HRManagerDashboard({ user }) {
             </div>
           ) : filteredCandidates.length > 0 ? (
             <div className="space-y-4">
-              {filteredCandidates.map((candidate) => {
+              {getPaginatedCandidates().map((candidate) => {
                 const candidateName = `${candidate.firstName} ${candidate.lastName}`;
                 const latestStatusBadgeMap = {
                   'submitted': 'secondary',
@@ -1459,6 +1480,42 @@ export default function HRManagerDashboard({ user }) {
                   : 'No candidates yet'}
               </p>
             </div>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredCandidates.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {getPaginatedCandidates().length} of {filteredCandidates.length} candidates
+                    {getTotalCandidatesPages() > 1 && (
+                      <span> • Page {currentCandidatesPage} of {getTotalCandidatesPages()}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCandidatesPageChange(currentCandidatesPage - 1)}
+                      disabled={currentCandidatesPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCandidatesPageChange(currentCandidatesPage + 1)}
+                      disabled={currentCandidatesPage >= getTotalCandidatesPages()}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       )}
