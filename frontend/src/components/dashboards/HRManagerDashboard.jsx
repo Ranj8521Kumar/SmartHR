@@ -541,15 +541,20 @@ export default function HRManagerDashboard({ user }) {
   // Handle interview status update
   const handleInterviewStatusUpdate = async (applicationId, newStatus, feedback) => {
     try {
+      console.log('Updating application:', applicationId, 'with status:', newStatus, 'and feedback:', feedback);
       const response = await applicationService.updateApplicationStatus(applicationId, newStatus, feedback);
+      console.log('Update response:', response);
       if (response.success) {
         // Refresh interviews
         await fetchAllInterviews();
         // Refresh dashboard stats
         fetchDashboardData();
+      } else {
+        throw new Error(response.message || 'Failed to update application status');
       }
     } catch (err) {
       console.error('Error updating interview status:', err);
+      throw err; // Re-throw to be caught by the dialog
     }
   };
 

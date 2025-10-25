@@ -48,6 +48,8 @@ const applicationService = {
   async updateApplicationStatus(id, status, notes = '') {
     const token = authService.getToken();
     
+    console.log('Updating application:', id, 'with data:', { status, notes });
+    
     const response = await fetch(`${API_ENDPOINTS.APPLICATIONS}/${id}`, {
       method: 'PUT',
       headers: {
@@ -59,6 +61,7 @@ const applicationService = {
 
     if (!response.ok) {
       const error = await response.json();
+      console.error('Backend error response:', error);
       throw new Error(error.message || 'Failed to update application status');
     }
 

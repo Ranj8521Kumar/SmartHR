@@ -32,14 +32,31 @@ export default function InterviewDetailsDialog({ isOpen, onClose, interview, onS
   const handleStatusUpdate = async (newStatus) => {
     if (!interview) return;
     
+    // Validate application ID exists
+    if (!interview.application?._id) {
+      console.error('No application ID found in interview:', interview);
+      alert('Error: Cannot update interview status - application ID not found');
+      return;
+    }
+    
     setUpdating(true);
     try {
       if (onStatusUpdate) {
-        await onStatusUpdate(interview.application._id, newStatus, feedback);
+        // Map interview actions to application statuses
+        let applicationStatus = newStatus;
+        if (newStatus === 'completed') {
+          applicationStatus = 'interviewed'; // Mark application as interviewed
+        } else if (newStatus === 'rejected') {
+          applicationStatus = 'rejected'; // Reject the application
+        }
+        
+        console.log('Updating application:', interview.application._id, 'to status:', applicationStatus);
+        await onStatusUpdate(interview.application._id, applicationStatus, feedback);
       }
       onClose();
     } catch (error) {
       console.error('Error updating interview status:', error);
+      alert(`Failed to update interview status: ${error.message}`);
     } finally {
       setUpdating(false);
     }
@@ -244,7 +261,7 @@ export default function InterviewDetailsDialog({ isOpen, onClose, interview, onS
                 Reject
               </Button>
               <Button 
-                onClick={() => handleStatusUpdate('interviewed')}
+                onClick={() => handleStatusUpdate('completed')}
                 disabled={updating}
                 className="w-full sm:w-auto text-sm"
               >

@@ -199,7 +199,7 @@ exports.updateApplication = asyncHandler(async (req, res, next) => {
     });
   }
 
-  await application.save();
+  await application.save({ validateBeforeSave: false });
 
   // Send status update email
   const populatedApp = await Application.findById(application._id)
