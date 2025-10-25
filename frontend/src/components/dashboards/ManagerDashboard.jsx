@@ -29,6 +29,7 @@ import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
 import CreateJobForm from '../jobs/CreateJobForm';
@@ -909,49 +910,79 @@ export default function ManagerDashboard({ user }) {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-40">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewCandidate(app)}
-                          className="w-full text-xs md:text-sm"
-                        >
-                          <Eye className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                          View Details
-                        </Button>
-                        {app.status !== 'accepted' && app.status !== 'rejected' && (
-                          <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-40 lg:flex-shrink-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
                             <Button
-                              size="sm"
-                              onClick={() => handleApproveApplication(app)}
-                              disabled={approvingId === app._id || rejectingId === app._id}
-                              className="flex-1 bg-green-600 hover:bg-green-700 text-xs md:text-sm"
-                            >
-                              {approvingId === app._id ? (
-                                <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                                  <span className="hidden sm:inline">Approve</span>
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
                               variant="outline"
-                              onClick={() => handleRejectApplication(app)}
-                              disabled={approvingId === app._id || rejectingId === app._id}
-                              className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 text-xs md:text-sm"
+                              size="sm"
+                              onClick={() => handleViewCandidate(app)}
+                              className="w-full text-xs md:text-sm"
                             >
-                              {rejectingId === app._id ? (
-                                <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <XCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                                  <span className="hidden sm:inline">Reject</span>
-                                </>
-                              )}
+                              <Eye className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                              View Details
                             </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View candidate details</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        {app.status !== 'accepted' && app.status !== 'rejected' && (
+                          <div className="flex gap-2 w-full">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveApplication(app)}
+                                  disabled={approvingId === app._id || rejectingId === app._id || app.status === 'shortlisted'}
+                                  className={`flex-1 min-w-0 text-xs md:text-sm whitespace-nowrap ${
+                                    app.status === 'shortlisted'
+                                      ? 'bg-green-200 text-green-800 hover:bg-green-200 cursor-not-allowed'
+                                      : 'bg-green-600 hover:bg-green-700 text-white'
+                                  }`}
+                                >
+                                  {approvingId === app._id ? (
+                                    <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                                  ) : app.status === 'shortlisted' ? (
+                                    <>
+                                      <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 flex-shrink-0" />
+                                      <span className="hidden sm:inline truncate">Approved</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 flex-shrink-0" />
+                                      <span className="hidden sm:inline truncate">Approve</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{app.status === 'shortlisted' ? 'Application already approved' : 'Approve this application'}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRejectApplication(app)}
+                                  disabled={approvingId === app._id || rejectingId === app._id}
+                                  className="flex-1 min-w-0 text-red-600 hover:text-red-700 hover:bg-red-50 text-xs md:text-sm whitespace-nowrap"
+                                >
+                                  {rejectingId === app._id ? (
+                                    <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <XCircle className="h-3 w-3 md:h-4 md:w-4 mr-1 flex-shrink-0" />
+                                      <span className="hidden sm:inline truncate">Reject</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Reject this application</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         )}
                       </div>
