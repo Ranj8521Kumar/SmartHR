@@ -422,12 +422,15 @@ export default function HRManagerDashboard({ user }) {
     // Filter by search query
     if (query) {
       const lowerQuery = query.toLowerCase();
-      filtered = filtered.filter(c => 
+      filtered = filtered.filter(c =>
         (c.firstName?.toLowerCase().includes(lowerQuery)) ||
         (c.lastName?.toLowerCase().includes(lowerQuery)) ||
         (c.email?.toLowerCase().includes(lowerQuery))
       );
     }
+
+    // Sort by AI score (averageScore) in descending order
+    filtered = filtered.sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0));
 
     setFilteredCandidates(filtered);
   };
