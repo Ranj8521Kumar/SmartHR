@@ -806,7 +806,14 @@ export default function HRManagerDashboard({ user }) {
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <CardTitle className="text-lg md:text-xl">Application Pipeline</CardTitle>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto">View All</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full sm:w-auto"
+                  onClick={() => setActiveView('applications')}
+                >
+                  View All
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -820,7 +827,14 @@ export default function HRManagerDashboard({ user }) {
                     <div className="space-y-2">
                       {stage.applications.length > 0 ? (
                         stage.applications.map((app) => (
-                          <div key={app.id} className="bg-white p-3 rounded shadow-sm">
+                          <div 
+                            key={app.id} 
+                            className="bg-white p-3 rounded shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                            onClick={() => {
+                              setSelectedApplicationId(app.id);
+                              setIsApplicationDetailsOpen(true);
+                            }}
+                          >
                             <p className="text-sm font-medium mb-1">{app.name}</p>
                             <p className="text-xs text-gray-500">{app.position}</p>
                             <div className="mt-2 flex items-center gap-1">
