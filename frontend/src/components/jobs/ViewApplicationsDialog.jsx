@@ -86,12 +86,15 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(app => 
+      filtered = filtered.filter(app =>
         app.applicant.firstName.toLowerCase().includes(query) ||
         app.applicant.lastName.toLowerCase().includes(query) ||
         app.applicant.email.toLowerCase().includes(query)
       );
     }
+
+    // Sort by AI score in descending order (highest first)
+    filtered = filtered.sort((a, b) => (b.aiScore?.overallScore || 0) - (a.aiScore?.overallScore || 0));
 
     setFilteredApplications(filtered);
   };

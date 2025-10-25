@@ -140,7 +140,12 @@ exports.createApplication = asyncHandler(async (req, res, next) => {
   // Analyze application with AI
   try {
     const aiScore = await analyzeApplicationAI(application._id);
-    application.aiScore = aiScore;
+    application.aiScore = {
+      ...aiScore,
+      matchedSkills: aiScore.matchedSkills || [],
+      matchedKeywords: aiScore.matchedKeywords || [],
+      matchedPhrases: aiScore.matchedPhrases || []
+    };
     await application.save({ validateBeforeSave: false });
   } catch (error) {
     console.error('AI Analysis Error:', error);
