@@ -253,10 +253,13 @@ export default function HRManagerDashboard({ user }) {
 
       recentApplications.forEach(app => {
         const timeAgo = formatTimeAgo(new Date(app.createdAt));
+        const candidateName = app.applicant 
+          ? `${app.applicant.firstName || ''} ${app.applicant.lastName || ''}`.trim() || 'Unknown'
+          : 'Unknown';
         generatedNotifications.push({
           id: app._id,
           type: 'info',
-          message: `New application from ${app.candidate?.name || 'Unknown'} for ${app.job?.title || 'a position'}`,
+          message: `New application from ${candidateName} for ${app.job?.title || 'a position'}`,
           time: timeAgo,
           read: readNotifications.has(app._id), // Check if notification was read
           applicationId: app._id
@@ -273,10 +276,13 @@ export default function HRManagerDashboard({ user }) {
 
       upcomingInterviews.forEach(interview => {
         const interviewNotifId = `interview-${interview._id}`;
+        const candidateName = interview.candidate 
+          ? `${interview.candidate.firstName || ''} ${interview.candidate.lastName || ''}`.trim() || 'candidate'
+          : 'candidate';
         generatedNotifications.push({
           id: interviewNotifId,
           type: 'warning',
-          message: `Interview scheduled with ${interview.candidate?.name || 'candidate'} for ${interview.job?.title || 'position'}`,
+          message: `Interview scheduled with ${candidateName} for ${interview.job?.title || 'position'}`,
           time: new Date(interview.scheduledDate).toLocaleDateString(),
           read: readNotifications.has(interviewNotifId), // Check if notification was read
           interviewId: interview._id
