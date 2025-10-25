@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "HRMS Backend with AI-powered Resume Screening and Analytics",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
@@ -22,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@xenova/transformers": "^2.17.2",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.8.0",
@@ -29,7 +31,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "express": "^4.18.2",
+    "express": "^4.21.2",
     "express-fileupload": "^1.5.2",
     "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^7.1.5",
@@ -40,9 +42,10 @@
     "mongoose": "^8.0.3",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "natural": "^6.10.1",
+    "natural": "^6.12.0",
     "nodemailer": "^6.9.7",
-    "pdf-parse": "^1.1.1",
+    "openai": "^6.7.0",
+    "pdf-parse": "^1.1.2",
     "winston": "^3.11.0",
     "xss-clean": "^0.1.4"
   },

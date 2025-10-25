@@ -19,8 +19,19 @@ const logger = require('./utils/logger');
 // Load env vars
 dotenv.config();
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+  console.error('Stack:', err.stack);
+  process.exit(1);
+});
+
 // Connect to database
 connectDB();
+
+// Initialize AI model
+const { initAIModel } = require('./services/aiService');
+initAIModel().catch(console.error);
 
 const app = express();
 

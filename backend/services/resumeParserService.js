@@ -4,6 +4,11 @@ const fs = require('fs').promises;
 const natural = require('natural');
 const { analyzeTextWithAI } = require('./aiService');
 
+// Helper function to escape special regex characters
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Parse resume based on file type
 exports.parseResume = async (filePath, fileType) => {
   let text = '';
@@ -136,7 +141,7 @@ const extractSkills = (text) => {
     ];
 
     commonSkills.forEach(skill => {
-      if (new RegExp(skill, 'i').test(skillsSection)) {
+      if (new RegExp(escapeRegExp(skill), 'i').test(skillsSection)) {
         skills.push({
           name: skill,
           category: categorizeSkill(skill),
@@ -270,7 +275,7 @@ const extractLanguages = (text) => {
   if (languagesSection) {
     const commonLanguages = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Hindi', 'Arabic'];
     commonLanguages.forEach(lang => {
-      if (new RegExp(lang, 'i').test(languagesSection)) {
+      if (new RegExp(escapeRegExp(lang), 'i').test(languagesSection)) {
         languages.push({
           name: lang,
           proficiency: 'Not specified'

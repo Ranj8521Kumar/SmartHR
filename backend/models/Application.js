@@ -58,7 +58,19 @@ const ApplicationSchema = new mongoose.Schema({
     },
     analysis: {
       type: String
-    }
+    },
+    matchedSkills: [{
+      skill: String,
+      confidence: Number
+    }],
+    matchedKeywords: [{
+      keyword: String,
+      context: String
+    }],
+    matchedPhrases: [{
+      phrase: String,
+      source: String
+    }]
   },
   timeline: [{
     status: {
