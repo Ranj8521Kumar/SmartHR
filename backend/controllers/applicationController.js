@@ -201,11 +201,13 @@ exports.updateApplication = asyncHandler(async (req, res, next) => {
 
   await application.save({ validateBeforeSave: false });
 
-  // Send status update email
+  // Populate the application before sending response
   const populatedApp = await Application.findById(application._id)
-    .populate('applicant', 'email firstName')
-    .populate('job', 'title');
+    .populate('applicant', 'firstName lastName email phone')
+    .populate('job', 'title department location employmentType')
+    .populate('resume', 'fileName fileUrl isParsed');
 
+  // Send status update email
   try {
     await sendEmail({
       email: populatedApp.applicant.email,
@@ -218,7 +220,7 @@ exports.updateApplication = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: application
+    data: populatedApp
   });
 });
 

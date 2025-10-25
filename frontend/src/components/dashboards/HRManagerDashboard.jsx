@@ -408,15 +408,28 @@ export default function HRManagerDashboard({ user }) {
 
   // Handle application status update
   const handleApplicationStatusUpdate = (updatedApplication) => {
-    setAllApplications(prev => 
-      prev.map(app => app._id === updatedApplication._id ? updatedApplication : app)
-    );
-    filterApplicationsByStatus(
-      allApplications.map(app => app._id === updatedApplication._id ? updatedApplication : app),
-      statusFilter,
-      searchQuery
-    );
-    fetchDashboardData(); // Refresh dashboard stats
+    // Create the updated applications array with preserved data
+    const updatedApplications = allApplications.map(app => {
+      if (app._id === updatedApplication._id) {
+        // Preserve the populated applicant and job data
+        return {
+          ...updatedApplication,
+          applicant: updatedApplication.applicant || app.applicant,
+          job: updatedApplication.job || app.job,
+          resume: updatedApplication.resume || app.resume
+        };
+      }
+      return app;
+    });
+
+    // Update state
+    setAllApplications(updatedApplications);
+    
+    // Filter with the updated array
+    filterApplicationsByStatus(updatedApplications, statusFilter, searchQuery);
+    
+    // Refresh dashboard stats
+    fetchDashboardData();
   };
 
   // Quick status update
