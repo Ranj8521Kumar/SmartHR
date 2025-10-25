@@ -1112,7 +1112,16 @@ export default function HRManagerDashboard({ user }) {
                             </div>
                           </div>
                           <div className="flex gap-2 ml-auto sm:ml-0">
-                            <Button size="sm" variant="outline" title="View Details" className="h-8 w-8 p-0">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              title="View Details" 
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewApplicationDetails(app._id);
+                              }}
+                            >
                               <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                             <Button size="sm" variant="outline" title="Approve" className="h-8 w-8 p-0">
