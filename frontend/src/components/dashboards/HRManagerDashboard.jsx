@@ -28,7 +28,9 @@ import {
   Phone,
   Video,
   Send,
-  Inbox
+  Inbox,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -97,7 +99,6 @@ export default function HRManagerDashboard({ user }) {
   const [activeView, setActiveView] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState(null);
   const [applicationsData, setApplicationsData] = useState([]);
-  const [jobsData, setJobsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
@@ -176,21 +177,25 @@ export default function HRManagerDashboard({ user }) {
   const [analyticsError, setAnalyticsError] = useState(null);
   const [dateRange, setDateRange] = useState('30'); // days
 
+  // Jobs pagination state
+  const [allJobs, setAllJobs] = useState([]);
+  const [currentJobsPage, setCurrentJobsPage] = useState(1);
+  const [jobsPerPage] = useState(10);
+  const [jobsLoading, setJobsLoading] = useState(false);
+
   // Fetch dashboard data
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const [dashboardResponse, applicationsResponse, jobsResponse] = await Promise.all([
+      const [dashboardResponse, applicationsResponse] = await Promise.all([
         dashboardService.getDashboardAnalytics(),
-        dashboardService.getApplications({ limit: 10, sort: '-createdAt' }),
-        dashboardService.getJobs({ status: 'open', limit: 5 })
+        dashboardService.getApplications({ limit: 10, sort: '-createdAt' })
       ]);
 
       setDashboardData(dashboardResponse.data);
       setApplicationsData(applicationsResponse.data || []);
-      setJobsData(jobsResponse.data || []);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message);
@@ -291,16 +296,16 @@ export default function HRManagerDashboard({ user }) {
 
   // Handle job creation
   const handleJobCreated = (newJob) => {
-    // Add the new job to the jobs data
-    setJobsData(prev => [newJob, ...prev]);
+    // Add to allJobs for pagination
+    setAllJobs(prev => [newJob, ...prev]);
     // Refresh dashboard data to update stats
     fetchDashboardData();
   };
 
   // Handle job update
   const handleJobUpdated = (updatedJob) => {
-    // Update the job in the jobs data
-    setJobsData(prev => prev.map(job => job._id === updatedJob._id ? updatedJob : job));
+    // Update in allJobs for pagination
+    setAllJobs(prev => prev.map(job => job._id === updatedJob._id ? updatedJob : job));
     // Refresh dashboard data to update stats
     fetchDashboardData();
   };
@@ -663,6 +668,52 @@ export default function HRManagerDashboard({ user }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView, dateRange]);
+
+  // Fetch all jobs with pagination
+  const fetchAllJobs = async () => {
+    try {
+      setJobsLoading(true);
+      
+      // Fetch all jobs without pagination for now, then handle client-side
+      // Set a high limit to ensure we get all jobs
+      const response = await dashboardService.getJobs({ limit: 1000 });
+      
+      if (response.success && response.data) {
+        setAllJobs(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching all jobs:', err);
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  // Effect to fetch jobs when view changes
+  useEffect(() => {
+    if (activeView === 'jobs') {
+      fetchAllJobs();
+    }
+  }, [activeView]);
+
+  // Get paginated jobs by status
+  const getPaginatedJobs = (status) => {
+    const filteredJobs = allJobs.filter(job => job.status === status);
+    const startIndex = (currentJobsPage - 1) * jobsPerPage;
+    const endIndex = startIndex + jobsPerPage;
+    return filteredJobs.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for a status
+  const getTotalPages = (status) => {
+    const filteredJobs = allJobs.filter(job => job.status === status);
+    return Math.ceil(filteredJobs.length / jobsPerPage);
+  };
+
+  // Handle page change
+  const handleJobsPageChange = (newPage) => {
+    setCurrentJobsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
@@ -2160,49 +2211,91 @@ export default function HRManagerDashboard({ user }) {
             </Button>
           </div>
 
-          <Tabs defaultValue="active">
+          <Tabs defaultValue="active" onValueChange={() => setCurrentJobsPage(1)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="active" className="text-xs sm:text-sm">
-                Active ({jobsData.filter(j => j.status === 'open').length})
+                Active ({allJobs.filter(j => j.status === 'open').length})
               </TabsTrigger>
               <TabsTrigger value="draft" className="text-xs sm:text-sm">
-                Drafts ({jobsData.filter(j => j.status === 'draft').length})
+                Drafts ({allJobs.filter(j => j.status === 'draft').length})
               </TabsTrigger>
               <TabsTrigger value="closed" className="text-xs sm:text-sm">
-                Closed ({jobsData.filter(j => j.status === 'closed').length})
+                Closed ({allJobs.filter(j => j.status === 'closed').length})
               </TabsTrigger>
             </TabsList>
             <TabsContent value="active" className="space-y-4 mt-6">
-              {jobsData.filter(j => j.status === 'open').length > 0 ? (
-                jobsData.filter(j => j.status === 'open').map((job) => {
-                  const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
-                  return (
-                    <Card key={job._id}>
-                      <CardContent className="p-4 md:p-6">
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                              <span className="truncate">{job.department}</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span>{job.applicationsCount || 0} applications</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span>Posted {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+              {jobsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                </div>
+              ) : getPaginatedJobs('open').length > 0 ? (
+                <>
+                  {getPaginatedJobs('open').map((job) => {
+                    const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Card key={job._id}>
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                                <span className="truncate">{job.department}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>{job.applicationsCount || 0} applications</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>Posted {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-col sm:flex-row">
+                              <Button variant="outline" onClick={() => handleEditJob(job)} className="w-full sm:w-auto text-sm">
+                                Edit
+                              </Button>
+                              <Button onClick={() => handleViewApplications(job)} className="w-full sm:w-auto text-sm">
+                                View Applications
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex gap-2 flex-col sm:flex-row">
-                            <Button variant="outline" onClick={() => handleEditJob(job)} className="w-full sm:w-auto text-sm">
-                              Edit
-                            </Button>
-                            <Button onClick={() => handleViewApplications(job)} className="w-full sm:w-auto text-sm">
-                              View Applications
-                            </Button>
-                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Pagination Controls - Always visible */}
+                  <Card className="mt-6">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="text-sm text-gray-600">
+                          Showing {getPaginatedJobs('open').length} of {allJobs.filter(j => j.status === 'open').length} jobs
+                          {getTotalPages('open') > 1 && (
+                            <span className="ml-2">• Page {currentJobsPage} of {getTotalPages('open')}</span>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage - 1)}
+                            disabled={currentJobsPage === 1 || getTotalPages('open') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage + 1)}
+                            disabled={currentJobsPage === getTotalPages('open') || getTotalPages('open') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
               ) : (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -2215,16 +2308,156 @@ export default function HRManagerDashboard({ user }) {
               )}
             </TabsContent>
             <TabsContent value="draft" className="space-y-4 mt-6">
-              <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-sm sm:text-base text-gray-500">No draft job postings</p>
-              </div>
+              {jobsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                </div>
+              ) : getPaginatedJobs('draft').length > 0 ? (
+                <>
+                  {getPaginatedJobs('draft').map((job) => {
+                    const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Card key={job._id}>
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                                <span className="truncate">{job.department}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>Created {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-col sm:flex-row">
+                              <Button variant="outline" onClick={() => handleEditJob(job)} className="w-full sm:w-auto text-sm">
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Pagination Controls - Always visible */}
+                  <Card className="mt-6">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="text-sm text-gray-600">
+                          Showing {getPaginatedJobs('draft').length} of {allJobs.filter(j => j.status === 'draft').length} jobs
+                          {getTotalPages('draft') > 1 && (
+                            <span className="ml-2">• Page {currentJobsPage} of {getTotalPages('draft')}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage - 1)}
+                            disabled={currentJobsPage === 1 || getTotalPages('draft') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage + 1)}
+                            disabled={currentJobsPage === getTotalPages('draft') || getTotalPages('draft') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-sm sm:text-base text-gray-500">No draft job postings</p>
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="closed" className="space-y-4 mt-6">
-              <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-sm sm:text-base text-gray-500">No closed job postings</p>
-              </div>
+              {jobsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                </div>
+              ) : getPaginatedJobs('closed').length > 0 ? (
+                <>
+                  {getPaginatedJobs('closed').map((job) => {
+                    const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Card key={job._id}>
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                                <span className="truncate">{job.department}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>{job.applicationsCount || 0} applications</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>Closed {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-col sm:flex-row">
+                              <Button onClick={() => handleViewApplications(job)} className="w-full sm:w-auto text-sm">
+                                View Applications
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Pagination Controls - Always visible */}
+                  <Card className="mt-6">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="text-sm text-gray-600">
+                          Showing {getPaginatedJobs('closed').length} of {allJobs.filter(j => j.status === 'closed').length} jobs
+                          {getTotalPages('closed') > 1 && (
+                            <span className="ml-2">• Page {currentJobsPage} of {getTotalPages('closed')}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage - 1)}
+                            disabled={currentJobsPage === 1 || getTotalPages('closed') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage + 1)}
+                            disabled={currentJobsPage === getTotalPages('closed') || getTotalPages('closed') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-sm sm:text-base text-gray-500">No closed job postings</p>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
