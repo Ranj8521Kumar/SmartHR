@@ -134,6 +134,8 @@ export default function HRManagerDashboard({ user }) {
   const [interviewsLoading, setInterviewsLoading] = useState(false);
   const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
   const [interviewStatusFilter, setInterviewStatusFilter] = useState('all');
+  const [currentInterviewsPage, setCurrentInterviewsPage] = useState(1);
+  const [interviewsPerPage] = useState(10);
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
@@ -570,6 +572,7 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allInterviews.length > 0) {
       filterInterviewsByStatus(allInterviews, interviewStatusFilter, interviewSearchQuery);
+      setCurrentInterviewsPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewStatusFilter, interviewSearchQuery]);
@@ -811,6 +814,24 @@ export default function HRManagerDashboard({ user }) {
   // Handle communications page change
   const handleCommunicationsPageChange = (newPage) => {
     setCurrentCommunicationsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get paginated interviews
+  const getPaginatedInterviews = () => {
+    const startIndex = (currentInterviewsPage - 1) * interviewsPerPage;
+    const endIndex = startIndex + interviewsPerPage;
+    return filteredInterviews.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for interviews
+  const getTotalInterviewsPages = () => {
+    return Math.ceil(filteredInterviews.length / interviewsPerPage);
+  };
+
+  // Handle interviews page change
+  const handleInterviewsPageChange = (newPage) => {
+    setCurrentInterviewsPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1664,111 +1685,147 @@ export default function HRManagerDashboard({ user }) {
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
             </div>
           ) : filteredInterviews.length > 0 ? (
-            <div className="space-y-4">
-              {filteredInterviews.map((interview) => {
-                const candidateName = interview.candidate 
-                  ? `${interview.candidate.firstName} ${interview.candidate.lastName}` 
-                  : 'Unknown Candidate';
+            <>
+              <div className="space-y-4">
+                {getPaginatedInterviews().map((interview) => {
+                  const candidateName = interview.candidate 
+                    ? `${interview.candidate.firstName} ${interview.candidate.lastName}` 
+                    : 'Unknown Candidate';
 
-                const interviewTypeMap = {
-                  'phone': { label: 'Phone', icon: Phone, color: 'bg-blue-100 text-blue-600' },
-                  'video': { label: 'Video', icon: Video, color: 'bg-purple-100 text-purple-600' },
-                  'in-person': { label: 'In-Person', icon: Users, color: 'bg-green-100 text-green-600' },
-                  'technical': { label: 'Technical', icon: Briefcase, color: 'bg-orange-100 text-orange-600' },
-                  'hr': { label: 'HR', icon: Users, color: 'bg-pink-100 text-pink-600' },
-                };
+                  const interviewTypeMap = {
+                    'phone': { label: 'Phone', icon: Phone, color: 'bg-blue-100 text-blue-600' },
+                    'video': { label: 'Video', icon: Video, color: 'bg-purple-100 text-purple-600' },
+                    'in-person': { label: 'In-Person', icon: Users, color: 'bg-green-100 text-green-600' },
+                    'technical': { label: 'Technical', icon: Briefcase, color: 'bg-orange-100 text-orange-600' },
+                    'hr': { label: 'HR', icon: Users, color: 'bg-pink-100 text-pink-600' },
+                  };
 
-                const interviewType = interviewTypeMap[interview.type] || null;
-                const TypeIcon = interviewType?.icon;
+                  const interviewType = interviewTypeMap[interview.type] || null;
+                  const TypeIcon = interviewType?.icon;
 
-                const statusBadgeMap = {
-                  'scheduled': 'default',
-                  'pending': 'secondary',
-                  'completed': 'default',
-                };
+                  const statusBadgeMap = {
+                    'scheduled': 'default',
+                    'pending': 'secondary',
+                    'completed': 'default',
+                  };
 
-                const isUpcoming = interview.scheduledDate && new Date(interview.scheduledDate) > new Date();
-                const isToday = interview.scheduledDate && 
-                  new Date(interview.scheduledDate).toDateString() === new Date().toDateString();
+                  const isUpcoming = interview.scheduledDate && new Date(interview.scheduledDate) > new Date();
+                  const isToday = interview.scheduledDate && 
+                    new Date(interview.scheduledDate).toDateString() === new Date().toDateString();
 
-                return (
-                  <Card key={interview._id}>
-                    <CardContent className="p-6">
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <img 
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
-                            alt={candidateName} 
-                            className="w-14 h-14 rounded-full flex-shrink-0" 
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <h3 className="font-semibold text-lg text-gray-900">
-                                {candidateName}
-                              </h3>
-                              <Badge variant={statusBadgeMap[interview.status] || 'secondary'}>
-                                {interview.status?.charAt(0).toUpperCase() + interview.status?.slice(1)}
-                              </Badge>
-                              {isToday && (
-                                <Badge variant="default" className="bg-blue-600">
-                                  Today
+                  return (
+                    <Card key={interview._id}>
+                      <CardContent className="p-6">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <img 
+                              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
+                              alt={candidateName} 
+                              className="w-14 h-14 rounded-full flex-shrink-0" 
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <h3 className="font-semibold text-lg text-gray-900">
+                                  {candidateName}
+                                </h3>
+                                <Badge variant={statusBadgeMap[interview.status] || 'secondary'}>
+                                  {interview.status?.charAt(0).toUpperCase() + interview.status?.slice(1)}
                                 </Badge>
-                              )}
-                              {isUpcoming && !isToday && (
-                                <Badge variant="outline">
-                                  Upcoming
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                              <div className="flex items-center gap-2">
-                                <Briefcase className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate">{interview.job?.title || 'N/A'}</span>
+                                {isToday && (
+                                  <Badge variant="default" className="bg-blue-600">
+                                    Today
+                                  </Badge>
+                                )}
+                                {isUpcoming && !isToday && (
+                                  <Badge variant="outline">
+                                    Upcoming
+                                  </Badge>
+                                )}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate">{interview.candidate?.email || 'N/A'}</span>
-                              </div>
-                              {interview.scheduledDate && (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
                                 <div className="flex items-center gap-2">
-                                  <Calendar className="h-4 w-4 flex-shrink-0" />
-                                  <span>
-                                    {new Date(interview.scheduledDate).toLocaleDateString()} at{' '}
-                                    {new Date(interview.scheduledDate).toLocaleTimeString([], { 
-                                      hour: '2-digit', 
-                                      minute: '2-digit' 
-                                    })}
-                                  </span>
+                                  <Briefcase className="h-4 w-4 flex-shrink-0" />
+                                  <span className="truncate">{interview.job?.title || 'N/A'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Mail className="h-4 w-4 flex-shrink-0" />
+                                  <span className="truncate">{interview.candidate?.email || 'N/A'}</span>
+                                </div>
+                                {interview.scheduledDate && (
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                                    <span>
+                                      {new Date(interview.scheduledDate).toLocaleDateString()} at{' '}
+                                      {new Date(interview.scheduledDate).toLocaleTimeString([], { 
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                      })}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {interviewType && (
+                                <div className="mt-2 inline-flex">
+                                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${interviewType.color} text-xs`}>
+                                    {TypeIcon && <TypeIcon className="h-3 w-3" />}
+                                    <span>{interviewType.label}</span>
+                                  </div>
                                 </div>
                               )}
                             </div>
-                            {interviewType && (
-                              <div className="mt-2 inline-flex">
-                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${interviewType.color} text-xs`}>
-                                  {TypeIcon && <TypeIcon className="h-3 w-3" />}
-                                  <span>{interviewType.label}</span>
-                                </div>
-                              </div>
-                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handleViewInterviewDetails(interview)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => handleViewInterviewDetails(interview)}
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </Button>
-                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Pagination Controls */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="text-sm text-gray-600">
+                      Showing {getPaginatedInterviews().length} of {filteredInterviews.length} interviews
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleInterviewsPageChange(currentInterviewsPage - 1)}
+                        disabled={currentInterviewsPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                      </Button>
+                      <div className="text-sm text-gray-600">
+                        Page {currentInterviewsPage} of {getTotalInterviewsPages() || 1}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleInterviewsPageChange(currentInterviewsPage + 1)}
+                        disabled={currentInterviewsPage >= getTotalInterviewsPages()}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           ) : (
             <div className="text-center py-12 border-2 border-dashed rounded-lg">
               <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
