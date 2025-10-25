@@ -195,13 +195,38 @@ export default function HRManagerDashboard({ user }) {
       setIsLoading(true);
       setError(null);
       
-      const [dashboardResponse, applicationsResponse] = await Promise.all([
+      const [
+        dashboardResponse, 
+        applicationsResponse, 
+        jobsResponse, 
+        candidatesResponse, 
+        communicationsResponse, 
+        interviewsResponse
+      ] = await Promise.all([
         dashboardService.getDashboardAnalytics(),
-        dashboardService.getApplications({ limit: 10, sort: '-createdAt' })
+        dashboardService.getApplications({ limit: 10, sort: '-createdAt' }),
+        dashboardService.getJobs({ limit: 1000 }).catch(() => ({ data: [] })),
+        candidateService.getCandidates().catch(() => ({ data: [] })),
+        communicationService.getCommunications().catch(() => ({ data: [] })),
+        interviewService.getInterviews().catch(() => ({ data: [] }))
       ]);
 
       setDashboardData(dashboardResponse.data);
       setApplicationsData(applicationsResponse.data || []);
+      
+      // Set counts for badges
+      if (jobsResponse.success && jobsResponse.data) {
+        setAllJobs(jobsResponse.data);
+      }
+      if (candidatesResponse.success && candidatesResponse.data) {
+        setAllCandidates(candidatesResponse.data);
+      }
+      if (communicationsResponse.success && communicationsResponse.data) {
+        setAllCommunications(communicationsResponse.data);
+      }
+      if (interviewsResponse.success && interviewsResponse.data) {
+        setAllInterviews(interviewsResponse.data);
+      }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message);
