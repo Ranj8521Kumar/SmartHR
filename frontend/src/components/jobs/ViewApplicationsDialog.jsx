@@ -27,6 +27,12 @@ import {
 import { Progress } from '../ui/progress';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
+<<<<<<<<< Temporary merge branch 1
+import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
+import { useAuth } from '../../hooks/useAuth';
+=========
+import interviewService from '../../services/interviewService';
+>>>>>>>>> Temporary merge branch 2
 
 export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const { user } = useAuth();
@@ -37,6 +43,14 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [activeTab, setActiveTab] = useState('all');
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
+<<<<<<<<< Temporary merge branch 1
+  const [selectedApplicationId, setSelectedApplicationId] = useState(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+=========
+  const [schedulingInterviewId, setSchedulingInterviewId] = useState(null);
+  const [interviewLink, setInterviewLink] = useState(null);
+  const [showInterviewLinkDialog, setShowInterviewLinkDialog] = useState(false);
+>>>>>>>>> Temporary merge branch 2
 
   useEffect(() => {
     if (isOpen && job) {
@@ -165,6 +179,56 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
     } finally {
       setRejectingId(null);
     }
+  };
+
+<<<<<<<<< Temporary merge branch 1
+  const handleViewDetails = (applicationId) => {
+    setSelectedApplicationId(applicationId);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleCloseDetails = () => {
+    setIsDetailsDialogOpen(false);
+    setSelectedApplicationId(null);
+  };
+
+  const handleApplicationUpdate = async () => {
+    // Refresh the applications list when an application is updated
+    await fetchApplications();
+=========
+  const handleScheduleInterview = async (application) => {
+    try {
+      setSchedulingInterviewId(application._id);
+      const response = await interviewService.scheduleAIInterview(application._id, {
+        duration: 30,
+        notes: 'AI video interview scheduled via HR dashboard'
+      });
+
+      if (response.success) {
+        setInterviewLink(response.data.uniqueLink);
+        setShowInterviewLinkDialog(true);
+        // Refresh applications list to show updated status
+        await fetchApplications();
+      } else {
+        alert('Failed to schedule interview. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error scheduling interview:', error);
+      alert('Failed to schedule interview. Please try again.');
+    } finally {
+      setSchedulingInterviewId(null);
+    }
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Link copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      alert('Failed to copy link. Please copy manually.');
+    }
+>>>>>>>>> Temporary merge branch 2
   };
 
   const getStatusCounts = () => {
@@ -377,6 +441,66 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
           </Tabs>
         </div>
       </DialogContent>
+
+<<<<<<<<< Temporary merge branch 1
+      {/* Application Details Dialog */}
+      {selectedApplicationId && (
+        <ApplicationDetailsDialog
+          isOpen={isDetailsDialogOpen}
+          onClose={handleCloseDetails}
+          applicationId={selectedApplicationId}
+          onStatusUpdate={handleApplicationUpdate}
+          user={user}
+        />
+      )}
+=========
+      {/* Interview Link Dialog */}
+      <Dialog open={showInterviewLinkDialog} onOpenChange={setShowInterviewLinkDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-blue-600" />
+              Interview Scheduled Successfully
+            </DialogTitle>
+            <DialogDescription>
+              The AI video interview has been scheduled. Share this link with the candidate.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 mb-2">Interview Link:</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={interviewLink}
+                  readOnly
+                  className="flex-1 text-sm"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => copyToClipboard(interviewLink)}
+                  className="shrink-0"
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+
+            <div className="text-xs text-gray-600 space-y-1">
+              <p>• Interview duration: 30 minutes</p>
+              <p>• Link expires in 7 days</p>
+              <p>• Candidate will receive AI-generated questions</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setShowInterviewLinkDialog(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+>>>>>>>>> Temporary merge branch 2
     </Dialog>
   );
 }
