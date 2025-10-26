@@ -21,6 +21,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination';
 import jobService from '../../services/jobService';
 import applicationService from '../../services/applicationService';
 import resumeService from '../../services/resumeService';
@@ -65,6 +66,12 @@ export default function EmployeeDashboard({ user }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [jobsPerPage] = useState(6); // Show 6 jobs per page (3 rows x 2 columns)
   
   // State for jobs
   const [jobs, setJobs] = useState([]);
@@ -220,6 +227,8 @@ export default function EmployeeDashboard({ user }) {
       try {
         const params = {
           status: 'open',
+          page: currentPage,
+          limit: jobsPerPage,
         };
         
         if (searchQuery) params.search = searchQuery;
@@ -228,6 +237,8 @@ export default function EmployeeDashboard({ user }) {
         
         const response = await jobService.getJobs(params);
         setJobs(response.data || []);
+        setTotalPages(response.pages || 1);
+        setTotalJobs(response.total || 0);
       } catch (error) {
         console.error('Error fetching jobs:', error);
         setJobsError(error.message || 'Failed to load jobs');
@@ -237,7 +248,7 @@ export default function EmployeeDashboard({ user }) {
     };
 
     fetchJobs();
-  }, [searchQuery, departmentFilter, typeFilter]); // Fetch on mount and when filters change
+  }, [searchQuery, departmentFilter, typeFilter, currentPage, jobsPerPage]); // Fetch on mount and when filters or page change
 
   // Fetch applications from API on mount (always load to check "already applied" status)
   useEffect(() => {
@@ -454,6 +465,18 @@ export default function EmployeeDashboard({ user }) {
     }
   };
 
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, departmentFilter, typeFilter]);
+
   // Filter jobs for saved view
   const displayJobs = activeView === 'saved' 
     ? jobs.filter(job => savedJobs.includes(job._id))
@@ -471,9 +494,13 @@ export default function EmployeeDashboard({ user }) {
     >
       {activeView === 'browse' && (
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Browse Jobs</h1>
-            <p className="text-sm sm:text-base text-gray-600">Find your next opportunity</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Browse Jobs</h1>
+              <p className="text-sm sm:text-base text-gray-600">
+                {loadingJobs ? 'Loading...' : `${totalJobs} ${totalJobs === 1 ? 'opportunity' : 'opportunities'} available`}
+              </p>
+            </div>
           </div>
 
           {/* Search and Filters */}
@@ -645,6 +672,123 @@ export default function EmployeeDashboard({ user }) {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loadingJobs && !jobsError && jobs.length > 0 && totalPages > 1 && (
+            <div className="flex flex-col items-center gap-4 mt-8">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) handlePageChange(currentPage - 1);
+                      }}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  
+                  {/* First Page */}
+                  {currentPage > 2 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationLink 
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handlePageChange(1);
+                          }}
+                        >
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                      {currentPage > 3 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Previous Page */}
+                  {currentPage > 1 && (
+                    <PaginationItem>
+                      <PaginationLink 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(currentPage - 1);
+                        }}
+                      >
+                        {currentPage - 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Current Page */}
+                  <PaginationItem>
+                    <PaginationLink href="#" isActive onClick={(e) => e.preventDefault()}>
+                      {currentPage}
+                    </PaginationLink>
+                  </PaginationItem>
+                  
+                  {/* Next Page */}
+                  {currentPage < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(currentPage + 1);
+                        }}
+                      >
+                        {currentPage + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Last Page */}
+                  {currentPage < totalPages - 1 && (
+                    <>
+                      {currentPage < totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink 
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handlePageChange(totalPages);
+                          }}
+                        >
+                          {totalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                      }}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+              
+              {/* Pagination Info */}
+              <p className="text-sm text-gray-600">
+                Showing {jobs.length > 0 ? ((currentPage - 1) * jobsPerPage + 1) : 0} to {Math.min(currentPage * jobsPerPage, totalJobs)} of {totalJobs} jobs
+              </p>
             </div>
           )}
         </div>
