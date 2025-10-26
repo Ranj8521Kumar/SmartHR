@@ -27,12 +27,9 @@ import {
 import { Progress } from '../ui/progress';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
-<<<<<<<<< Temporary merge branch 1
 import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
 import { useAuth } from '../../hooks/useAuth';
-=========
 import interviewService from '../../services/interviewService';
->>>>>>>>> Temporary merge branch 2
 
 export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const { user } = useAuth();
@@ -43,14 +40,11 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [activeTab, setActiveTab] = useState('all');
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
-<<<<<<<<< Temporary merge branch 1
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-=========
   const [schedulingInterviewId, setSchedulingInterviewId] = useState(null);
   const [interviewLink, setInterviewLink] = useState(null);
   const [showInterviewLinkDialog, setShowInterviewLinkDialog] = useState(false);
->>>>>>>>> Temporary merge branch 2
 
   useEffect(() => {
     if (isOpen && job) {
@@ -181,7 +175,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
     }
   };
 
-<<<<<<<<< Temporary merge branch 1
   const handleViewDetails = (applicationId) => {
     setSelectedApplicationId(applicationId);
     setIsDetailsDialogOpen(true);
@@ -195,7 +188,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const handleApplicationUpdate = async () => {
     // Refresh the applications list when an application is updated
     await fetchApplications();
-=========
   const handleScheduleInterview = async (application) => {
     try {
       setSchedulingInterviewId(application._id);
@@ -228,7 +220,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
       console.error('Failed to copy link:', error);
       alert('Failed to copy link. Please copy manually.');
     }
->>>>>>>>> Temporary merge branch 2
   };
 
   const getStatusCounts = () => {
@@ -442,7 +433,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
         </div>
       </DialogContent>
 
-<<<<<<<<< Temporary merge branch 1
       {/* Application Details Dialog */}
       {selectedApplicationId && (
         <ApplicationDetailsDialog
@@ -453,7 +443,7 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
           user={user}
         />
       )}
-=========
+
       {/* Interview Link Dialog */}
       <Dialog open={showInterviewLinkDialog} onOpenChange={setShowInterviewLinkDialog}>
         <DialogContent className="max-w-md">
@@ -500,7 +490,8 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
           </div>
         </DialogContent>
       </Dialog>
->>>>>>>>> Temporary merge branch 2
+
     </Dialog>
   );
+}
 }
