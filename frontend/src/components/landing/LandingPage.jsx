@@ -30,6 +30,7 @@ import { Input } from '../ui/input';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import LoginForm from '../auth/LoginForm';
+import JobOpportunitiesDialog from '../jobs/JobOpportunitiesDialog';
 
 export default function LandingPage() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -37,6 +38,7 @@ export default function LandingPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [animateStats, setAnimateStats] = useState(false);
+  const [isOpportunitiesOpen, setIsOpportunitiesOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -136,6 +138,11 @@ export default function LandingPage() {
     setIsLoginOpen(true);
   };
 
+  const handleLoginRequired = () => {
+    setSelectedRole('employee');
+    setIsLoginOpen(true);
+  };
+
   const getRoleTitle = () => {
     const roleTitles = {
       admin: 'Admin',
@@ -174,6 +181,13 @@ export default function LandingPage() {
               <a href="#roles" className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}>
                 Roles
               </a>
+              <Button
+                variant="ghost"
+                className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}
+                onClick={() => setIsOpportunitiesOpen(true)}
+              >
+                Opportunities
+              </Button>
               <a href="#contact" className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}>
                 Contact
               </a>
@@ -246,6 +260,15 @@ export default function LandingPage() {
               <a href="#features" className="block py-2 text-gray-700 hover:text-blue-600">Features</a>
               <a href="#how-it-works" className="block py-2 text-gray-700 hover:text-blue-600">How It Works</a>
               <a href="#roles" className="block py-2 text-gray-700 hover:text-blue-600">Roles</a>
+              <button
+                onClick={() => {
+                  setIsOpportunitiesOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="block w-full text-left py-2 text-gray-700 hover:text-blue-600"
+              >
+                Opportunities
+              </button>
               <a href="#contact" className="block py-2 text-gray-700 hover:text-blue-600">Contact</a>
               <Popover>
                 <PopoverTrigger asChild>
@@ -649,6 +672,13 @@ export default function LandingPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Job Opportunities Dialog */}
+      <JobOpportunitiesDialog
+        isOpen={isOpportunitiesOpen}
+        onClose={() => setIsOpportunitiesOpen(false)}
+        onLoginRequired={handleLoginRequired}
+      />
     </div>
   );
 }
