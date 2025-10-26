@@ -1,4 +1,5 @@
 import { Bell, Settings, LogOut, User, Menu } from 'lucide-react';
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import {
   DropdownMenu,
@@ -30,6 +31,7 @@ export default function TopNav({
   onMarkAllRead
 }) {
   const { logout } = useAuth();
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -60,6 +62,27 @@ export default function TopNav({
     }
   };
 
+  const handleMarkAllRead = () => {
+    if (onMarkAllRead) {
+      onMarkAllRead();
+    }
+    // Keep dropdown open so user can see all notifications are marked as read
+  };
+
+  const handleViewAll = () => {
+    if (onViewAllNotifications) {
+      onViewAllNotifications();
+    }
+    setNotificationDropdownOpen(false); // Close dropdown after clicking View All
+  };
+
+  const handleNotificationItemClick = (notification) => {
+    if (onNotificationClick) {
+      onNotificationClick(notification);
+    }
+    setNotificationDropdownOpen(false); // Close dropdown after clicking a notification
+  };
+
   return (
     <header className={`${themeColors[theme]} text-white shadow-md`}>
       <div className="flex items-center justify-between px-6 py-4">
@@ -84,7 +107,7 @@ export default function TopNav({
 
         <div className="flex items-center gap-4">
           {/* Notifications */}
-          <DropdownMenu>
+          <DropdownMenu open={notificationDropdownOpen} onOpenChange={setNotificationDropdownOpen}>
             <DropdownMenuTrigger className="relative inline-flex items-center justify-center h-10 w-10 rounded-md text-white hover:bg-white/10 transition-colors">
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
@@ -99,7 +122,7 @@ export default function TopNav({
                 <div className="flex items-center gap-2">
                   {unreadCount > 0 && onMarkAllRead && (
                     <button
-                      onClick={onMarkAllRead}
+                      onClick={handleMarkAllRead}
                       className="text-xs text-gray-600 hover:text-gray-700 font-normal"
                     >
                       Mark all read
@@ -107,7 +130,7 @@ export default function TopNav({
                   )}
                   {notifications.length > 0 && onViewAllNotifications && (
                     <button
-                      onClick={onViewAllNotifications}
+                      onClick={handleViewAll}
                       className="text-xs text-blue-600 hover:text-blue-700 font-normal"
                     >
                       View All
@@ -126,7 +149,7 @@ export default function TopNav({
                   notifications.slice(0, 5).map((notification) => (
                     <div
                       key={notification.id}
-                      onClick={() => onNotificationClick && onNotificationClick(notification)}
+                      onClick={() => handleNotificationItemClick(notification)}
                       className={`p-3 hover:bg-gray-100 cursor-pointer border-b ${
                         !notification.read ? 'bg-blue-50' : ''
                       }`}

@@ -180,46 +180,86 @@ export default function EmployeeDashboard({ user }) {
 
   // Generate notifications from applications (run on mount and when data changes)
   useEffect(() => {
-    // Generate notifications based on application status changes
-    const generatedNotifications = applications.map((app) => {
+    // Generate notifications from application timeline events to show ALL status changes
+    const generatedNotifications = [];
+    
+    applications.forEach((app) => {
       const job = jobs.find(j => j._id === app.job?._id) || app.job;
-      const timeAgo = formatTimeAgo(new Date(app.updatedAt));
       
-      let type = 'info';
-      let message = '';
-      
-      switch(app.status) {
-        case 'Accepted':
-          type = 'success';
-          message = `Your application for ${job?.title || 'a position'} has been accepted!`;
-          break;
-        case 'Rejected':
-          type = 'error';
-          message = `Your application for ${job?.title || 'a position'} was not successful.`;
-          break;
-        case 'Interview':
-          type = 'warning';
-          message = `You have been invited for an interview for ${job?.title || 'a position'}!`;
-          break;
-        case 'Reviewed':
-          type = 'info';
-          message = `Your application for ${job?.title || 'a position'} is under review.`;
-          break;
-        default:
-          type = 'info';
-          message = `Your application for ${job?.title || 'a position'} has been submitted.`;
-      }
-      
-      return {
-        id: app._id,
-        type,
-        message,
-        time: timeAgo,
-        read: readNotifications.has(app._id), // Check if notification was read
+      // Add notification for initial submission
+      const submissionTime = formatTimeAgo(new Date(app.createdAt));
+      generatedNotifications.push({
+        id: `${app._id}_submitted`,
+        type: 'info',
+        message: `Your application for ${job?.title || 'a position'} has been submitted.`,
+        time: submissionTime,
+        read: readNotifications.has(`${app._id}_submitted`),
         applicationId: app._id,
-        jobId: job?._id
-      };
-    }).reverse(); // Show newest first
+        jobId: job?._id,
+        timestamp: new Date(app.createdAt).getTime()
+      });
+      
+      // Add notifications for each status change in timeline
+      if (app.timeline && app.timeline.length > 0) {
+        app.timeline.forEach((event, index) => {
+          const eventTime = formatTimeAgo(new Date(event.date));
+          let type = 'info';
+          let message = '';
+          
+          switch(event.status) {
+            case 'accepted':
+              type = 'success';
+              message = `Your application for ${job?.title || 'a position'} has been accepted! 🎉`;
+              break;
+            case 'rejected':
+              type = 'error';
+              message = `Your application for ${job?.title || 'a position'} was not successful.`;
+              break;
+            case 'interview_scheduled':
+              type = 'warning';
+              message = `You have been invited for an interview for ${job?.title || 'a position'}! 📅`;
+              break;
+            case 'interviewed':
+              type = 'info';
+              message = `Interview completed for ${job?.title || 'a position'}.`;
+              break;
+            case 'offer_extended':
+              type = 'success';
+              message = `Congratulations! You have received a job offer for ${job?.title || 'a position'}! 🎁`;
+              break;
+            case 'under_review':
+              type = 'info';
+              message = `Your application for ${job?.title || 'a position'} is under review. 👀`;
+              break;
+            case 'shortlisted':
+              type = 'success';
+              message = `Great news! You've been shortlisted for ${job?.title || 'a position'}! ⭐`;
+              break;
+            case 'withdrawn':
+              type = 'info';
+              message = `Your application for ${job?.title || 'a position'} has been withdrawn.`;
+              break;
+            default:
+              type = 'info';
+              message = `Application status updated to ${event.status.replace('_', ' ')} for ${job?.title || 'a position'}.`;
+          }
+          
+          generatedNotifications.push({
+            id: `${app._id}_${event.status}_${index}`,
+            type,
+            message,
+            time: eventTime,
+            read: readNotifications.has(`${app._id}_${event.status}_${index}`),
+            applicationId: app._id,
+            jobId: job?._id,
+            timestamp: new Date(event.date).getTime()
+          });
+        });
+      }
+    });
+    
+    // Sort by timestamp (newest first)
+    generatedNotifications.sort((a, b) => b.timestamp - a.timestamp);
     
     setNotifications(generatedNotifications);
   }, [applications, jobs, readNotifications]); // Run when applications, jobs, or read state changes
