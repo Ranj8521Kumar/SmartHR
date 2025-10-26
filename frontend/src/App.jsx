@@ -8,6 +8,7 @@ import AIInterviewPage from './components/interviews/AIInterviewPage';
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
 import { Toaster as HotToaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { LogOut } from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
@@ -17,9 +18,16 @@ function AppContent() {
 
   const handleLogout = async () => {
     try {
+      // Show logout toast first
+      toast.success('Logged out successfully!');
+      
+      // Small delay to ensure toast is visible before redirect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       await logout();
     } catch (error) {
       console.error('Logout error:', error);
+      toast.error('Logout failed. Please try again.');
     }
   };
 

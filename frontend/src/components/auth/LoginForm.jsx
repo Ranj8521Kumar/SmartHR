@@ -6,6 +6,7 @@ import { Checkbox } from '../ui/checkbox';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 export default function LoginForm({ onSuccess, expectedRole }) {
   const { login, logout, isLoading, error, clearError } = useAuth();
@@ -33,12 +34,16 @@ export default function LoginForm({ onSuccess, expectedRole }) {
 
     // Validation
     if (!formData.email || !formData.password) {
-      setLocalError('Please enter both email and password');
+      const errorMsg = 'Please enter both email and password';
+      setLocalError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setLocalError('Please enter a valid email address');
+      const errorMsg = 'Please enter a valid email address';
+      setLocalError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -59,17 +64,26 @@ export default function LoginForm({ onSuccess, expectedRole }) {
         if (!roleMatches) {
           // Logout the user immediately since role doesn't match
           await logout();
-          setLocalError(`Access denied. These credentials are for a ${getRoleDisplayName(userRole)}, not a ${getRoleDisplayName(expectedRole)}.`);
+          const errorMsg = `Access denied. These credentials are for a ${getRoleDisplayName(userRole)}, not a ${getRoleDisplayName(expectedRole)}.`;
+          setLocalError(errorMsg);
+          toast.error(errorMsg);
           // Don't proceed with onSuccess
           return;
         }
       }
       
+      // Show success toast
+      const userName = response.user ? `${response.user.firstName} ${response.user.lastName}` : 'User';
+      toast.success(`Welcome back, ${userName}!`);
+      
       if (onSuccess) {
         onSuccess();
       }
     } catch (err) {
-      setLocalError(err.message || 'Login failed. Please try again.');
+      const errorMessage = err.message || 'Login failed. Please try again.';
+      console.log('Login error message:', errorMessage); // Debug log
+      setLocalError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
