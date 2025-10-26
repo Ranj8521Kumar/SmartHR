@@ -11,21 +11,23 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Card, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
-import { 
-  Loader2, 
-  Search, 
-  Eye, 
-  CheckCircle, 
+import {
+  Loader2,
+  Search,
+  Eye,
+  CheckCircle,
   XCircle,
   Mail,
   Phone,
   MapPin,
   Calendar,
-  FileText
+  FileText,
+  Video
 } from 'lucide-react';
 import { Progress } from '../ui/progress';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
+import interviewService from '../../services/interviewService';
 
 export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +37,9 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [activeTab, setActiveTab] = useState('all');
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
+  const [schedulingInterviewId, setSchedulingInterviewId] = useState(null);
+  const [interviewLink, setInterviewLink] = useState(null);
+  const [showInterviewLinkDialog, setShowInterviewLinkDialog] = useState(false);
 
   useEffect(() => {
     if (isOpen && job) {
@@ -151,7 +156,7 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
     try {
       setRejectingId(application._id);
       await applicationService.updateApplicationStatus(
-        application._id, 
+        application._id,
         'rejected',
         'Application rejected by manager'
       );
@@ -162,6 +167,40 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
       alert('Failed to reject application. Please try again.');
     } finally {
       setRejectingId(null);
+    }
+  };
+
+  const handleScheduleInterview = async (application) => {
+    try {
+      setSchedulingInterviewId(application._id);
+      const response = await interviewService.scheduleAIInterview(application._id, {
+        duration: 30,
+        notes: 'AI video interview scheduled via HR dashboard'
+      });
+
+      if (response.success) {
+        setInterviewLink(response.data.uniqueLink);
+        setShowInterviewLinkDialog(true);
+        // Refresh applications list to show updated status
+        await fetchApplications();
+      } else {
+        alert('Failed to schedule interview. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error scheduling interview:', error);
+      alert('Failed to schedule interview. Please try again.');
+    } finally {
+      setSchedulingInterviewId(null);
+    }
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Link copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      alert('Failed to copy link. Please copy manually.');
     }
   };
 
@@ -250,7 +289,16 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                                     {getStatusLabel(app.status)}
                                   </Badge>
                                 </div>
-                                
+
+                                {/* AI Score - Moved to prominent position */}
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3 w-full max-w-full">
+                                  <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">AI Match Score:</span>
+                                  <div className="flex items-center gap-2 flex-1 w-full max-w-full sm:max-w-xs">
+                                    <Progress value={score} className="flex-1 h-3 bg-gray-200" />
+                                    <span className="font-bold text-purple-600 text-sm sm:text-base whitespace-nowrap shrink-0">{score}%</span>
+                                  </div>
+                                </div>
+
                                 <div className="grid grid-cols-1 gap-2 text-xs sm:text-sm text-gray-600 mb-3 w-full max-w-full">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <Mail className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
@@ -273,15 +321,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                                     </div>
                                   )}
                                 </div>
-
-                                {/* AI Score */}
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full max-w-full">
-                                  <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">AI Match Score:</span>
-                                  <div className="flex items-center gap-2 flex-1 w-full max-w-full sm:max-w-xs">
-                                    <Progress value={score} className="flex-1 h-2" />
-                                    <span className="font-semibold text-purple-600 text-sm sm:text-base whitespace-nowrap shrink-0">{score}%</span>
-                                  </div>
-                                </div>
                               </div>
                             </div>
 
@@ -293,16 +332,34 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                               </Button>
                               {app.status !== 'accepted' && app.status !== 'rejected' && (
                                 <>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    title="Approve" 
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    title="Schedule Interview"
+                                    className="flex-1 lg:flex-none"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleScheduleInterview(app);
+                                    }}
+                                    disabled={schedulingInterviewId === app._id || approvingId === app._id || rejectingId === app._id}
+                                  >
+                                    {schedulingInterviewId === app._id ? (
+                                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                                    ) : (
+                                      <Video className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                                    )}
+                                    <span className="ml-1 lg:hidden text-xs">Interview</span>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    title="Approve"
                                     className="flex-1 lg:flex-none"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleApprove(app);
                                     }}
-                                    disabled={approvingId === app._id || rejectingId === app._id}
+                                    disabled={approvingId === app._id || rejectingId === app._id || schedulingInterviewId === app._id}
                                   >
                                     {approvingId === app._id ? (
                                       <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
@@ -311,16 +368,16 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
                                     )}
                                     <span className="ml-1 lg:hidden text-xs">Approve</span>
                                   </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline" 
-                                    title="Reject" 
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    title="Reject"
                                     className="flex-1 lg:flex-none"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleReject(app);
                                     }}
-                                    disabled={approvingId === app._id || rejectingId === app._id}
+                                    disabled={approvingId === app._id || rejectingId === app._id || schedulingInterviewId === app._id}
                                   >
                                     {rejectingId === app._id ? (
                                       <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
@@ -348,6 +405,53 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
           </Tabs>
         </div>
       </DialogContent>
+
+      {/* Interview Link Dialog */}
+      <Dialog open={showInterviewLinkDialog} onOpenChange={setShowInterviewLinkDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-blue-600" />
+              Interview Scheduled Successfully
+            </DialogTitle>
+            <DialogDescription>
+              The AI video interview has been scheduled. Share this link with the candidate.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 mb-2">Interview Link:</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={interviewLink}
+                  readOnly
+                  className="flex-1 text-sm"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => copyToClipboard(interviewLink)}
+                  className="shrink-0"
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+
+            <div className="text-xs text-gray-600 space-y-1">
+              <p>• Interview duration: 30 minutes</p>
+              <p>• Link expires in 7 days</p>
+              <p>• Candidate will receive AI-generated questions</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setShowInterviewLinkDialog(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

@@ -90,7 +90,7 @@ const ApplicationSchema = new mongoose.Schema({
     scheduledDate: Date,
     type: {
       type: String,
-      enum: ['phone', 'video', 'in-person', 'technical', 'hr']
+      enum: ['phone', 'video', 'in-person', 'technical', 'hr', 'ai_video']
     },
     interviewer: {
       type: mongoose.Schema.ObjectId,
@@ -105,6 +105,43 @@ const ApplicationSchema = new mongoose.Schema({
     status: {
       type: String,
       enum: ['scheduled', 'completed', 'cancelled', 'rescheduled']
+    },
+    // AI Interview specific fields
+    aiInterview: {
+      duration: {
+        type: Number, // Duration in minutes
+        min: 15,
+        max: 120
+      },
+      questions: [{
+        question: String,
+        category: {
+          type: String,
+          enum: ['technical', 'behavioral', 'situational', 'experience', 'cultural']
+        },
+        difficulty: {
+          type: String,
+          enum: ['easy', 'medium', 'hard']
+        },
+        timeLimit: Number // Time limit in seconds for this question
+      }],
+      uniqueLink: {
+        type: String,
+        unique: true,
+        sparse: true
+      },
+      vapiSessionId: String,
+      vapiCallId: String,
+      transcript: String,
+      aiFeedback: {
+        overallScore: Number,
+        communicationScore: Number,
+        technicalScore: Number,
+        confidenceScore: Number,
+        analysis: String
+      },
+      completedAt: Date,
+      expiresAt: Date // Link expiration date
     }
   }],
   notes: [{
