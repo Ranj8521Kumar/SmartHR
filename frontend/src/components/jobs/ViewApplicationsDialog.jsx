@@ -27,9 +27,9 @@ import {
 import { Progress } from '../ui/progress';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
-import interviewService from '../../services/interviewService';
 
 export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [applications, setApplications] = useState([]);
   const [filteredApplications, setFilteredApplications] = useState([]);
@@ -37,9 +37,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [activeTab, setActiveTab] = useState('all');
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
-  const [schedulingInterviewId, setSchedulingInterviewId] = useState(null);
-  const [interviewLink, setInterviewLink] = useState(null);
-  const [showInterviewLinkDialog, setShowInterviewLinkDialog] = useState(false);
 
   useEffect(() => {
     if (isOpen && job) {
@@ -170,40 +167,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
     }
   };
 
-  const handleScheduleInterview = async (application) => {
-    try {
-      setSchedulingInterviewId(application._id);
-      const response = await interviewService.scheduleAIInterview(application._id, {
-        duration: 30,
-        notes: 'AI video interview scheduled via HR dashboard'
-      });
-
-      if (response.success) {
-        setInterviewLink(response.data.uniqueLink);
-        setShowInterviewLinkDialog(true);
-        // Refresh applications list to show updated status
-        await fetchApplications();
-      } else {
-        alert('Failed to schedule interview. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error scheduling interview:', error);
-      alert('Failed to schedule interview. Please try again.');
-    } finally {
-      setSchedulingInterviewId(null);
-    }
-  };
-
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      alert('Link copied to clipboard!');
-    } catch (error) {
-      console.error('Failed to copy link:', error);
-      alert('Failed to copy link. Please copy manually.');
-    }
-  };
-
   const getStatusCounts = () => {
     return {
       all: applications.length,
@@ -326,7 +289,16 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
 
                             {/* Actions */}
                             <div className="flex gap-2 w-full lg:w-auto lg:ml-4 shrink-0">
-                              <Button size="sm" variant="outline" title="View Details" className="flex-1 lg:flex-none">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                title="View Details" 
+                                className="flex-1 lg:flex-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewDetails(app._id);
+                                }}
+                              >
                                 <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                                 <span className="ml-1 lg:hidden text-xs">View</span>
                               </Button>
@@ -405,53 +377,6 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
           </Tabs>
         </div>
       </DialogContent>
-
-      {/* Interview Link Dialog */}
-      <Dialog open={showInterviewLinkDialog} onOpenChange={setShowInterviewLinkDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-blue-600" />
-              Interview Scheduled Successfully
-            </DialogTitle>
-            <DialogDescription>
-              The AI video interview has been scheduled. Share this link with the candidate.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-700 mb-2">Interview Link:</p>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={interviewLink}
-                  readOnly
-                  className="flex-1 text-sm"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => copyToClipboard(interviewLink)}
-                  className="shrink-0"
-                >
-                  Copy
-                </Button>
-              </div>
-            </div>
-
-            <div className="text-xs text-gray-600 space-y-1">
-              <p>• Interview duration: 30 minutes</p>
-              <p>• Link expires in 7 days</p>
-              <p>• Candidate will receive AI-generated questions</p>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button onClick={() => setShowInterviewLinkDialog(false)}>
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Dialog>
   );
 }

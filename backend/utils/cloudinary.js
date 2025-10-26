@@ -15,13 +15,16 @@ cloudinary.config({
  * @param {string} resourceType - Type of resource (raw for non-image files)
  * @returns {Promise<Object>} - Cloudinary upload response
  */
-const uploadToCloudinary = async (filePath, folder = 'hrms/resumes', resourceType = 'raw') => {
+const uploadToCloudinary = async (filePath, folder = 'SmartHR/Resumes', resourceType = 'raw') => {
   try {
     const result = await cloudinary.uploader.upload(filePath, {
       folder: folder,
       resource_type: resourceType,
       use_filename: true,
-      unique_filename: true
+      unique_filename: true,
+      type: 'upload',               // ✅ ensures it's publicly accessible
+      access_mode: 'public',        // ✅ sets public access
+      overwrite: true,
     });
 
     return {
@@ -76,6 +79,7 @@ const uploadBufferToCloudinary = (buffer, folder = 'hrms/resumes', filename, res
       type: 'upload',  // Use 'upload' type instead of default
       access_mode: 'public',
       // access_control: [{ access_type: 'anonymous' }]  // Allow anonymous access
+      overwrite: true
     };
 
     // Add format for raw files to ensure proper file type

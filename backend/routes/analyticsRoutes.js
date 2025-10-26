@@ -5,6 +5,8 @@ const {
   getJobAnalytics,
   matchCandidates,
   getSystemLogs,
+  deleteLog,
+  deleteBatchLogs,
   getManagerDashboardAnalytics
 } = require('../controllers/analyticsController');
 const { protect, authorize } = require('../middleware/auth');
@@ -21,5 +23,7 @@ router.get('/applications', getApplicationAnalytics);
 router.get('/jobs', getJobAnalytics);
 router.post('/candidate-match', matchCandidates);
 router.get('/logs', authorize('admin'), getSystemLogs);
+router.post('/logs/delete-batch', authorize('admin'), deleteBatchLogs);
+router.delete('/logs/:id', authorize('admin'), deleteLog);
 
 module.exports = router;
