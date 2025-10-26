@@ -28,8 +28,11 @@ import { Progress } from '../ui/progress';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
 import interviewService from '../../services/interviewService';
+import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [applications, setApplications] = useState([]);
   const [filteredApplications, setFilteredApplications] = useState([]);
@@ -40,6 +43,8 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
   const [schedulingInterviewId, setSchedulingInterviewId] = useState(null);
   const [interviewLink, setInterviewLink] = useState(null);
   const [showInterviewLinkDialog, setShowInterviewLinkDialog] = useState(false);
+  const [selectedApplicationId, setSelectedApplicationId] = useState(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen && job) {
@@ -202,6 +207,19 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
       console.error('Failed to copy link:', error);
       alert('Failed to copy link. Please copy manually.');
     }
+  const handleViewDetails = (applicationId) => {
+    setSelectedApplicationId(applicationId);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleCloseDetails = () => {
+    setIsDetailsDialogOpen(false);
+    setSelectedApplicationId(null);
+  };
+
+  const handleApplicationUpdate = async () => {
+    // Refresh the applications list when an application is updated
+    await fetchApplications();
   };
 
   const getStatusCounts = () => {
@@ -326,7 +344,16 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
 
                             {/* Actions */}
                             <div className="flex gap-2 w-full lg:w-auto lg:ml-4 shrink-0">
-                              <Button size="sm" variant="outline" title="View Details" className="flex-1 lg:flex-none">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                title="View Details" 
+                                className="flex-1 lg:flex-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewDetails(app._id);
+                                }}
+                              >
                                 <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                                 <span className="ml-1 lg:hidden text-xs">View</span>
                               </Button>
@@ -452,6 +479,16 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job }) {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Application Details Dialog */}
+      {selectedApplicationId && (
+        <ApplicationDetailsDialog
+          isOpen={isDetailsDialogOpen}
+          onClose={handleCloseDetails}
+          applicationId={selectedApplicationId}
+          onStatusUpdate={handleApplicationUpdate}
+          user={user}
+        />
+      )}
     </Dialog>
   );
 }

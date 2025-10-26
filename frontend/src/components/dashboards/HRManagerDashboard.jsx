@@ -28,7 +28,9 @@ import {
   Phone,
   Video,
   Send,
-  Inbox
+  Inbox,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -48,6 +50,7 @@ import applicationService from '../../services/applicationService';
 import candidateService from '../../services/candidateService';
 import interviewService from '../../services/interviewService';
 import communicationService from '../../services/communicationService';
+import analyticsService from '../../services/analyticsService';
 
 const kanbanStages = [
   { 
@@ -96,7 +99,6 @@ export default function HRManagerDashboard({ user }) {
   const [activeView, setActiveView] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState(null);
   const [applicationsData, setApplicationsData] = useState([]);
-  const [jobsData, setJobsData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
@@ -112,6 +114,8 @@ export default function HRManagerDashboard({ user }) {
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentApplicationsPage, setCurrentApplicationsPage] = useState(1);
+  const [applicationsPerPage] = useState(10);
 
   // Candidates page state
   const [allCandidates, setAllCandidates] = useState([]);
@@ -121,6 +125,8 @@ export default function HRManagerDashboard({ user }) {
   const [candidateStatusFilter, setCandidateStatusFilter] = useState('all');
   const [isCandidateDetailsOpen, setIsCandidateDetailsOpen] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+  const [currentCandidatesPage, setCurrentCandidatesPage] = useState(1);
+  const [candidatesPerPage] = useState(10);
 
   // Interviews page state
   const [allInterviews, setAllInterviews] = useState([]);
@@ -128,6 +134,8 @@ export default function HRManagerDashboard({ user }) {
   const [interviewsLoading, setInterviewsLoading] = useState(false);
   const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
   const [interviewStatusFilter, setInterviewStatusFilter] = useState('all');
+  const [currentInterviewsPage, setCurrentInterviewsPage] = useState(1);
+  const [interviewsPerPage] = useState(10);
 
   // Notifications state
   const [notifications, setNotifications] = useState([]);
@@ -166,6 +174,22 @@ export default function HRManagerDashboard({ user }) {
   const [communicationTypeFilter, setCommunicationTypeFilter] = useState('all');
   const [isCommunicationDetailsOpen, setIsCommunicationDetailsOpen] = useState(false);
   const [selectedCommunication, setSelectedCommunication] = useState(null);
+  const [currentCommunicationsPage, setCurrentCommunicationsPage] = useState(1);
+  const [communicationsPerPage] = useState(10);
+
+  // Analytics page state
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [applicationAnalytics, setApplicationAnalytics] = useState(null);
+  const [jobAnalytics, setJobAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState(null);
+  const [dateRange, setDateRange] = useState('30'); // days
+
+  // Jobs pagination state
+  const [allJobs, setAllJobs] = useState([]);
+  const [currentJobsPage, setCurrentJobsPage] = useState(1);
+  const [jobsPerPage] = useState(10);
+  const [jobsLoading, setJobsLoading] = useState(false);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -173,15 +197,38 @@ export default function HRManagerDashboard({ user }) {
       setIsLoading(true);
       setError(null);
       
-      const [dashboardResponse, applicationsResponse, jobsResponse] = await Promise.all([
+      const [
+        dashboardResponse, 
+        applicationsResponse, 
+        jobsResponse, 
+        candidatesResponse, 
+        communicationsResponse, 
+        interviewsResponse
+      ] = await Promise.all([
         dashboardService.getDashboardAnalytics(),
         dashboardService.getApplications({ limit: 10, sort: '-createdAt' }),
-        dashboardService.getJobs({ status: 'open', limit: 5 })
+        dashboardService.getJobs({ limit: 1000 }).catch(() => ({ data: [] })),
+        candidateService.getCandidates().catch(() => ({ data: [] })),
+        communicationService.getCommunications().catch(() => ({ data: [] })),
+        interviewService.getInterviews().catch(() => ({ data: [] }))
       ]);
 
       setDashboardData(dashboardResponse.data);
       setApplicationsData(applicationsResponse.data || []);
-      setJobsData(jobsResponse.data || []);
+      
+      // Set counts for badges
+      if (jobsResponse.success && jobsResponse.data) {
+        setAllJobs(jobsResponse.data);
+      }
+      if (candidatesResponse.success && candidatesResponse.data) {
+        setAllCandidates(candidatesResponse.data);
+      }
+      if (communicationsResponse.success && communicationsResponse.data) {
+        setAllCommunications(communicationsResponse.data);
+      }
+      if (interviewsResponse.success && interviewsResponse.data) {
+        setAllInterviews(interviewsResponse.data);
+      }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message);
@@ -208,10 +255,13 @@ export default function HRManagerDashboard({ user }) {
 
       recentApplications.forEach(app => {
         const timeAgo = formatTimeAgo(new Date(app.createdAt));
+        const candidateName = app.applicant 
+          ? `${app.applicant.firstName || ''} ${app.applicant.lastName || ''}`.trim() || 'Unknown'
+          : 'Unknown';
         generatedNotifications.push({
           id: app._id,
           type: 'info',
-          message: `New application from ${app.candidate?.name || 'Unknown'} for ${app.job?.title || 'a position'}`,
+          message: `New application from ${candidateName} for ${app.job?.title || 'a position'}`,
           time: timeAgo,
           read: readNotifications.has(app._id), // Check if notification was read
           applicationId: app._id
@@ -228,10 +278,13 @@ export default function HRManagerDashboard({ user }) {
 
       upcomingInterviews.forEach(interview => {
         const interviewNotifId = `interview-${interview._id}`;
+        const candidateName = interview.candidate 
+          ? `${interview.candidate.firstName || ''} ${interview.candidate.lastName || ''}`.trim() || 'candidate'
+          : 'candidate';
         generatedNotifications.push({
           id: interviewNotifId,
           type: 'warning',
-          message: `Interview scheduled with ${interview.candidate?.name || 'candidate'} for ${interview.job?.title || 'position'}`,
+          message: `Interview scheduled with ${candidateName} for ${interview.job?.title || 'position'}`,
           time: new Date(interview.scheduledDate).toLocaleDateString(),
           read: readNotifications.has(interviewNotifId), // Check if notification was read
           interviewId: interview._id
@@ -282,16 +335,16 @@ export default function HRManagerDashboard({ user }) {
 
   // Handle job creation
   const handleJobCreated = (newJob) => {
-    // Add the new job to the jobs data
-    setJobsData(prev => [newJob, ...prev]);
+    // Add to allJobs for pagination
+    setAllJobs(prev => [newJob, ...prev]);
     // Refresh dashboard data to update stats
     fetchDashboardData();
   };
 
   // Handle job update
   const handleJobUpdated = (updatedJob) => {
-    // Update the job in the jobs data
-    setJobsData(prev => prev.map(job => job._id === updatedJob._id ? updatedJob : job));
+    // Update in allJobs for pagination
+    setAllJobs(prev => prev.map(job => job._id === updatedJob._id ? updatedJob : job));
     // Refresh dashboard data to update stats
     fetchDashboardData();
   };
@@ -312,7 +365,7 @@ export default function HRManagerDashboard({ user }) {
   const fetchAllApplications = async () => {
     setApplicationsLoading(true);
     try {
-      const response = await applicationService.getApplications({ limit: 100 });
+      const response = await applicationService.getApplications({ limit: 1000 });
       if (response.success && response.data) {
         setAllApplications(response.data);
         filterApplicationsByStatus(response.data, statusFilter, searchQuery);
@@ -355,15 +408,28 @@ export default function HRManagerDashboard({ user }) {
 
   // Handle application status update
   const handleApplicationStatusUpdate = (updatedApplication) => {
-    setAllApplications(prev => 
-      prev.map(app => app._id === updatedApplication._id ? updatedApplication : app)
-    );
-    filterApplicationsByStatus(
-      allApplications.map(app => app._id === updatedApplication._id ? updatedApplication : app),
-      statusFilter,
-      searchQuery
-    );
-    fetchDashboardData(); // Refresh dashboard stats
+    // Create the updated applications array with preserved data
+    const updatedApplications = allApplications.map(app => {
+      if (app._id === updatedApplication._id) {
+        // Preserve the populated applicant and job data
+        return {
+          ...updatedApplication,
+          applicant: updatedApplication.applicant || app.applicant,
+          job: updatedApplication.job || app.job,
+          resume: updatedApplication.resume || app.resume
+        };
+      }
+      return app;
+    });
+
+    // Update state
+    setAllApplications(updatedApplications);
+    
+    // Filter with the updated array
+    filterApplicationsByStatus(updatedApplications, statusFilter, searchQuery);
+    
+    // Refresh dashboard stats
+    fetchDashboardData();
   };
 
   // Quick status update
@@ -390,6 +456,7 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allApplications.length > 0) {
       filterApplicationsByStatus(allApplications, statusFilter, searchQuery);
+      setCurrentApplicationsPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchQuery]);
@@ -489,15 +556,20 @@ export default function HRManagerDashboard({ user }) {
   // Handle interview status update
   const handleInterviewStatusUpdate = async (applicationId, newStatus, feedback) => {
     try {
+      console.log('Updating application:', applicationId, 'with status:', newStatus, 'and feedback:', feedback);
       const response = await applicationService.updateApplicationStatus(applicationId, newStatus, feedback);
+      console.log('Update response:', response);
       if (response.success) {
         // Refresh interviews
         await fetchAllInterviews();
         // Refresh dashboard stats
         fetchDashboardData();
+      } else {
+        throw new Error(response.message || 'Failed to update application status');
       }
     } catch (err) {
       console.error('Error updating interview status:', err);
+      throw err; // Re-throw to be caught by the dialog
     }
   };
 
@@ -513,6 +585,7 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allInterviews.length > 0) {
       filterInterviewsByStatus(allInterviews, interviewStatusFilter, interviewSearchQuery);
+      setCurrentInterviewsPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewStatusFilter, interviewSearchQuery]);
@@ -529,6 +602,7 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allCandidates.length > 0) {
       filterCandidatesByStatus(allCandidates, candidateStatusFilter, candidateSearchQuery);
+      setCurrentCandidatesPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateStatusFilter, candidateSearchQuery]);
@@ -612,9 +686,167 @@ export default function HRManagerDashboard({ user }) {
   useEffect(() => {
     if (allCommunications.length > 0) {
       filterCommunicationsByType(allCommunications, communicationTypeFilter, communicationSearchQuery);
+      setCurrentCommunicationsPage(1); // Reset to first page when filters change
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communicationTypeFilter, communicationSearchQuery]);
+
+  // Fetch analytics data
+  const fetchAnalyticsData = async () => {
+    try {
+      setAnalyticsLoading(true);
+      setAnalyticsError(null);
+
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(dateRange));
+
+      const [dashboardAnalytics, appAnalytics, jobsAnalytics] = await Promise.all([
+        analyticsService.getDashboardAnalytics(),
+        analyticsService.getApplicationAnalytics({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        }),
+        analyticsService.getJobAnalytics()
+      ]);
+
+      setAnalyticsData(dashboardAnalytics.data);
+      setApplicationAnalytics(appAnalytics.data);
+      setJobAnalytics(jobsAnalytics.data);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      setAnalyticsError(err.message);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  // Effect to fetch analytics when view changes
+  useEffect(() => {
+    if (activeView === 'analytics') {
+      fetchAnalyticsData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, dateRange]);
+
+  // Fetch all jobs with pagination
+  const fetchAllJobs = async () => {
+    try {
+      setJobsLoading(true);
+      
+      // Fetch all jobs without pagination for now, then handle client-side
+      // Set a high limit to ensure we get all jobs
+      const response = await dashboardService.getJobs({ limit: 1000 });
+      
+      if (response.success && response.data) {
+        setAllJobs(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching all jobs:', err);
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  // Effect to fetch jobs when view changes
+  useEffect(() => {
+    if (activeView === 'jobs') {
+      fetchAllJobs();
+    }
+  }, [activeView]);
+
+  // Get paginated jobs by status
+  const getPaginatedJobs = (status) => {
+    const filteredJobs = allJobs.filter(job => job.status === status);
+    const startIndex = (currentJobsPage - 1) * jobsPerPage;
+    const endIndex = startIndex + jobsPerPage;
+    return filteredJobs.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for a status
+  const getTotalPages = (status) => {
+    const filteredJobs = allJobs.filter(job => job.status === status);
+    return Math.ceil(filteredJobs.length / jobsPerPage);
+  };
+
+  // Handle page change
+  const handleJobsPageChange = (newPage) => {
+    setCurrentJobsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get paginated applications
+  const getPaginatedApplications = () => {
+    const startIndex = (currentApplicationsPage - 1) * applicationsPerPage;
+    const endIndex = startIndex + applicationsPerPage;
+    return filteredApplications.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for applications
+  const getTotalApplicationsPages = () => {
+    return Math.ceil(filteredApplications.length / applicationsPerPage);
+  };
+
+  // Handle applications page change
+  const handleApplicationsPageChange = (newPage) => {
+    setCurrentApplicationsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get paginated candidates
+  const getPaginatedCandidates = () => {
+    const startIndex = (currentCandidatesPage - 1) * candidatesPerPage;
+    const endIndex = startIndex + candidatesPerPage;
+    return filteredCandidates.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for candidates
+  const getTotalCandidatesPages = () => {
+    return Math.ceil(filteredCandidates.length / candidatesPerPage);
+  };
+
+  // Handle candidates page change
+  const handleCandidatesPageChange = (newPage) => {
+    setCurrentCandidatesPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get paginated communications
+  const getPaginatedCommunications = () => {
+    const startIndex = (currentCommunicationsPage - 1) * communicationsPerPage;
+    const endIndex = startIndex + communicationsPerPage;
+    return filteredCommunications.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for communications
+  const getTotalCommunicationsPages = () => {
+    return Math.ceil(filteredCommunications.length / communicationsPerPage);
+  };
+
+  // Handle communications page change
+  const handleCommunicationsPageChange = (newPage) => {
+    setCurrentCommunicationsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get paginated interviews
+  const getPaginatedInterviews = () => {
+    const startIndex = (currentInterviewsPage - 1) * interviewsPerPage;
+    const endIndex = startIndex + interviewsPerPage;
+    return filteredInterviews.slice(startIndex, endIndex);
+  };
+
+  // Calculate total pages for interviews
+  const getTotalInterviewsPages = () => {
+    return Math.ceil(filteredInterviews.length / interviewsPerPage);
+  };
+
+  // Handle interviews page change
+  const handleInterviewsPageChange = (newPage) => {
+    setCurrentInterviewsPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Group applications by status for kanban board
   const getApplicationsByStatus = () => {
@@ -664,11 +896,11 @@ export default function HRManagerDashboard({ user }) {
 
   const sidebarItems = [
     { icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', active: activeView === 'dashboard', onClick: () => setActiveView('dashboard') },
-    { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs') },
+    { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs'), badge: allJobs.length || 0 },
     { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: summary.totalApplications || 0 },
-    { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates') },
+    { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates'), badge: allCandidates.length || 0 },
     { icon: <Calendar className="h-5 w-5" />, label: 'Interviews', active: activeView === 'interviews', onClick: () => setActiveView('interviews'), badge: allInterviews.length || 0 },
-    { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications') },
+    { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications'), badge: allCommunications.length || 0 },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
   ];
 
@@ -758,7 +990,14 @@ export default function HRManagerDashboard({ user }) {
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <CardTitle className="text-lg md:text-xl">Application Pipeline</CardTitle>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto">View All</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full sm:w-auto"
+                  onClick={() => setActiveView('applications')}
+                >
+                  View All
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -772,7 +1011,14 @@ export default function HRManagerDashboard({ user }) {
                     <div className="space-y-2">
                       {stage.applications.length > 0 ? (
                         stage.applications.map((app) => (
-                          <div key={app.id} className="bg-white p-3 rounded shadow-sm">
+                          <div 
+                            key={app.id} 
+                            className="bg-white p-3 rounded shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                            onClick={() => {
+                              setSelectedApplicationId(app.id);
+                              setIsApplicationDetailsOpen(true);
+                            }}
+                          >
                             <p className="text-sm font-medium mb-1">{app.name}</p>
                             <p className="text-xs text-gray-500">{app.position}</p>
                             <div className="mt-2 flex items-center gap-1">
@@ -866,7 +1112,16 @@ export default function HRManagerDashboard({ user }) {
                             </div>
                           </div>
                           <div className="flex gap-2 ml-auto sm:ml-0">
-                            <Button size="sm" variant="outline" title="View Details" className="h-8 w-8 p-0">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              title="View Details" 
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewApplicationDetails(app._id);
+                              }}
+                            >
                               <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                             <Button size="sm" variant="outline" title="Approve" className="h-8 w-8 p-0">
@@ -976,7 +1231,7 @@ export default function HRManagerDashboard({ user }) {
             </div>
           ) : filteredApplications.length > 0 ? (
             <div className="space-y-4">
-              {filteredApplications.map((app) => {
+              {getPaginatedApplications().map((app) => {
                 const candidateName = app.applicant 
                   ? `${app.applicant.firstName} ${app.applicant.lastName}` 
                   : 'Unknown Candidate';
@@ -1100,6 +1355,42 @@ export default function HRManagerDashboard({ user }) {
               </p>
             </div>
           )}
+
+          {/* Pagination Controls */}
+          {filteredApplications.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {getPaginatedApplications().length} of {filteredApplications.length} applications
+                    {getTotalApplicationsPages() > 1 && (
+                      <span> • Page {currentApplicationsPage} of {getTotalApplicationsPages()}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleApplicationsPageChange(currentApplicationsPage - 1)}
+                      disabled={currentApplicationsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleApplicationsPageChange(currentApplicationsPage + 1)}
+                      disabled={currentApplicationsPage >= getTotalApplicationsPages()}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -1189,7 +1480,7 @@ export default function HRManagerDashboard({ user }) {
             </div>
           ) : filteredCandidates.length > 0 ? (
             <div className="space-y-4">
-              {filteredCandidates.map((candidate) => {
+              {getPaginatedCandidates().map((candidate) => {
                 const candidateName = `${candidate.firstName} ${candidate.lastName}`;
                 const latestStatusBadgeMap = {
                   'submitted': 'secondary',
@@ -1290,6 +1581,42 @@ export default function HRManagerDashboard({ user }) {
               </p>
             </div>
           )}
+
+          {/* Pagination Controls */}
+          {filteredCandidates.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {getPaginatedCandidates().length} of {filteredCandidates.length} candidates
+                    {getTotalCandidatesPages() > 1 && (
+                      <span> • Page {currentCandidatesPage} of {getTotalCandidatesPages()}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCandidatesPageChange(currentCandidatesPage - 1)}
+                      disabled={currentCandidatesPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCandidatesPageChange(currentCandidatesPage + 1)}
+                      disabled={currentCandidatesPage >= getTotalCandidatesPages()}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -1380,111 +1707,147 @@ export default function HRManagerDashboard({ user }) {
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
             </div>
           ) : filteredInterviews.length > 0 ? (
-            <div className="space-y-4">
-              {filteredInterviews.map((interview) => {
-                const candidateName = interview.candidate 
-                  ? `${interview.candidate.firstName} ${interview.candidate.lastName}` 
-                  : 'Unknown Candidate';
+            <>
+              <div className="space-y-4">
+                {getPaginatedInterviews().map((interview) => {
+                  const candidateName = interview.candidate 
+                    ? `${interview.candidate.firstName} ${interview.candidate.lastName}` 
+                    : 'Unknown Candidate';
 
-                const interviewTypeMap = {
-                  'phone': { label: 'Phone', icon: Phone, color: 'bg-blue-100 text-blue-600' },
-                  'video': { label: 'Video', icon: Video, color: 'bg-purple-100 text-purple-600' },
-                  'in-person': { label: 'In-Person', icon: Users, color: 'bg-green-100 text-green-600' },
-                  'technical': { label: 'Technical', icon: Briefcase, color: 'bg-orange-100 text-orange-600' },
-                  'hr': { label: 'HR', icon: Users, color: 'bg-pink-100 text-pink-600' },
-                };
+                  const interviewTypeMap = {
+                    'phone': { label: 'Phone', icon: Phone, color: 'bg-blue-100 text-blue-600' },
+                    'video': { label: 'Video', icon: Video, color: 'bg-purple-100 text-purple-600' },
+                    'in-person': { label: 'In-Person', icon: Users, color: 'bg-green-100 text-green-600' },
+                    'technical': { label: 'Technical', icon: Briefcase, color: 'bg-orange-100 text-orange-600' },
+                    'hr': { label: 'HR', icon: Users, color: 'bg-pink-100 text-pink-600' },
+                  };
 
-                const interviewType = interviewTypeMap[interview.type] || null;
-                const TypeIcon = interviewType?.icon;
+                  const interviewType = interviewTypeMap[interview.type] || null;
+                  const TypeIcon = interviewType?.icon;
 
-                const statusBadgeMap = {
-                  'scheduled': 'default',
-                  'pending': 'secondary',
-                  'completed': 'default',
-                };
+                  const statusBadgeMap = {
+                    'scheduled': 'default',
+                    'pending': 'secondary',
+                    'completed': 'default',
+                  };
 
-                const isUpcoming = interview.scheduledDate && new Date(interview.scheduledDate) > new Date();
-                const isToday = interview.scheduledDate && 
-                  new Date(interview.scheduledDate).toDateString() === new Date().toDateString();
+                  const isUpcoming = interview.scheduledDate && new Date(interview.scheduledDate) > new Date();
+                  const isToday = interview.scheduledDate && 
+                    new Date(interview.scheduledDate).toDateString() === new Date().toDateString();
 
-                return (
-                  <Card key={interview._id}>
-                    <CardContent className="p-6">
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <img 
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
-                            alt={candidateName} 
-                            className="w-14 h-14 rounded-full flex-shrink-0" 
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <h3 className="font-semibold text-lg text-gray-900">
-                                {candidateName}
-                              </h3>
-                              <Badge variant={statusBadgeMap[interview.status] || 'secondary'}>
-                                {interview.status?.charAt(0).toUpperCase() + interview.status?.slice(1)}
-                              </Badge>
-                              {isToday && (
-                                <Badge variant="default" className="bg-blue-600">
-                                  Today
+                  return (
+                    <Card key={interview._id}>
+                      <CardContent className="p-6">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <img 
+                              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName}`} 
+                              alt={candidateName} 
+                              className="w-14 h-14 rounded-full flex-shrink-0" 
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <h3 className="font-semibold text-lg text-gray-900">
+                                  {candidateName}
+                                </h3>
+                                <Badge variant={statusBadgeMap[interview.status] || 'secondary'}>
+                                  {interview.status?.charAt(0).toUpperCase() + interview.status?.slice(1)}
                                 </Badge>
-                              )}
-                              {isUpcoming && !isToday && (
-                                <Badge variant="outline">
-                                  Upcoming
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                              <div className="flex items-center gap-2">
-                                <Briefcase className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate">{interview.job?.title || 'N/A'}</span>
+                                {isToday && (
+                                  <Badge variant="default" className="bg-blue-600">
+                                    Today
+                                  </Badge>
+                                )}
+                                {isUpcoming && !isToday && (
+                                  <Badge variant="outline">
+                                    Upcoming
+                                  </Badge>
+                                )}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate">{interview.candidate?.email || 'N/A'}</span>
-                              </div>
-                              {interview.scheduledDate && (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
                                 <div className="flex items-center gap-2">
-                                  <Calendar className="h-4 w-4 flex-shrink-0" />
-                                  <span>
-                                    {new Date(interview.scheduledDate).toLocaleDateString()} at{' '}
-                                    {new Date(interview.scheduledDate).toLocaleTimeString([], { 
-                                      hour: '2-digit', 
-                                      minute: '2-digit' 
-                                    })}
-                                  </span>
+                                  <Briefcase className="h-4 w-4 flex-shrink-0" />
+                                  <span className="truncate">{interview.job?.title || 'N/A'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Mail className="h-4 w-4 flex-shrink-0" />
+                                  <span className="truncate">{interview.candidate?.email || 'N/A'}</span>
+                                </div>
+                                {interview.scheduledDate && (
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                                    <span>
+                                      {new Date(interview.scheduledDate).toLocaleDateString()} at{' '}
+                                      {new Date(interview.scheduledDate).toLocaleTimeString([], { 
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                      })}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {interviewType && (
+                                <div className="mt-2 inline-flex">
+                                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${interviewType.color} text-xs`}>
+                                    {TypeIcon && <TypeIcon className="h-3 w-3" />}
+                                    <span>{interviewType.label}</span>
+                                  </div>
                                 </div>
                               )}
                             </div>
-                            {interviewType && (
-                              <div className="mt-2 inline-flex">
-                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${interviewType.color} text-xs`}>
-                                  {TypeIcon && <TypeIcon className="h-3 w-3" />}
-                                  <span>{interviewType.label}</span>
-                                </div>
-                              </div>
-                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handleViewInterviewDetails(interview)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => handleViewInterviewDetails(interview)}
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </Button>
-                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Pagination Controls */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="text-sm text-gray-600">
+                      Showing {getPaginatedInterviews().length} of {filteredInterviews.length} interviews
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleInterviewsPageChange(currentInterviewsPage - 1)}
+                        disabled={currentInterviewsPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                      </Button>
+                      <div className="text-sm text-gray-600">
+                        Page {currentInterviewsPage} of {getTotalInterviewsPages() || 1}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleInterviewsPageChange(currentInterviewsPage + 1)}
+                        disabled={currentInterviewsPage >= getTotalInterviewsPages()}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           ) : (
             <div className="text-center py-12 border-2 border-dashed rounded-lg">
               <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -1603,7 +1966,7 @@ export default function HRManagerDashboard({ user }) {
             </div>
           ) : filteredCommunications.length > 0 ? (
             <div className="space-y-3">
-              {filteredCommunications.map((communication) => {
+              {getPaginatedCommunications().map((communication) => {
                 const getTypeColor = (type) => {
                   const colors = {
                     'application': 'bg-blue-100 text-blue-800',
@@ -1710,6 +2073,414 @@ export default function HRManagerDashboard({ user }) {
               </p>
             </div>
           )}
+
+          {/* Pagination Controls */}
+          {filteredCommunications.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {getPaginatedCommunications().length} of {filteredCommunications.length} communications
+                    {getTotalCommunicationsPages() > 1 && (
+                      <span> • Page {currentCommunicationsPage} of {getTotalCommunicationsPages()}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCommunicationsPageChange(currentCommunicationsPage - 1)}
+                      disabled={currentCommunicationsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCommunicationsPageChange(currentCommunicationsPage + 1)}
+                      disabled={currentCommunicationsPage >= getTotalCommunicationsPages()}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {activeView === 'analytics' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Analytics</h1>
+              <p className="text-sm md:text-base text-gray-600">Insights and metrics for recruitment performance</p>
+            </div>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+                <SelectItem value="365">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {analyticsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : analyticsError ? (
+            <div className="text-center py-12 border-2 border-dashed rounded-lg">
+              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-red-600 mb-4">Error loading analytics: {analyticsError}</p>
+              <Button onClick={fetchAnalyticsData}>Retry</Button>
+            </div>
+          ) : (
+            <>
+              {/* Overview Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Total Jobs</div>
+                      <Briefcase className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {analyticsData?.summary?.totalJobs || 0}
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">
+                      {analyticsData?.summary?.openJobs || 0} open positions
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Total Applications</div>
+                      <FileText className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {applicationAnalytics?.totalApplications || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      In selected period
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Avg. Time to Hire</div>
+                      <Clock className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {applicationAnalytics?.avgTimeToHire || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">days</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-gray-600">Active Users</div>
+                      <Users className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {analyticsData?.summary?.activeUsers || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      of {analyticsData?.summary?.totalUsers || 0} total
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Conversion Rates */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg md:text-xl">Conversion Rates</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Mobile: Stacked Layout */}
+                  <div className="flex flex-col md:hidden space-y-4">
+                    <div className="p-4 bg-purple-50 rounded-lg text-center">
+                      <div className="text-xs sm:text-sm text-gray-600 mb-2">Application to Shortlist</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-purple-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.applicationToShortlist || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.applicationToShortlist || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-lg text-center">
+                      <div className="text-xs sm:text-sm text-gray-600 mb-2">Shortlist to Interview</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.shortlistToInterview || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.shortlistToInterview || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg text-center">
+                      <div className="text-xs sm:text-sm text-gray-600 mb-2">Interview to Hire</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.interviewToHire || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.interviewToHire || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Desktop: Side-by-side with dividers */}
+                  <div className="hidden md:flex items-center justify-around divide-x divide-gray-200">
+                    <div className="flex-1 px-4 text-center">
+                      <div className="text-sm text-gray-600 mb-3">Application to Shortlist</div>
+                      <div className="text-3xl font-bold text-purple-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.applicationToShortlist || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.applicationToShortlist || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                    <div className="flex-1 px-4 text-center">
+                      <div className="text-sm text-gray-600 mb-3">Shortlist to Interview</div>
+                      <div className="text-3xl font-bold text-blue-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.shortlistToInterview || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.shortlistToInterview || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                    <div className="flex-1 px-4 text-center">
+                      <div className="text-sm text-gray-600 mb-3">Interview to Hire</div>
+                      <div className="text-3xl font-bold text-green-600 mb-2">
+                        {applicationAnalytics?.conversionRates?.interviewToHire || 0}%
+                      </div>
+                      <Progress 
+                        value={parseFloat(applicationAnalytics?.conversionRates?.interviewToHire || 0)} 
+                        className="h-2"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                {/* Applications by Status */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg md:text-xl">Applications by Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {analyticsData?.applicationsByStatus?.map((item, index) => {
+                        const statusColors = {
+                          'submitted': 'bg-gray-500',
+                          'under_review': 'bg-blue-500',
+                          'shortlisted': 'bg-purple-500',
+                          'interview_scheduled': 'bg-yellow-500',
+                          'interviewed': 'bg-orange-500',
+                          'offer_extended': 'bg-green-500',
+                          'accepted': 'bg-emerald-600',
+                          'rejected': 'bg-red-500',
+                          'withdrawn': 'bg-gray-400'
+                        };
+                        
+                        const statusLabels = {
+                          'submitted': 'Submitted',
+                          'under_review': 'Under Review',
+                          'shortlisted': 'Shortlisted',
+                          'interview_scheduled': 'Interview Scheduled',
+                          'interviewed': 'Interviewed',
+                          'offer_extended': 'Offer Extended',
+                          'accepted': 'Accepted',
+                          'rejected': 'Rejected',
+                          'withdrawn': 'Withdrawn'
+                        };
+
+                        const total = analyticsData?.applicationsByStatus?.reduce((sum, s) => sum + s.count, 0) || 1;
+                        const percentage = ((item.count / total) * 100).toFixed(1);
+
+                        return (
+                          <div key={index}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs sm:text-sm font-medium text-gray-700 truncate">
+                                {statusLabels[item._id] || item._id}
+                              </span>
+                              <span className="text-xs sm:text-sm text-gray-600 flex-shrink-0 ml-2">
+                                {item.count} ({percentage}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`${statusColors[item._id] || 'bg-gray-500'} h-2 rounded-full transition-all duration-300`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Jobs by Department */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg md:text-xl">Jobs by Department</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {analyticsData?.jobsByDepartment?.map((item, index) => {
+                        const total = analyticsData?.jobsByDepartment?.reduce((sum, d) => sum + d.count, 0) || 1;
+                        const percentage = ((item.count / total) * 100).toFixed(1);
+                        const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-pink-500'];
+
+                        return (
+                          <div key={index}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
+                              <span className="text-xs sm:text-sm font-medium text-gray-700 truncate">
+                                {item._id || 'Not Specified'}
+                              </span>
+                              <span className="text-xs sm:text-sm text-gray-600 flex-shrink-0">
+                                {item.count} jobs ({item.openPositions} open)
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className={`${colors[index % colors.length]} h-2 rounded-full transition-all duration-300`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Top Jobs by Applications */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg md:text-xl">Top Jobs by Applications</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 md:space-y-4">
+                    {analyticsData?.topJobs?.length > 0 ? (
+                      analyticsData.topJobs.map((job, index) => (
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 md:p-4 bg-gray-50 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm md:text-base text-gray-900 truncate">{job.title}</h4>
+                            <p className="text-xs md:text-sm text-gray-600 truncate">{job.department}</p>
+                          </div>
+                          <div className="flex gap-4 sm:gap-6 items-center">
+                            <div className="text-center">
+                              <div className="text-xs md:text-sm text-gray-600">Applications</div>
+                              <div className="text-lg md:text-xl font-bold text-purple-600">
+                                {job.applicationsCount || 0}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs md:text-sm text-gray-600">Views</div>
+                              <div className="text-lg md:text-xl font-bold text-blue-600">
+                                {job.viewsCount || 0}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <BarChart3 className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm md:text-base">No job data available</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Jobs by Employment Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg md:text-xl">Jobs by Employment Type</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
+                    {jobAnalytics?.jobsByEmploymentType?.map((item, index) => {
+                      const typeLabels = {
+                        'full-time': 'Full-Time',
+                        'part-time': 'Part-Time',
+                        'contract': 'Contract',
+                        'internship': 'Internship',
+                        'temporary': 'Temporary'
+                      };
+
+                      return (
+                        <div key={index} className="text-center p-3 md:p-4 bg-purple-50 rounded-lg">
+                          <div className="text-2xl md:text-3xl font-bold text-purple-600 mb-1">
+                            {item.count}
+                          </div>
+                          <div className="text-xs md:text-sm text-gray-600">
+                            {typeLabels[item._id] || item._id}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Most Viewed Jobs */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg md:text-xl">Most Viewed Jobs</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 md:space-y-3">
+                    {jobAnalytics?.mostViewedJobs?.length > 0 ? (
+                      jobAnalytics.mostViewedJobs.slice(0, 5).map((job, index) => (
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-2 md:p-3 bg-gray-50 rounded">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm md:text-base text-gray-900 truncate">{job.title}</p>
+                            <p className="text-xs md:text-sm text-gray-600 truncate">{job.department}</p>
+                          </div>
+                          <div className="flex gap-4 sm:gap-6 items-center justify-start sm:justify-end">
+                            <div className="flex items-center gap-1">
+                              <Eye className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
+                              <span className="text-sm md:text-base font-semibold text-gray-900">{job.viewsCount || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <FileText className="h-3 w-3 md:h-4 md:w-4 text-purple-600" />
+                              <span className="text-sm md:text-base font-semibold text-gray-900">{job.applicationsCount || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Eye className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm md:text-base">No view data available</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       )}
 
@@ -1726,49 +2497,91 @@ export default function HRManagerDashboard({ user }) {
             </Button>
           </div>
 
-          <Tabs defaultValue="active">
+          <Tabs defaultValue="active" onValueChange={() => setCurrentJobsPage(1)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="active" className="text-xs sm:text-sm">
-                Active ({jobsData.filter(j => j.status === 'open').length})
+                Active ({allJobs.filter(j => j.status === 'open').length})
               </TabsTrigger>
               <TabsTrigger value="draft" className="text-xs sm:text-sm">
-                Drafts ({jobsData.filter(j => j.status === 'draft').length})
+                Drafts ({allJobs.filter(j => j.status === 'draft').length})
               </TabsTrigger>
               <TabsTrigger value="closed" className="text-xs sm:text-sm">
-                Closed ({jobsData.filter(j => j.status === 'closed').length})
+                Closed ({allJobs.filter(j => j.status === 'closed').length})
               </TabsTrigger>
             </TabsList>
             <TabsContent value="active" className="space-y-4 mt-6">
-              {jobsData.filter(j => j.status === 'open').length > 0 ? (
-                jobsData.filter(j => j.status === 'open').map((job) => {
-                  const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
-                  return (
-                    <Card key={job._id}>
-                      <CardContent className="p-4 md:p-6">
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                              <span className="truncate">{job.department}</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span>{job.applicationsCount || 0} applications</span>
-                              <span className="hidden sm:inline">•</span>
-                              <span>Posted {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+              {jobsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                </div>
+              ) : getPaginatedJobs('open').length > 0 ? (
+                <>
+                  {getPaginatedJobs('open').map((job) => {
+                    const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Card key={job._id}>
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                                <span className="truncate">{job.department}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>{job.applicationsCount || 0} applications</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>Posted {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-col sm:flex-row">
+                              <Button variant="outline" onClick={() => handleEditJob(job)} className="w-full sm:w-auto text-sm">
+                                Edit
+                              </Button>
+                              <Button onClick={() => handleViewApplications(job)} className="w-full sm:w-auto text-sm">
+                                View Applications
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex gap-2 flex-col sm:flex-row">
-                            <Button variant="outline" onClick={() => handleEditJob(job)} className="w-full sm:w-auto text-sm">
-                              Edit
-                            </Button>
-                            <Button onClick={() => handleViewApplications(job)} className="w-full sm:w-auto text-sm">
-                              View Applications
-                            </Button>
-                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Pagination Controls - Always visible */}
+                  <Card className="mt-6">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="text-sm text-gray-600">
+                          Showing {getPaginatedJobs('open').length} of {allJobs.filter(j => j.status === 'open').length} jobs
+                          {getTotalPages('open') > 1 && (
+                            <span className="ml-2">• Page {currentJobsPage} of {getTotalPages('open')}</span>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage - 1)}
+                            disabled={currentJobsPage === 1 || getTotalPages('open') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage + 1)}
+                            disabled={currentJobsPage === getTotalPages('open') || getTotalPages('open') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
               ) : (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -1781,16 +2594,156 @@ export default function HRManagerDashboard({ user }) {
               )}
             </TabsContent>
             <TabsContent value="draft" className="space-y-4 mt-6">
-              <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-sm sm:text-base text-gray-500">No draft job postings</p>
-              </div>
+              {jobsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                </div>
+              ) : getPaginatedJobs('draft').length > 0 ? (
+                <>
+                  {getPaginatedJobs('draft').map((job) => {
+                    const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Card key={job._id}>
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                                <span className="truncate">{job.department}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>Created {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-col sm:flex-row">
+                              <Button variant="outline" onClick={() => handleEditJob(job)} className="w-full sm:w-auto text-sm">
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Pagination Controls - Always visible */}
+                  <Card className="mt-6">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="text-sm text-gray-600">
+                          Showing {getPaginatedJobs('draft').length} of {allJobs.filter(j => j.status === 'draft').length} jobs
+                          {getTotalPages('draft') > 1 && (
+                            <span className="ml-2">• Page {currentJobsPage} of {getTotalPages('draft')}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage - 1)}
+                            disabled={currentJobsPage === 1 || getTotalPages('draft') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage + 1)}
+                            disabled={currentJobsPage === getTotalPages('draft') || getTotalPages('draft') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-sm sm:text-base text-gray-500">No draft job postings</p>
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="closed" className="space-y-4 mt-6">
-              <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-sm sm:text-base text-gray-500">No closed job postings</p>
-              </div>
+              {jobsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                </div>
+              ) : getPaginatedJobs('closed').length > 0 ? (
+                <>
+                  {getPaginatedJobs('closed').map((job) => {
+                    const daysAgo = Math.floor((new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24));
+                    return (
+                      <Card key={job._id}>
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 truncate">{job.title}</h3>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                                <span className="truncate">{job.department}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>{job.applicationsCount || 0} applications</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span>Closed {daysAgo} {daysAgo === 1 ? 'day' : 'days'} ago</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-col sm:flex-row">
+                              <Button onClick={() => handleViewApplications(job)} className="w-full sm:w-auto text-sm">
+                                View Applications
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Pagination Controls - Always visible */}
+                  <Card className="mt-6">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="text-sm text-gray-600">
+                          Showing {getPaginatedJobs('closed').length} of {allJobs.filter(j => j.status === 'closed').length} jobs
+                          {getTotalPages('closed') > 1 && (
+                            <span className="ml-2">• Page {currentJobsPage} of {getTotalPages('closed')}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage - 1)}
+                            disabled={currentJobsPage === 1 || getTotalPages('closed') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleJobsPageChange(currentJobsPage + 1)}
+                            disabled={currentJobsPage === getTotalPages('closed') || getTotalPages('closed') <= 1}
+                            className="flex-1 sm:flex-none"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <FileText className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-sm sm:text-base text-gray-500">No closed job postings</p>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

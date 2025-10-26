@@ -199,13 +199,15 @@ exports.updateApplication = asyncHandler(async (req, res, next) => {
     });
   }
 
-  await application.save();
+  await application.save({ validateBeforeSave: false });
+
+  // Populate the application before sending response
+  const populatedApp = await Application.findById(application._id)
+    .populate('applicant', 'firstName lastName email phone')
+    .populate('job', 'title department location employmentType')
+    .populate('resume', 'fileName fileUrl isParsed');
 
   // Send status update email
-  const populatedApp = await Application.findById(application._id)
-    .populate('applicant', 'email firstName')
-    .populate('job', 'title');
-
   try {
     await sendEmail({
       email: populatedApp.applicant.email,
@@ -218,7 +220,7 @@ exports.updateApplication = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: application
+    data: populatedApp
   });
 });
 
