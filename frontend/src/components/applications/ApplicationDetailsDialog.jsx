@@ -33,6 +33,7 @@ import {
   Gift
 } from 'lucide-react';
 import { Progress } from '../ui/progress';
+import toast from 'react-hot-toast';
 import applicationService from '../../services/applicationService';
 import interviewService from '../../services/interviewService';
 
@@ -63,6 +64,21 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
       const response = await applicationService.getApplicationById(applicationId);
       if (response.success) {
         setApplication(response.data);
+        
+        // Extract AI interview link from the latest AI interview if available
+        const aiInterviews = response.data.interviews?.filter(interview => 
+          interview.type === 'ai_video' && interview.aiInterview?.uniqueLink
+        );
+        
+        if (aiInterviews && aiInterviews.length > 0) {
+          // Get the most recent AI interview link
+          const latestAIInterview = aiInterviews[aiInterviews.length - 1];
+          const baseUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+          const fullLink = latestAIInterview.aiInterview.uniqueLink.startsWith('http') 
+            ? latestAIInterview.aiInterview.uniqueLink 
+            : `${baseUrl}/ai-interview/${latestAIInterview.aiInterview.uniqueLink}`;
+          setAiInterviewLink(fullLink);
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -105,13 +121,19 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
       });
 
       if (response.success) {
-        setApplication(response.data);
-        setNotes('');
         // Set the interview link from the response
         setAiInterviewLink(response.data.uniqueLink);
-        if (onStatusUpdate) {
-          onStatusUpdate(response.data);
-        }
+        setNotes('');
+        
+        // Fetch updated application data in the background to update local state only
+        applicationService.getApplicationById(applicationId).then(updatedApp => {
+          if (updatedApp.success) {
+            setApplication(updatedApp.data);
+            // Don't call onStatusUpdate here to avoid triggering parent dashboard reload
+          }
+        }).catch(err => {
+          console.error('Error refreshing application data:', err);
+        });
       }
     } catch (err) {
       setError(err.message);
@@ -123,9 +145,10 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
   const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      // You could add a toast notification here
+      toast.success('Interview link copied!');
     } catch (err) {
       console.error('Failed to copy text: ', err);
+      toast.error('Failed to copy link');
     }
   };
 

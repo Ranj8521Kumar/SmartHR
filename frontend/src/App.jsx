@@ -6,6 +6,7 @@ import ManagerDashboard from './components/dashboards/ManagerDashboard';
 import EmployeeDashboard from './components/dashboards/EmployeeDashboard';
 import AIInterviewPage from './components/interviews/AIInterviewPage';
 import { Button } from './components/ui/button';
+import { Toaster } from './components/ui/sonner';
 import { LogOut } from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
@@ -63,6 +64,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster />
       {/* Logout Button - only show when authenticated */}
       {isAuthenticated && (
         <div className="fixed bottom-4 right-4 z-50">
