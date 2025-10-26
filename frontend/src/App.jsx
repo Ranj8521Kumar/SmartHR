@@ -7,6 +7,7 @@ import EmployeeDashboard from './components/dashboards/EmployeeDashboard';
 import AIInterviewPage from './components/interviews/AIInterviewPage';
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
+import { Toaster as HotToaster } from 'react-hot-toast';
 import { LogOut } from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
@@ -65,6 +66,30 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
+      <HotToaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            duration: 4000,
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       {/* Logout Button - only show when authenticated */}
       {isAuthenticated && (
         <div className="fixed bottom-4 right-4 z-50">

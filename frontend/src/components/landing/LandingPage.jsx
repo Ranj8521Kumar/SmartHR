@@ -30,10 +30,12 @@ import { Input } from '../ui/input';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import LoginForm from '../auth/LoginForm';
+import RegisterForm from '../auth/RegisterForm';
 import JobOpportunitiesDialog from '../jobs/JobOpportunitiesDialog';
 
 export default function LandingPage() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -628,30 +630,51 @@ export default function LandingPage() {
       </footer>
 
       {/* Login Modal */}
-      <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+      <Dialog open={isLoginOpen} onOpenChange={(open) => {
+        setIsLoginOpen(open);
+        if (!open) setIsRegisterMode(false); // Reset to login mode when dialog closes
+      }}>
         <DialogContent className="sm:max-w-md">
-          <DialogTitle className="sr-only">Sign In</DialogTitle>
+          <DialogTitle className="sr-only">
+            {isRegisterMode && selectedRole === 'employee' ? 'Create Account' : 'Sign In'}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            Sign in to access your HRMS dashboard
+            {isRegisterMode && selectedRole === 'employee'
+              ? 'Create a new account to access your HRMS dashboard' 
+              : 'Sign in to access your HRMS dashboard'}
           </DialogDescription>
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
               <span className="text-white text-xl">HR</span>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {isRegisterMode && selectedRole === 'employee' ? 'Create Account' : 'Welcome Back'}
+            </h2>
             {selectedRole && (
               <p className="text-sm text-gray-500 mb-2">
-                Logging in as <span className="font-semibold text-blue-600">{getRoleTitle()}</span>
+                {isRegisterMode && selectedRole === 'employee' ? 'Registering as' : 'Logging in as'}{' '}
+                <span className="font-semibold text-blue-600">{getRoleTitle()}</span>
               </p>
             )}
-            <p className="text-gray-600">Sign in to access your dashboard</p>
+            <p className="text-gray-600">
+              {isRegisterMode && selectedRole === 'employee'
+                ? 'Fill in the details to create your account' 
+                : 'Sign in to access your dashboard'}
+            </p>
           </div>
 
-          {/* Real Login Form */}
-          <LoginForm 
-            onSuccess={() => setIsLoginOpen(false)} 
-            expectedRole={selectedRole}
-          />
+          {/* Login or Register Form */}
+          {isRegisterMode && selectedRole === 'employee' ? (
+            <RegisterForm 
+              onSuccess={() => setIsLoginOpen(false)} 
+              expectedRole={selectedRole}
+            />
+          ) : (
+            <LoginForm 
+              onSuccess={() => setIsLoginOpen(false)} 
+              expectedRole={selectedRole}
+            />
+          )}
 
           <div className="mt-4">
             <div className="relative">
@@ -664,10 +687,37 @@ export default function LandingPage() {
             </div>
 
             <p className="text-center text-sm text-gray-600 mt-4">
-              Don't have an account?{' '}
-              <a href="#contact" className="text-blue-600 hover:underline">
-                Contact Admin
-              </a>
+              {isRegisterMode ? (
+                <>
+                  Already have an account?{' '}
+                  <button
+                    onClick={() => setIsRegisterMode(false)}
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    Sign In
+                  </button>
+                </>
+              ) : (
+                <>
+                  Don't have an account?{' '}
+                  {selectedRole === 'employee' ? (
+                    <button
+                      onClick={() => setIsRegisterMode(true)}
+                      className="text-blue-600 hover:underline font-medium"
+                    >
+                      Register
+                    </button>
+                  ) : (
+                    <a 
+                      href="#contact" 
+                      className="text-blue-600 hover:underline font-medium"
+                      onClick={() => setIsLoginOpen(false)}
+                    >
+                      Contact Admin
+                    </a>
+                  )}
+                </>
+              )}
             </p>
           </div>
         </DialogContent>

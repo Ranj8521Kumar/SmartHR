@@ -9,6 +9,12 @@ const sendEmail = require('../utils/sendEmail');
 exports.register = asyncHandler(async (req, res, next) => {
   const { firstName, lastName, email, password, role, phone } = req.body;
 
+  // Check if user already exists
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return next(new ErrorResponse('User already exists with this email', 400));
+  }
+
   // Create user
   const user = await User.create({
     firstName,

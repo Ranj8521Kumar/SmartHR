@@ -26,7 +26,8 @@ class AuthService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+        // Backend returns error in 'error' field, not 'message'
+        throw new Error(data.error || data.message || 'Login failed');
       }
 
       // Store token in localStorage
@@ -61,7 +62,8 @@ class AuthService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        // Backend returns error in 'error' field, not 'message'
+        throw new Error(data.error || data.message || 'Registration failed');
       }
 
       // Store token in localStorage
