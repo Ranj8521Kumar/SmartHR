@@ -470,32 +470,63 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                   </CardHeader>
                   <CardContent className="overflow-hidden px-4 sm:px-6">
                     <div className="space-y-4 w-full max-w-full overflow-hidden">
+                      {/* Initial submission */}
                       <div className="flex gap-3 sm:gap-4">
                         <div className="flex flex-col items-center">
                           <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-600 rounded-full"></div>
-                          <div className="w-0.5 h-full bg-gray-300"></div>
+                          {(application.timeline && application.timeline.length > 0) && (
+                            <div className="w-0.5 h-full bg-gray-300"></div>
+                          )}
                         </div>
                         <div className="pb-8 flex-1">
                           <div className="font-semibold text-sm sm:text-base">Application Submitted</div>
                           <div className="text-xs sm:text-sm text-gray-500">
                             {new Date(application.createdAt).toLocaleString()}
                           </div>
+                          <Badge variant="secondary" className="mt-1 text-xs">
+                            Submitted
+                          </Badge>
                         </div>
                       </div>
-                      {application.updatedAt !== application.createdAt && (
-                        <div className="flex gap-3 sm:gap-4">
+
+                      {/* Timeline events from the timeline array */}
+                      {application.timeline && application.timeline.length > 0 && application.timeline.map((event, index) => (
+                        <div key={index} className="flex gap-3 sm:gap-4">
                           <div className="flex flex-col items-center">
                             <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-600 rounded-full"></div>
+                            {index < application.timeline.length - 1 && (
+                              <div className="w-0.5 h-full bg-gray-300"></div>
+                            )}
                           </div>
-                          <div className="flex-1">
-                            <div className="font-semibold text-sm sm:text-base">Status Updated</div>
-                            <div className="text-xs sm:text-sm text-gray-500">
-                              {new Date(application.updatedAt).toLocaleString()}
+                          <div className={`flex-1 ${index < application.timeline.length - 1 ? 'pb-8' : ''}`}>
+                            <div className="font-semibold text-sm sm:text-base">
+                              Status Changed to {getStatusLabel(event.status)}
                             </div>
-                            <Badge variant={getStatusBadgeVariant(application.status)} className="mt-1 text-xs">
-                              {getStatusLabel(application.status)}
+                            <div className="text-xs sm:text-sm text-gray-500">
+                              {new Date(event.date).toLocaleString()}
+                            </div>
+                            {event.updatedBy && (
+                              <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                                Updated by: {event.updatedBy.firstName} {event.updatedBy.lastName}
+                              </div>
+                            )}
+                            <Badge variant={getStatusBadgeVariant(event.status)} className="mt-1 text-xs">
+                              {getStatusLabel(event.status)}
                             </Badge>
+                            {event.notes && (
+                              <div className="mt-2 text-xs sm:text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                <span className="font-medium">Note: </span>
+                                {event.notes}
+                              </div>
+                            )}
                           </div>
+                        </div>
+                      ))}
+
+                      {/* Show a message if no timeline events exist */}
+                      {(!application.timeline || application.timeline.length === 0) && (
+                        <div className="text-center py-4 text-sm text-gray-500">
+                          No status updates yet
                         </div>
                       )}
                     </div>
