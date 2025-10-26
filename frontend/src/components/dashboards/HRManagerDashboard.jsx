@@ -357,6 +357,11 @@ export default function HRManagerDashboard({ user }) {
 
   // Handle view applications click
   const handleViewApplications = (job) => {
+    if (!job?._id) {
+      console.error('Invalid job object:', job);
+      return;
+    }
+    console.log('Opening applications for job:', job);
     setSelectedJob(job);
     setIsViewApplicationsOpen(true);
   };
@@ -2767,8 +2772,12 @@ export default function HRManagerDashboard({ user }) {
       {/* View Applications Dialog */}
       <ViewApplicationsDialog
         isOpen={isViewApplicationsOpen}
-        onClose={() => setIsViewApplicationsOpen(false)}
+        onClose={() => {
+          setIsViewApplicationsOpen(false);
+          setSelectedJob(null);
+        }}
         job={selectedJob}
+        user={user}
       />
 
       {/* Application Details Dialog */}
