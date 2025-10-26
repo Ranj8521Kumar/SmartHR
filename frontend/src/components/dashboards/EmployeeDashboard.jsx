@@ -37,10 +37,15 @@ const statusColors = {
   'Offer Received': 'bg-green-100 text-green-800',
   'Rejected': 'bg-red-100 text-red-800',
   'pending': 'bg-gray-100 text-gray-800',
+  'submitted': 'bg-gray-100 text-gray-800',
+  'under_review': 'bg-blue-100 text-blue-800',
   'reviewed': 'bg-blue-100 text-blue-800',
   'shortlisted': 'bg-purple-100 text-purple-800',
   'interview_scheduled': 'bg-purple-100 text-purple-800',
+  'interviewed': 'bg-purple-100 text-purple-800',
+  'offer_extended': 'bg-green-100 text-green-800',
   'offered': 'bg-green-100 text-green-800',
+  'accepted': 'bg-green-100 text-green-800',
   'rejected': 'bg-red-100 text-red-800',
   'withdrawn': 'bg-gray-100 text-gray-800',
 };
@@ -1026,6 +1031,7 @@ export default function EmployeeDashboard({ user }) {
                       {/* Timeline - Mobile Responsive */}
                       <div className="mt-4 pt-4 border-t">
                         <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto pb-2">
+                          {/* Applied Stage - Always completed */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
                             <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-green-100 flex items-center justify-center">
                               <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-600" />
@@ -1033,23 +1039,29 @@ export default function EmployeeDashboard({ user }) {
                             <span className="text-xs sm:text-sm whitespace-nowrap">Applied</span>
                           </div>
                           <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          
+                          {/* Review Stage - Completed if status is under_review, shortlisted, interview_scheduled, interviewed, offer_extended, or accepted */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-600' : 'bg-gray-400'}`} />
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['under_review', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['under_review', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-blue-600' : 'bg-gray-400'}`} />
                             </div>
                             <span className="text-xs sm:text-sm whitespace-nowrap">Review</span>
                           </div>
                           <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          
+                          {/* Interview Stage - Completed if status is interview_scheduled, interviewed, offer_extended, or accepted */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-600' : 'bg-gray-400'}`} />
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-purple-600' : 'bg-gray-400'}`} />
                             </div>
                             <span className="text-xs sm:text-sm whitespace-nowrap">Interview</span>
                           </div>
                           <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          
+                          {/* Offer Stage - Completed if status is offer_extended or accepted */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${app.status === 'offered' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${app.status === 'offered' ? 'bg-green-600' : 'bg-gray-400'}`} />
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['offer_extended', 'accepted'].includes(app.status) ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['offer_extended', 'accepted'].includes(app.status) ? 'bg-green-600' : 'bg-gray-400'}`} />
                             </div>
                             <span className="text-xs sm:text-sm whitespace-nowrap">Offer</span>
                           </div>
