@@ -16,7 +16,8 @@ import {
   AlertCircle,
   Edit,
   Trash2,
-  MoreVertical
+  MoreVertical,
+  Bell
 } from 'lucide-react';
 import dashboardService from '../../services/dashboardService';
 import userService from '../../services/userService';
@@ -102,6 +103,11 @@ export default function AdminDashboard({ user }) {
   const logsPerPage = 10;
   const [selectedLogs, setSelectedLogs] = useState([]);
   const [isDeletingLogs, setIsDeletingLogs] = useState(false);
+  
+  // Notifications state
+  const [notifications, setNotifications] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   
   // Settings state
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -298,6 +304,98 @@ export default function AdminDashboard({ user }) {
 
     fetchDashboardData();
   }, []);
+
+  // Fetch notifications on mount and periodically
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setNotificationsLoading(true);
+        // Generate notifications based on system activity
+        const notifs = [];
+        
+        // Fetch recent applications for notifications
+        try {
+          const appsResponse = await applicationService.getApplications({ limit: 5 });
+          if (appsResponse.data && appsResponse.data.length > 0) {
+            appsResponse.data.slice(0, 3).forEach(app => {
+              notifs.push({
+                id: `app-${app._id}`,
+                type: 'info',
+                message: `New application received for ${app.job?.title || 'a position'}`,
+                time: getTimeAgo(app.createdAt),
+                read: false,
+                data: app
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch applications for notifications:', error);
+        }
+
+        // Fetch recent logs for error notifications
+        try {
+          const logsResponse = await dashboardService.getSystemLogs({ limit: 10, level: 'error' });
+          if (logsResponse.data && logsResponse.data.length > 0) {
+            logsResponse.data.slice(0, 2).forEach(log => {
+              notifs.push({
+                id: `log-${log._id}`,
+                type: 'error',
+                message: log.message || log.action,
+                time: getTimeAgo(log.createdAt),
+                read: false,
+                data: log
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch error logs for notifications:', error);
+        }
+
+        // Add some system notifications
+        if (dashboardData?.summary) {
+          if (dashboardData.summary.pendingApplications > 0) {
+            notifs.push({
+              id: 'pending-apps',
+              type: 'warning',
+              message: `You have ${dashboardData.summary.pendingApplications} pending applications to review`,
+              time: 'Just now',
+              read: false
+            });
+          }
+          
+          if (dashboardData.summary.openJobs > 0) {
+            notifs.push({
+              id: 'open-jobs',
+              type: 'success',
+              message: `${dashboardData.summary.openJobs} job positions are currently open`,
+              time: 'Just now',
+              read: false
+            });
+          }
+        }
+
+        // Check localStorage for read status
+        const readNotifs = JSON.parse(localStorage.getItem('readNotifications') || '[]');
+        const finalNotifs = notifs.map(n => ({
+          ...n,
+          read: readNotifs.includes(n.id)
+        }));
+
+        setNotifications(finalNotifs);
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      } finally {
+        setNotificationsLoading(false);
+      }
+    };
+
+    fetchNotifications();
+    
+    // Refresh notifications every 2 minutes
+    const interval = setInterval(fetchNotifications, 120000);
+    
+    return () => clearInterval(interval);
+  }, [dashboardData]);
 
   // Fetch users when users view is active
   useEffect(() => {
@@ -962,6 +1060,43 @@ export default function AdminDashboard({ user }) {
     }
   };
 
+  // Notification handlers
+  const handleNotificationClick = (notification) => {
+    // Mark as read
+    setNotifications(prev => {
+      const updated = prev.map(n => n.id === notification.id ? { ...n, read: true } : n);
+      // Save read status to localStorage
+      const readNotifs = updated.filter(n => n.read).map(n => n.id);
+      localStorage.setItem('readNotifications', JSON.stringify(readNotifs));
+      return updated;
+    });
+
+    // Handle navigation based on notification type
+    if (notification.id.startsWith('app-')) {
+      setActiveView('applications');
+    } else if (notification.id.startsWith('log-')) {
+      setActiveView('logs');
+    } else if (notification.id === 'pending-apps') {
+      setActiveView('applications');
+    } else if (notification.id === 'open-jobs') {
+      setActiveView('jobs');
+    }
+  };
+
+  const handleViewAllNotifications = () => {
+    // Navigate to notifications view
+    setActiveView('notifications');
+  };
+
+  const handleMarkAllRead = () => {
+    setNotifications(prev => {
+      const updated = prev.map(n => ({ ...n, read: true }));
+      const readNotifs = updated.map(n => n.id);
+      localStorage.setItem('readNotifications', JSON.stringify(readNotifs));
+      return updated;
+    });
+  };
+
   // Settings handlers
   const handleProfileChange = (field, value) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
@@ -1134,6 +1269,7 @@ export default function AdminDashboard({ user }) {
     { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs', active: activeView === 'jobs', onClick: () => setActiveView('jobs'), badge: jobsCount || jobs.length },
     { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: applicationsCount || applications.length },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
+    { icon: <Bell className="h-5 w-5" />, label: 'Notifications', active: activeView === 'notifications', onClick: () => setActiveView('notifications'), badge: notifications.filter(n => !n.read).length },
     { icon: <ScrollText className="h-5 w-5" />, label: 'Logs', active: activeView === 'logs', onClick: () => setActiveView('logs') },
     { icon: <Settings className="h-5 w-5" />, label: 'Settings', active: activeView === 'settings', onClick: () => setActiveView('settings') },
   ];
@@ -1239,10 +1375,10 @@ export default function AdminDashboard({ user }) {
       sidebarItems={sidebarItems} 
       theme="blue"
       onSettingsClick={() => setActiveView('settings')}
-      notifications={[]}
-      onNotificationClick={() => {}}
-      onViewAllNotifications={() => {}}
-      onMarkAllRead={() => {}}
+      notifications={notifications}
+      onNotificationClick={handleNotificationClick}
+      onViewAllNotifications={handleViewAllNotifications}
+      onMarkAllRead={handleMarkAllRead}
     >
       {loading && activeView === 'dashboard' ? (
         <div className="flex items-center justify-center h-64">
@@ -2430,6 +2566,93 @@ export default function AdminDashboard({ user }) {
                     )}
                   </div>
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeView === 'notifications' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">All Notifications</h1>
+              <p className="text-sm sm:text-base text-gray-600">View and manage all your notifications</p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleMarkAllRead}
+              disabled={notifications.every(n => n.read)}
+            >
+              Mark All as Read
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              {notifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <Bell className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">No notifications to display</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`p-4 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
+                        !notification.read ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`flex-shrink-0 rounded-full p-2 ${
+                          notification.type === 'success' ? 'bg-green-100' :
+                          notification.type === 'error' ? 'bg-red-100' :
+                          notification.type === 'warning' ? 'bg-yellow-100' :
+                          'bg-blue-100'
+                        }`}>
+                          {notification.type === 'success' && (
+                            <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          {notification.type === 'error' && (
+                            <svg className="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                          {notification.type === 'warning' && (
+                            <svg className="h-4 w-4 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                          )}
+                          {notification.type === 'info' && (
+                            <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-base ${!notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                            {notification.message}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <p className="text-sm text-gray-500">{notification.time}</p>
+                            {!notification.read && (
+                              <Badge variant="default" className="text-xs">New</Badge>
+                            )}
+                          </div>
+                        </div>
+                        {!notification.read && (
+                          <div className="flex-shrink-0">
+                            <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
