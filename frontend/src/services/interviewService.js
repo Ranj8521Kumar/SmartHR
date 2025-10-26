@@ -190,11 +190,106 @@ const interviewService = {
         status: data.status || 'interviewed',
         notes: data.feedback,
       });
-      
+
       return response.data;
     } catch (error) {
       console.error('Error updating interview feedback:', error);
       throw error.response?.data || { success: false, error: 'Failed to update interview' };
+    }
+  },
+
+  /**
+   * Schedule AI video interview
+   * @param {String} applicationId - Application ID
+   * @param {Object} data - Interview data (duration, notes)
+   * @returns {Promise} - Response with AI interview details
+   */
+  scheduleAIInterview: async (applicationId, data) => {
+    try {
+      const response = await apiClient.post(`/applications/${applicationId}/ai-interview`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error scheduling AI interview:', error);
+      throw error.response?.data || { success: false, error: 'Failed to schedule AI interview' };
+    }
+  },
+
+  /**
+   * Get AI interview link
+   * @param {String} applicationId - Application ID
+   * @returns {Promise} - Response with AI interview link
+   */
+  getAIInterviewLink: async (applicationId) => {
+    try {
+      const response = await apiClient.get(`/applications/${applicationId}/ai-interview-link`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting AI interview link:', error);
+      throw error.response?.data || { success: false, error: 'Failed to get AI interview link' };
+    }
+  },
+
+  /**
+   * Update AI interview status and feedback
+   * @param {String} applicationId - Application ID
+   * @param {String} interviewId - Interview ID
+   * @param {Object} data - Update data (status, transcript, vapiCallId, notes)
+   * @returns {Promise} - Response with updated AI interview
+   */
+  updateAIInterviewStatus: async (applicationId, interviewId, data) => {
+    try {
+      const response = await apiClient.put(`/applications/${applicationId}/ai-interview/${interviewId}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating AI interview status:', error);
+      throw error.response?.data || { success: false, error: 'Failed to update AI interview status' };
+    }
+  },
+
+  /**
+   * Get AI interview by unique link (public route for candidates)
+   * @param {String} link - Unique interview link
+   * @returns {Promise} - Response with AI interview details
+   */
+  getAIInterviewByLink: async (link) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/applications/public/ai-interview/${link}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting AI interview by link:', error);
+      throw error.response?.data || { success: false, error: 'Failed to get AI interview' };
+    }
+  },
+
+  /**
+   * Update AI interview with Vapi call details
+   * @param {String} applicationId - Application ID
+   * @param {String} interviewId - Interview ID
+   * @param {Object} vapiData - Vapi call data (callId, transcript, recordingUrl, etc.)
+   * @returns {Promise} - Response with updated interview
+   */
+  updateAIInterviewWithVapi: async (applicationId, interviewId, vapiData) => {
+    try {
+      const response = await apiClient.put(`/applications/${applicationId}/ai-interview/${interviewId}/vapi`, vapiData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating AI interview with Vapi data:', error);
+      throw error.response?.data || { success: false, error: 'Failed to update AI interview' };
+    }
+  },
+
+  /**
+   * Get Vapi configuration for interview
+   * @param {String} applicationId - Application ID
+   * @returns {Promise} - Response with Vapi config
+   */
+  getVapiConfig: async (applicationId) => {
+    try {
+      const response = await apiClient.get(`/applications/${applicationId}/vapi-config`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting Vapi config:', error);
+      throw error.response?.data || { success: false, error: 'Failed to get Vapi config' };
     }
   },
 };

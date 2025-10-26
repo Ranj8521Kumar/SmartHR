@@ -1,8 +1,10 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './components/landing/LandingPage';
 import AdminDashboard from './components/dashboards/AdminDashboard';
 import HRManagerDashboard from './components/dashboards/HRManagerDashboard';
 import ManagerDashboard from './components/dashboards/ManagerDashboard';
 import EmployeeDashboard from './components/dashboards/EmployeeDashboard';
+import AIInterviewPage from './components/interviews/AIInterviewPage';
 import { Button } from './components/ui/button';
 import { LogOut } from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
@@ -30,7 +32,7 @@ function AppContent() {
 
     // Map backend role names to dashboard components
     const role = user.role.toLowerCase();
-    
+
     switch (role) {
       case 'admin':
         return <AdminDashboard user={userWithAvatar} />;
@@ -59,25 +61,33 @@ function AppContent() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LandingPage />;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Logout Button */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          className="bg-white shadow-lg"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
-        </Button>
-      </div>
+      {/* Logout Button - only show when authenticated */}
+      {isAuthenticated && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="bg-white shadow-lg"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
+      )}
 
-      {renderDashboard()}
+      <Routes>
+        {/* Public AI Interview Route - must be first */}
+        <Route path="/ai-interview/:link" element={<AIInterviewPage />} />
+
+        {/* Authenticated routes */}
+        {isAuthenticated ? (
+          <Route path="/" element={renderDashboard()} />
+        ) : (
+          <Route path="/" element={<LandingPage />} />
+        )}
+      </Routes>
     </div>
   );
 }
@@ -85,7 +95,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <Router>
+        <AppContent />
+      </Router>
     </AuthProvider>
   );
 }

@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
-import { 
-  Loader2, 
+import { Input } from '../ui/input';
+import {
+  Loader2,
   Mail,
   Phone,
   MapPin,
@@ -25,10 +26,14 @@ import {
   Download,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Video,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { Progress } from '../ui/progress';
 import applicationService from '../../services/applicationService';
+import interviewService from '../../services/interviewService';
 
 export default function ApplicationDetailsDialog({ isOpen, onClose, applicationId, onStatusUpdate, user }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +41,9 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
   const [application, setApplication] = useState(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState(null);
+  const [aiInterviewDuration, setAiInterviewDuration] = useState(30);
+  const [isSchedulingAI, setIsSchedulingAI] = useState(false);
+  const [aiInterviewLink, setAiInterviewLink] = useState(null);
 
   // Check if user has permission to update status
   const canUpdateStatus = user && ['hr_recruiter', 'manager', 'admin'].includes(user.role);
@@ -71,7 +79,7 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
         newStatus,
         notes
       );
-      
+
       if (response.success) {
         setApplication(response.data);
         setNotes('');
@@ -83,6 +91,40 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
       setError(err.message);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleScheduleAIInterview = async () => {
+    setIsSchedulingAI(true);
+    setError(null);
+    try {
+      const response = await interviewService.scheduleAIInterview(applicationId, {
+        duration: aiInterviewDuration,
+        notes: notes || 'AI Video Interview scheduled'
+      });
+
+      if (response.success) {
+        setApplication(response.data);
+        setNotes('');
+        // Set the interview link from the response
+        setAiInterviewLink(response.data.uniqueLink);
+        if (onStatusUpdate) {
+          onStatusUpdate(response.data);
+        }
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSchedulingAI(false);
+    }
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // You could add a toast notification here
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
     }
   };
 
@@ -512,6 +554,56 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                       )}
                       Reject
                     </Button>
+                  </div>
+
+                  {/* AI Interview Scheduling Section */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3 text-sm sm:text-base">AI Video Interview</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="duration" className="text-sm">Duration (minutes):</Label>
+                        <Input
+                          id="duration"
+                          type="number"
+                          min="15"
+                          max="120"
+                          value={aiInterviewDuration}
+                          onChange={(e) => setAiInterviewDuration(parseInt(e.target.value) || 30)}
+                          className="w-20 text-sm"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleScheduleAIInterview}
+                        disabled={isSchedulingAI}
+                        variant="default"
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                      >
+                        {isSchedulingAI ? (
+                          <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Video className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                        )}
+                        Schedule AI Interview
+                      </Button>
+                      {aiInterviewLink && (
+                        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded">
+                          <ExternalLink className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-green-800">Interview Link Generated</p>
+                            <p className="text-xs text-green-600 truncate">{aiInterviewLink}</p>
+                          </div>
+                          <Button
+                            onClick={() => copyToClipboard(aiInterviewLink)}
+                            variant="outline"
+                            size="sm"
+                            className="flex-shrink-0"
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

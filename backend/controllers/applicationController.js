@@ -283,3 +283,330 @@ exports.scheduleInterview = asyncHandler(async (req, res, next) => {
     data: application
   });
 });
+
+// @desc    Schedule AI video interview
+// @route   POST /api/v1/applications/:id/ai-interview
+// @access  Private (HR/Manager/Admin)
+exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id)
+    .populate('job')
+    .populate('resume');
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { duration = 30, notes } = req.body;
+
+  // Validate duration
+  if (duration < 15 || duration > 120) {
+    return next(new ErrorResponse('Interview duration must be between 15 and 120 minutes', 400));
+  }
+
+  // Generate interview questions
+  const { generateInterviewQuestions, generateUniqueInterviewLink } = require('../services/aiService');
+  const questions = await generateInterviewQuestions(application.job, application.resume, duration);
+
+  // Generate unique link
+  const uniqueLink = generateUniqueInterviewLink();
+
+  // Set expiration date (7 days from now)
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  // Create AI interview object
+  const aiInterviewData = {
+    duration,
+    questions,
+    uniqueLink,
+    expiresAt,
+    vapiSessionId: null, // Will be set when Vapi session is created
+    vapiCallId: null,
+    transcript: '',
+    aiFeedback: null,
+    completedAt: null
+  };
+
+  // Add AI interview to application
+  application.interviews.push({
+    type: 'ai_video',
+    status: 'scheduled',
+    aiInterview: aiInterviewData
+  });
+
+  application.status = 'interview_scheduled';
+  application.timeline.push({
+    status: 'ai_interview_scheduled',
+    date: Date.now(),
+    updatedBy: req.user.id,
+    notes: notes || `AI video interview scheduled for ${duration} minutes`
+  });
+
+  await application.save();
+
+  // Return interview data with link
+  const interview = application.interviews[application.interviews.length - 1];
+
+  res.status(200).json({
+    success: true,
+    data: {
+      application: application._id,
+      interviewId: interview._id,
+      uniqueLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/ai-interview/${uniqueLink}`,
+      questions: questions.length,
+      duration,
+      expiresAt
+    }
+  });
+});
+
+// @desc    Get AI interview link
+// @route   GET /api/v1/applications/:id/ai-interview-link
+// @access  Private (HR/Manager/Admin)
+exports.getAIInterviewLink = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  // Find AI interview
+  const aiInterview = application.interviews.find(
+    interview => interview.type === 'ai_video' && interview.aiInterview
+  );
+
+  if (!aiInterview) {
+    return next(new ErrorResponse('No AI interview found for this application', 404));
+  }
+
+  // Check if link is expired
+  if (aiInterview.aiInterview.expiresAt < new Date()) {
+    return next(new ErrorResponse('AI interview link has expired', 400));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      uniqueLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/ai-interview/${aiInterview.aiInterview.uniqueLink}`,
+      expiresAt: aiInterview.aiInterview.expiresAt,
+      status: aiInterview.status,
+      completedAt: aiInterview.aiInterview.completedAt
+    }
+  });
+});
+
+// @desc    Update AI interview status and feedback
+// @route   PUT /api/v1/applications/:id/ai-interview/:interviewId
+// @access  Private (HR/Manager/Admin)
+exports.updateAIInterviewStatus = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const { status, transcript, vapiCallId, notes } = req.body;
+
+  // Find the specific interview
+  const interview = application.interviews.id(interviewId);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  // Update status
+  if (status) {
+    interview.status = status;
+
+    if (status === 'completed') {
+      interview.aiInterview.completedAt = new Date();
+
+      // Analyze transcript if provided
+      if (transcript) {
+        interview.aiInterview.transcript = transcript;
+        interview.aiInterview.vapiCallId = vapiCallId || interview.aiInterview.vapiCallId;
+
+        // Generate AI feedback
+        const { analyzeInterviewTranscript } = require('../services/aiService');
+        const feedback = await analyzeInterviewTranscript(transcript, interview.aiInterview.questions);
+        interview.aiInterview.aiFeedback = feedback;
+      }
+
+      // Update application status
+      application.status = 'interviewed';
+      application.timeline.push({
+        status: 'ai_interview_completed',
+        date: Date.now(),
+        updatedBy: req.user.id,
+        notes: notes || 'AI video interview completed'
+      });
+    }
+  }
+
+  await application.save();
+
+  res.status(200).json({
+    success: true,
+    data: application
+  });
+});
+
+// @desc    Get AI interview by unique link (public route for candidates)
+// @route   GET /api/v1/public/ai-interview/:link
+// @access  Public
+exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+
+  // Find application with this unique link
+  const application = await Application.findOne({
+    'interviews.aiInterview.uniqueLink': link
+  })
+  .populate('job', 'title company description')
+  .populate('applicant', 'firstName lastName email');
+
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+
+  // Find the specific AI interview
+  const aiInterview = application.interviews.find(
+    interview => interview.aiInterview && interview.aiInterview.uniqueLink === link
+  );
+
+  if (!aiInterview) {
+    return next(new ErrorResponse('Interview not found', 404));
+  }
+
+  // Check if link is expired
+  if (aiInterview.aiInterview.expiresAt < new Date()) {
+    return next(new ErrorResponse('This interview link has expired', 400));
+  }
+
+  // Check if interview is still available
+  if (aiInterview.status === 'completed') {
+    return next(new ErrorResponse('This interview has already been completed', 400));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      interviewId: aiInterview._id,
+      applicationId: application._id,
+      candidate: {
+        firstName: application.applicant.firstName,
+        lastName: application.applicant.lastName,
+        email: application.applicant.email
+      },
+      job: {
+        title: application.job.title,
+        company: application.job.company,
+        description: application.job.description
+      },
+      questions: aiInterview.aiInterview.questions,
+      duration: aiInterview.aiInterview.duration,
+      expiresAt: aiInterview.aiInterview.expiresAt,
+      vapiAssistantId: aiInterview.aiInterview.vapiAssistantId || '5966f84b-85ec-47ca-b294-9b1ca366ac2f' // Default assistant ID
+    }
+  });
+});
+
+// @desc    Get Vapi configuration for interview
+// @route   GET /api/v1/applications/:id/vapi-config
+// @access  Private (HR/Manager/Admin)
+exports.getVapiConfig = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  // Find AI interview
+  const aiInterview = application.interviews.find(
+    interview => interview.type === 'ai_video' && interview.aiInterview
+  );
+
+  if (!aiInterview) {
+    return next(new ErrorResponse('No AI interview found for this application', 404));
+  }
+
+  // Vapi configuration - in production, these should come from environment variables
+  const vapiConfig = {
+    apiKey: process.env.VAPI_API_KEY || 'your-vapi-api-key', // Should be set in .env
+    assistantId: aiInterview.aiInterview.vapiAssistantId || '5966f84b-85ec-47ca-b294-9b1ca366ac2f',
+    model: {
+      provider: "openai",
+      model: "gpt-3.5-turbo",
+      temperature: 0.7,
+    },
+    voice: {
+      provider: "11labs",
+      voiceId: "burt",
+    }
+  };
+
+  res.status(200).json({
+    success: true,
+    data: vapiConfig
+  });
+});
+
+// @desc    Update AI interview with Vapi call details
+// @route   PUT /api/v1/applications/:id/ai-interview/:interviewId/vapi
+// @access  Private (HR/Manager/Admin)
+exports.updateAIInterviewWithVapi = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const { vapiCallId, transcript, recordingUrl, duration, feedback, completedAt } = req.body;
+
+  // Find the specific interview
+  const interview = application.interviews.id(interviewId);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  // Update Vapi-related fields
+  if (vapiCallId) {
+    interview.aiInterview.vapiCallId = vapiCallId;
+  }
+
+  if (transcript) {
+    interview.aiInterview.transcript = transcript;
+  }
+
+  if (recordingUrl) {
+    interview.aiInterview.recordingUrl = recordingUrl;
+  }
+
+  if (duration) {
+    interview.aiInterview.actualDuration = duration;
+  }
+
+  if (feedback) {
+    interview.aiInterview.candidateFeedback = feedback;
+  }
+
+  if (completedAt) {
+    interview.aiInterview.completedAt = new Date(completedAt);
+    interview.status = 'completed';
+
+    // Update application status
+    application.status = 'interviewed';
+    application.timeline.push({
+      status: 'ai_interview_completed',
+      date: new Date(),
+      notes: 'AI video interview completed via Vapi'
+    });
+  }
+
+  await application.save();
+
+  res.status(200).json({
+    success: true,
+    data: application
+  });
+});
