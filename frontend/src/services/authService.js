@@ -289,12 +289,49 @@ class AuthService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to process forgot password');
+        // Backend returns error in 'error' field, not 'message'
+        throw new Error(data.error || data.message || 'Failed to process forgot password');
       }
 
       return data;
     } catch (error) {
       console.error('Forgot password error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset password
+   * @param {string} token - Reset token
+   * @param {string} newPassword - New password
+   * @returns {Promise} Response
+   */
+  async resetPassword(token, newPassword) {
+    try {
+      const response = await fetch(API_ENDPOINTS.RESET_PASSWORD.replace(':token', token), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to reset password');
+      }
+
+      // Store token in localStorage if provided
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Reset password error:', error);
       throw error;
     }
   }

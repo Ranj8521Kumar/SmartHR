@@ -5,6 +5,7 @@ import HRManagerDashboard from './components/dashboards/HRManagerDashboard';
 import ManagerDashboard from './components/dashboards/ManagerDashboard';
 import EmployeeDashboard from './components/dashboards/EmployeeDashboard';
 import AIInterviewPage from './components/interviews/AIInterviewPage';
+import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
 import { Toaster as HotToaster } from 'react-hot-toast';
@@ -113,8 +114,9 @@ function AppContent() {
       )}
 
       <Routes>
-        {/* Public AI Interview Route - must be first */}
+        {/* Public Routes */}
         <Route path="/ai-interview/:link" element={<AIInterviewPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
         {/* Authenticated routes */}
         {isAuthenticated ? (

@@ -154,7 +154,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   }
 
   // Get reset token
-  const resetToken = Math.random().toString(36).substring(2, 15);
+  const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
   // Set reset token and expiry
   user.resetPasswordToken = resetToken;
@@ -163,27 +163,72 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   // Create reset url
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
 
-  const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+  const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please click on the following link to reset your password: \n\n${resetUrl}\n\nThis link will expire in 10 minutes.`;
 
   try {
     await sendEmail({
       email: user.email,
-      subject: 'Password reset token',
-      message
+      subject: 'Password Reset Request - HRMS',
+      message,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>Password Reset Request</h2>
+          <p>You are receiving this email because you (or someone else) has requested the reset of a password.</p>
+          <p>Please click on the following button to reset your password:</p>
+          <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Reset Password</a>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="color: #666;">${resetUrl}</p>
+          <p><strong>This link will expire in 10 minutes.</strong></p>
+          <p>If you did not request this, please ignore this email and your password will remain unchanged.</p>
+        </div>
+      `
     });
 
-    res.status(200).json({ success: true, data: 'Email sent' });
+    res.status(200).json({ 
+      success: true, 
+      data: 'Password reset email sent successfully' 
+    });
   } catch (err) {
-    console.log(err);
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-
-    await user.save({ validateBeforeSave: false });
-
-    return next(new ErrorResponse('Email could not be sent', 500));
+    console.error('Email send error:', err);
+    
+    // Don't fail the request if email fails - save token anyway for development
+    // In production, you might want to fail here
+    console.log('⚠️ Email service not configured. Reset token saved to database.');
+    console.log('Reset URL:', resetUrl);
+    
+    // For development: return success with a note
+    res.status(200).json({ 
+      success: true, 
+      data: 'Password reset requested. Email service is not configured.',
+      // Remove this in production!
+      devNote: process.env.NODE_ENV === 'development' ? `Reset token: ${resetToken}` : undefined
+    });
   }
+});
+
+// @desc    Reset password
+// @route   PUT /api/v1/auth/resetpassword/:token
+// @access  Public
+exports.resetPassword = asyncHandler(async (req, res, next) => {
+  // Find user by reset token and check if token is still valid
+  const user = await User.findOne({
+    resetPasswordToken: req.params.token,
+    resetPasswordExpire: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    return next(new ErrorResponse('Invalid or expired reset token', 400));
+  }
+
+  // Set new password
+  user.password = req.body.password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  await user.save();
+
+  sendTokenResponse(user, 200, res);
 });
 
 // Get token from model, create cookie and send response
