@@ -253,11 +253,57 @@ const interviewService = {
    */
   getAIInterviewByLink: async (link) => {
     try {
+      console.log('Fetching AI interview for link:', link);
       const response = await axios.get(`${API_BASE_URL}/applications/public/ai-interview/${link}`);
-      return response.data;
+      
+      // Log the raw response for debugging
+      console.log('Raw API response:', response.data);
+      
+      // Validate the response data structure
+      const data = response.data;
+      if (!data) {
+        console.error('Empty response from API');
+        throw new Error('Empty response from server');
+      }
+
+      if (!data.success) {
+        console.error('API request failed:', data.error);
+        throw new Error(data.error || 'Server returned an error');
+      }
+
+      // Extract interview data
+      const interviewData = data.data;
+      
+      // Validate required fields
+      if (!interviewData) {
+        console.error('No interview data in response:', data);
+        throw new Error('No interview data found');
+      }
+
+      if (!interviewData.application || !interviewData.application._id) {
+        console.error('Invalid interview data structure:', interviewData);
+        throw new Error('Invalid interview data structure');
+      }
+
+      // Log the validated data
+      console.log('Successfully fetched interview data:', {
+        applicationId: interviewData.application._id,
+        hasAIInterview: !!interviewData.aiInterview,
+        status: interviewData.status,
+        duration: interviewData.aiInterview?.duration,
+        expiresAt: interviewData.aiInterview?.expiresAt
+      });
+
+      return {
+        success: true,
+        data: interviewData
+      };
     } catch (error) {
       console.error('Error getting AI interview by link:', error);
-      throw error.response?.data || { success: false, error: 'Failed to get AI interview' };
+      throw error.response?.data || { 
+        success: false, 
+        error: error.message || 'Failed to get AI interview'
+      };
     }
   },
 

@@ -154,7 +154,7 @@ This guide provides HR recruiters with a step-by-step process to verify that Vap
 **Solutions:**
 - Grant microphone permissions
 - Try different browser
-- Check Vapi assistant ID in code (default: `5966f84b-85ec-47ca-b294-9b1ca366ac2f`)
+- Check Vapi assistant ID in code (default: `78f66dae-06aa-4b30-a6c9-81a7618451cb`)
 
 ### Issue: Transcript Not Appearing
 **Possible Causes:**

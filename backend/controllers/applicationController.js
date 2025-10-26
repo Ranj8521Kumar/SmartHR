@@ -455,60 +455,66 @@ exports.updateAIInterviewStatus = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/public/ai-interview/:link
 // @access  Public
 exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
-  const { link } = req.params;
+  try {
+    const { link } = req.params;
 
-  // Find application with this unique link
-  const application = await Application.findOne({
-    'interviews.aiInterview.uniqueLink': link
-  })
-  .populate('job', 'title company description')
-  .populate('applicant', 'firstName lastName email');
+    const application = await Application.findOne({
+      'interviews.aiInterview.uniqueLink': link
+    }).populate('job', 'title company description').populate('applicant', 'firstName lastName email');
 
-  if (!application) {
-    return next(new ErrorResponse('Invalid interview link', 404));
-  }
-
-  // Find the specific AI interview
-  const aiInterview = application.interviews.find(
-    interview => interview.aiInterview && interview.aiInterview.uniqueLink === link
-  );
-
-  if (!aiInterview) {
-    return next(new ErrorResponse('Interview not found', 404));
-  }
-
-  // Check if link is expired
-  if (aiInterview.aiInterview.expiresAt < new Date()) {
-    return next(new ErrorResponse('This interview link has expired', 400));
-  }
-
-  // Check if interview is still available
-  if (aiInterview.status === 'completed') {
-    return next(new ErrorResponse('This interview has already been completed', 400));
-  }
-
-  res.status(200).json({
-    success: true,
-    data: {
-      interviewId: aiInterview._id,
-      applicationId: application._id,
-      candidate: {
-        firstName: application.applicant.firstName,
-        lastName: application.applicant.lastName,
-        email: application.applicant.email
-      },
-      job: {
-        title: application.job.title,
-        company: application.job.company,
-        description: application.job.description
-      },
-      questions: aiInterview.aiInterview.questions,
-      duration: aiInterview.aiInterview.duration,
-      expiresAt: aiInterview.aiInterview.expiresAt,
-      vapiAssistantId: aiInterview.aiInterview.vapiAssistantId || '5966f84b-85ec-47ca-b294-9b1ca366ac2f' // Default assistant ID
+    if (!application) {
+      return next(new ErrorResponse('Invalid interview link', 404));
     }
-  });
+
+    const aiInterview = application.interviews.find(
+      interview => interview.aiInterview && interview.aiInterview.uniqueLink === link
+    );
+
+    if (!aiInterview) {
+      return next(new ErrorResponse('Interview not found', 404));
+    }
+
+    if (aiInterview.aiInterview.expiresAt < new Date()) {
+      return next(new ErrorResponse('This interview link has expired', 400));
+    }
+
+    if (aiInterview.status === 'completed') {
+      return next(new ErrorResponse('This interview has already been completed', 400));
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        application: {
+          _id: application._id.toString(),
+          job: {
+            title: application.job.title,
+            company: application.job.company,
+            description: application.job.description
+          },
+          applicant: {
+            firstName: application.applicant.firstName,
+            lastName: application.applicant.lastName,
+            email: application.applicant.email
+          }
+        },
+        _id: aiInterview._id.toString(),
+        type: aiInterview.type,
+        status: aiInterview.status,
+        aiInterview: {
+          duration: aiInterview.aiInterview.duration,
+          questions: aiInterview.aiInterview.questions || [],
+          expiresAt: aiInterview.aiInterview.expiresAt,
+          vapiAssistantId: '78f66dae-06aa-4b30-a6c9-81a7618451cb'
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error in getAIInterviewByLink:', error);
+    return next(new ErrorResponse('Failed to retrieve interview', 500));
+  }
 });
+
 
 // @desc    Get Vapi configuration for interview
 // @route   GET /api/v1/applications/:id/vapi-config
@@ -531,7 +537,7 @@ exports.getVapiConfig = asyncHandler(async (req, res, next) => {
 
   // Vapi configuration - in production, these should come from environment variables
   const vapiConfig = {
-    apiKey: process.env.VAPI_API_KEY || 'your-vapi-api-key', // Should be set in .env
+    apiKey: process.env.VAPI_PRIVATE_KEY || '603f024b-e19c-42b6-966a-955f1b2e96ab', // Should be set in .env
     assistantId: aiInterview.aiInterview.vapiAssistantId || '5966f84b-85ec-47ca-b294-9b1ca366ac2f',
     model: {
       provider: "openai",

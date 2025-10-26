@@ -40,6 +40,7 @@ export default function AIInterviewPage() {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [transcript, setTranscript] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState('');
+  const [questionIndex, setQuestionIndex] = useState(-1);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [interviewStatus, setInterviewStatus] = useState('waiting'); // waiting, active, paused, completed
 
@@ -66,18 +67,35 @@ export default function AIInterviewPage() {
   const fetchInterviewDetails = async () => {
     try {
       setIsLoading(true);
+      console.log('Fetching interview details for link:', link);
       const response = await interviewService.getAIInterviewByLink(link);
+      console.log('Interview response:', response);
 
-      if (response.success) {
+      if (response.success && response.data) {
+        // Validate interview data structure
+        if (!response.data.application || !response.data.application._id) {
+          console.error('Invalid interview data structure:', response.data);
+          throw new Error('Invalid interview data: Missing application details');
+        }
+
+        console.log('Interview data:', {
+          applicationId: response.data.application._id,
+          duration: response.data.duration,
+          status: response.data.status
+        });
+
         setInterview(response.data);
         setTimeRemaining(response.data.duration * 60); // Convert to seconds
 
         // Initialize Vapi
         await initializeVapi(response.data);
       } else {
-        setError(response.error || 'Failed to load interview');
+        const errorMsg = response.error || 'Failed to load interview';
+        console.error('Failed to load interview:', errorMsg);
+        setError(errorMsg);
       }
     } catch (err) {
+      console.error('Error in fetchInterviewDetails:', err);
       setError(err.message || 'Failed to load interview');
     } finally {
       setIsLoading(false);
@@ -86,25 +104,65 @@ export default function AIInterviewPage() {
 
   const initializeVapi = async (interviewData) => {
     try {
+      if (!interviewData || !interviewData.application) {
+        throw new Error('Invalid interview data: Missing application information');
+      }
+
+      if (!interviewData.application._id) {
+        throw new Error('Invalid interview data: Missing application ID');
+      }
+
+      console.log('Starting Vapi initialization...', {
+        applicationId: interviewData.application._id,
+        hasApplication: !!interviewData.application
+      });
+      
       // Get Vapi config from backend
       const configResponse = await interviewService.getVapiConfig(interviewData.application._id);
+      console.log('Vapi config response:', configResponse);
 
       if (configResponse.success) {
         const { apiKey, assistantId, model, voice } = configResponse.data;
+        console.log('Got Vapi configuration:', { 
+          assistantId,
+          hasApiKey: !!apiKey,
+          model: model?.provider,
+          voice: voice?.provider
+        });
 
         // Initialize Vapi service
+        console.log('Initializing Vapi service...');
         await vapiService.initialize(apiKey);
+        console.log('Vapi service initialized successfully');
+
+        // Validate Vapi connection
+        const isConnected = await vapiService.validateConnection();
+        console.log('Vapi connection status:', isConnected ? 'Connected' : 'Not Connected');
+
+        if (!isConnected) {
+          throw new Error('Failed to establish connection with Vapi service');
+        }
 
         // Set up event listeners
+        console.log('Setting up Vapi event listeners...');
         setupVapiEventListeners();
+        console.log('Vapi event listeners set up successfully');
 
         setIsVapiReady(true);
+        console.log('Vapi initialization complete - Ready for interview');
       } else {
+        console.error('Failed to get Vapi configuration:', configResponse.error);
         throw new Error('Failed to get Vapi configuration');
       }
     } catch (err) {
       console.error('Failed to initialize Vapi:', err);
-      setError('Failed to initialize voice system');
+      setError(`Failed to initialize voice system: ${err.message}`);
+      console.log('Detailed error:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+        cause: err.cause
+      });
     }
   };
 
@@ -114,6 +172,14 @@ export default function AIInterviewPage() {
       setIsInterviewActive(true);
       setInterviewStatus('active');
       startTimer();
+
+      // Reset question index and schedule first question after assistant intro
+      setQuestionIndex(-1);
+      setTimeout(() => {
+        if (interview?.aiInterview?.questions?.length) {
+          sendNextQuestion();
+        }
+      }, 3000);
     });
 
     vapiService.on('call-end', async (event) => {
@@ -132,6 +198,17 @@ export default function AIInterviewPage() {
 
     vapiService.on('speech-end', (event) => {
       setIsMicEnabled(false);
+
+      // After candidate finishes speaking, ask next question (if any)
+      try {
+        const total = interview?.aiInterview?.questions?.length || 0;
+        if (interviewStatus === 'active' && questionIndex < total - 1) {
+          // Small delay to allow assistant TTS to start
+          setTimeout(() => sendNextQuestion(), 1000);
+        }
+      } catch (err) {
+        console.error('Error scheduling next question on speech-end:', err);
+      }
     });
 
     vapiService.on('message', (event) => {
@@ -177,6 +254,38 @@ export default function AIInterviewPage() {
     }
   };
 
+  // Send the next question from the generated list
+  const sendNextQuestion = async () => {
+    try {
+      if (!interview || !interview.aiInterview || !interview.aiInterview.questions) return;
+      const questions = interview.aiInterview.questions;
+      const nextIndex = (questionIndex || 0) + 1;
+
+      if (nextIndex >= questions.length) {
+        console.log('All questions asked');
+        // Optionally end interview automatically when questions exhausted
+        // await endInterview();
+        return;
+      }
+
+      const q = questions[nextIndex];
+      const qText = typeof q === 'string' ? q : (q.text || q.question || q.prompt || JSON.stringify(q));
+
+      console.log('Sending next question to Vapi:', { index: nextIndex, text: qText });
+      setQuestionIndex(nextIndex);
+      setCurrentQuestion(qText);
+
+      // Send the question to the assistant so it asks aloud
+      try {
+        await vapiService.sendMessage(qText);
+      } catch (err) {
+        console.error('Failed to send question to Vapi:', err);
+      }
+    } catch (err) {
+      console.error('Error in sendNextQuestion:', err);
+    }
+  };
+
   const startInterview = async () => {
     try {
       setError(null);
@@ -184,15 +293,21 @@ export default function AIInterviewPage() {
       if (!interview) return;
 
       // Start Vapi interview with assistant overrides
+      const name = interview.candidate?.firstName || 'Candidate';
       const assistantOverrides = {
         recordingEnabled: false,
         variableValues: {
-          name: interview.candidate?.firstName || 'Candidate',
+          name,
         },
+        // Friendly intro to make candidate comfortable
+        firstMessage: `Hi ${name}, welcome to your interview. Take a deep breath — this is a friendly conversation. When you're ready, I'll ask you a few questions about the ${interview.job?.title || 'role'}. Please answer naturally.`
       };
 
+      // Reset question index
+      setQuestionIndex(-1);
+
       await vapiService.startInterviewWithAssistant(
-        interview.vapiAssistantId || '5966f84b-85ec-47ca-b294-9b1ca366ac2f',
+        interview.vapiAssistantId || '78f66dae-06aa-4b30-a6c9-81a7618451cb',
         assistantOverrides
       );
 

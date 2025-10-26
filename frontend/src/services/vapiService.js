@@ -14,11 +14,16 @@ class VapiService {
    */
   async initialize(apiKey) {
     try {
+      console.log('Initializing Vapi service with API key:', apiKey ? 'PROVIDED' : 'MISSING');
+      
       if (this.isInitialized) {
+        console.log('Vapi service already initialized');
         return this.vapi;
       }
 
-      this.vapi = new Vapi(apiKey);
+      // Use the public key for frontend initialization
+      const publicKey = 'dd93d7a5-51fe-4014-9ddb-42c006182e14';
+      this.vapi = new Vapi(publicKey);
 
       // Set up event listeners
       this.setupEventListeners();
@@ -98,7 +103,7 @@ class VapiService {
       }
 
       const callConfig = {
-        assistantId: config.assistantId || '5966f84b-85ec-47ca-b294-9b1ca366ac2f',
+        assistantId: config.assistantId || '78f66dae-06aa-4b30-a6c9-81a7618451cb',
         model: config.model || {
           provider: "openai",
           model: "gpt-3.5-turbo",
@@ -250,6 +255,35 @@ class VapiService {
     this.currentSession = null;
     this.isInitialized = false;
     this.eventListeners = {};
+    console.log('Vapi service destroyed');
+  }
+
+  /**
+   * Validate the connection with Vapi service
+   * @returns {Promise<boolean>} - True if connection is valid
+   */
+  async validateConnection() {
+    try {
+      if (!this.vapi || !this.isInitialized) {
+        console.log('Vapi validation failed: Service not initialized');
+        return false;
+      }
+
+      // Try to get the Vapi client status
+      const status = this.vapi.getStatus?.() || {};
+      console.log('Vapi connection status:', status);
+
+      // Check if we have a valid Vapi instance
+      const isValid = !!this.vapi && 
+                     typeof this.vapi.start === 'function' && 
+                     typeof this.vapi.stop === 'function';
+
+      console.log('Vapi service validation:', isValid ? 'PASSED' : 'FAILED');
+      return isValid;
+    } catch (error) {
+      console.error('Vapi validation error:', error);
+      return false;
+    }
   }
 }
 
