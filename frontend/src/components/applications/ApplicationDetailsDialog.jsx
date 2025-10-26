@@ -29,7 +29,8 @@ import {
   Clock,
   Video,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Gift
 } from 'lucide-react';
 import { Progress } from '../ui/progress';
 import applicationService from '../../services/applicationService';
@@ -563,15 +564,33 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                       <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                       Move to Review
                     </Button>
-                    <Button
-                      onClick={() => handleStatusUpdate('shortlisted')}
-                      disabled={isUpdating || application.status === 'shortlisted'}
-                      variant="outline"
-                      className="w-full sm:w-auto text-xs sm:text-sm"
-                    >
-                      <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                      Shortlist
-                    </Button>
+                    
+                    {/* Show Shortlist button only if not yet interview scheduled */}
+                    {!['interview_scheduled', 'interviewed', 'offer_extended'].includes(application.status) && (
+                      <Button
+                        onClick={() => handleStatusUpdate('shortlisted')}
+                        disabled={isUpdating || application.status === 'shortlisted'}
+                        variant="outline"
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                      >
+                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                        Shortlist
+                      </Button>
+                    )}
+                    
+                    {/* Show Offer button when interview is scheduled or completed */}
+                    {['interview_scheduled', 'interviewed'].includes(application.status) && (
+                      <Button
+                        onClick={() => handleStatusUpdate('offer_extended')}
+                        disabled={isUpdating || application.status === 'offer_extended'}
+                        variant="outline"
+                        className="w-full sm:w-auto text-xs sm:text-sm bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
+                      >
+                        <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                        Extend Offer
+                      </Button>
+                    )}
+                    
                     <Button
                       onClick={() => handleStatusUpdate('rejected')}
                       disabled={isUpdating}
