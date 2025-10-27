@@ -6,6 +6,7 @@ import ManagerDashboard from './components/dashboards/ManagerDashboard';
 import EmployeeDashboard from './components/dashboards/EmployeeDashboard';
 import AIInterviewPage from './components/interviews/AIInterviewPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
+import OAuthCallback from './components/auth/OAuthCallback';
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
 import { Toaster as HotToaster } from 'react-hot-toast';
@@ -117,6 +118,7 @@ function AppContent() {
         {/* Public Routes */}
         <Route path="/ai-interview/:link" element={<AIInterviewPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/auth/oauth-callback" element={<OAuthCallback />} />
 
         {/* Authenticated routes */}
         {isAuthenticated ? (

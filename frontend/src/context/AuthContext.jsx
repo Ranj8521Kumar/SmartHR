@@ -122,6 +122,24 @@ export const AuthProvider = ({ children }) => {
 
   const clearError = () => setError(null);
 
+  const setToken = async (token) => {
+    try {
+      // Store the token
+      localStorage.setItem('token', token);
+      
+      // Fetch user data with the new token
+      const response = await authService.getCurrentUser();
+      setUser(response.data);
+      setIsAuthenticated(true);
+    } catch (err) {
+      console.error('Error setting token:', err);
+      setError(err.message);
+      // Clear invalid token
+      localStorage.removeItem('token');
+      throw err;
+    }
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -134,6 +152,7 @@ export const AuthProvider = ({ children }) => {
     updatePassword,
     forgotPassword,
     clearError,
+    setToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

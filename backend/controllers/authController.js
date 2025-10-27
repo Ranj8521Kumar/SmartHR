@@ -231,8 +231,38 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
   sendTokenResponse(user, 200, res);
 });
 
+// @desc    Google OAuth callback
+// @route   GET /api/v1/auth/google/callback
+// @access  Public
+exports.googleCallback = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    return next(new ErrorResponse('Authentication failed', 401));
+  }
+
+  // Update last login
+  req.user.lastLogin = Date.now();
+  await req.user.save({ validateBeforeSave: false });
+
+  sendTokenResponse(req.user, 200, res, true);
+});
+
+// @desc    LinkedIn OAuth callback
+// @route   GET /api/v1/auth/linkedin/callback
+// @access  Public
+exports.linkedinCallback = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    return next(new ErrorResponse('Authentication failed', 401));
+  }
+
+  // Update last login
+  req.user.lastLogin = Date.now();
+  await req.user.save({ validateBeforeSave: false });
+
+  sendTokenResponse(req.user, 200, res, true);
+});
+
 // Get token from model, create cookie and send response
-const sendTokenResponse = (user, statusCode, res) => {
+const sendTokenResponse = (user, statusCode, res, isOAuth = false) => {
   // Create token
   const token = user.getSignedJwtToken();
 
@@ -245,6 +275,13 @@ const sendTokenResponse = (user, statusCode, res) => {
 
   if (process.env.NODE_ENV === 'production') {
     options.secure = true;
+  }
+
+  // For OAuth, redirect to frontend with token
+  if (isOAuth) {
+    const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const redirectURL = `${frontendURL}/auth/oauth-callback?token=${token}`;
+    return res.redirect(redirectURL);
   }
 
   res

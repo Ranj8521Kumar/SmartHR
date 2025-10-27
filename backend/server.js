@@ -10,14 +10,18 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const path = require('path');
 const fileupload = require('express-fileupload');
+const session = require('express-session');
 
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const loggerMiddleware = require('./middleware/logger');
 const logger = require('./utils/logger');
 
-// Load env vars
+// Load env vars FIRST before importing passport
 dotenv.config();
+
+// Import passport AFTER env vars are loaded
+const passport = require('./config/passport');
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
@@ -41,6 +45,22 @@ app.use(express.urlencoded({ extended: true }));
 
 // Cookie parser
 app.use(cookieParser());
+
+// Session configuration for OAuth
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'hrms-session-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // File upload
 app.use(fileupload({
@@ -157,7 +177,7 @@ const server = app.listen(PORT, () => {
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
+process.on('unhandledRejection', (err, _promise) => {
   logger.error(`Unhandled Rejection: ${err.message}`);
   console.log(`Error: ${err.message}`);
   // Close server & exit process
