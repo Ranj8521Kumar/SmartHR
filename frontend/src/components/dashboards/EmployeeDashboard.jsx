@@ -513,8 +513,11 @@ export default function EmployeeDashboard({ user }) {
   // Pagination handlers
   const handlePageChange = (page) => {
     setCurrentPage(page);
-    // Scroll to top when page changes
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Scroll to top of main content area when page changes
+    const mainElement = document.querySelector('main');
+    if (mainElement) {
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Reset to page 1 when filters change
