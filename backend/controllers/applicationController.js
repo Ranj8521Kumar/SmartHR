@@ -5,6 +5,7 @@ const ErrorResponse = require('../utils/errorResponse');
 const asyncHandler = require('../middleware/asyncHandler');
 const { analyzeApplicationAI } = require('../services/aiService');
 const sendEmail = require('../utils/sendEmail');
+const { uploadVideoRecording, uploadAudioRecording, uploadRemoteVideoUrl } = require('../utils/mediaUpload');
 
 // @desc    Get all applications
 // @route   GET /api/v1/applications
@@ -85,6 +86,431 @@ exports.getApplication = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     success: true,
     data: application
+  });
+});
+
+// @desc    Upload interview recording to Cloudinary
+// @route   POST /api/v1/applications/:id/ai-interview/:interviewId/recording
+// @access  Private (HR/Manager/Admin)
+exports.uploadInterviewRecording = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const { recordingType } = req.body; // 'video' or 'audio'
+
+  // Find the specific interview
+  const interview = application.interviews.id(interviewId);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  // Validate that aiInterview exists
+  if (!interview.aiInterview) {
+    return next(new ErrorResponse('AI interview data not found', 404));
+  }
+
+  // Check if file was uploaded
+  if (!req.files || !req.files.recording) {
+    return next(new ErrorResponse('No recording file provided', 400));
+  }
+
+  const recordingFile = req.files.recording;
+
+  try {
+    let uploadResult;
+
+    if (recordingType === 'audio') {
+      uploadResult = await uploadAudioRecording(
+        recordingFile.data,
+        recordingFile.name,
+        application._id.toString(),
+        interviewId
+      );
+    } else {
+      // Default to video recording
+      uploadResult = await uploadVideoRecording(
+        recordingFile.data,
+        recordingFile.name,
+        application._id.toString(),
+        interviewId
+      );
+    }
+
+    // Log successful upload
+    console.log('[UploadPrivate] Recording uploaded to Cloudinary', {
+      recordingType,
+      applicationId: application._id.toString(),
+      interviewId,
+      publicId: uploadResult.public_id,
+      url: uploadResult.url,
+      size: uploadResult.size,
+      duration: uploadResult.duration,
+      format: uploadResult.format
+    });
+
+    // Update the interview with the recording URL
+    if (recordingType === 'audio') {
+      interview.aiInterview.localAudioRecordingUrl = uploadResult.url;
+    } else {
+      interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
+    }
+
+    await application.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        recordingUrl: uploadResult.url,
+        publicId: uploadResult.public_id,
+        size: uploadResult.size,
+        duration: uploadResult.duration,
+        format: uploadResult.format
+      }
+    });
+  } catch (error) {
+    console.error('Recording upload error:', error);
+    return next(new ErrorResponse('Failed to upload recording', 500));
+  }
+});
+
+// @desc    Upload interview recording to Cloudinary (Public by link)
+// @route   POST /api/v1/applications/public/ai-interview/:link/recording
+// @access  Public (candidate via unique link)
+exports.uploadInterviewRecordingPublic = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+
+  // Find application and interview by link
+  const application = await Application.findOne({
+    'interviews.aiInterview.uniqueLink': link
+  });
+
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+
+  const interview = application.interviews.find(
+    i => i.aiInterview && i.aiInterview.uniqueLink === link
+  );
+
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  if (!req.files || !req.files.recording) {
+    return next(new ErrorResponse('No recording file provided', 400));
+  }
+
+  const recordingType = req.body?.recordingType;
+  const recordingFile = req.files.recording;
+
+  try {
+    let uploadResult;
+    if (recordingType === 'audio') {
+      uploadResult = await uploadAudioRecording(
+        recordingFile.data,
+        recordingFile.name,
+        application._id.toString(),
+        interview._id.toString()
+      );
+    } else {
+      uploadResult = await uploadVideoRecording(
+        recordingFile.data,
+        recordingFile.name,
+        application._id.toString(),
+        interview._id.toString()
+      );
+    }
+
+    // Log successful upload
+    console.log('[UploadPublic] Recording uploaded to Cloudinary', {
+      link,
+      recordingType,
+      applicationId: application._id.toString(),
+      interviewId: interview._id.toString(),
+      publicId: uploadResult.public_id,
+      url: uploadResult.url,
+      size: uploadResult.size,
+      duration: uploadResult.duration,
+      format: uploadResult.format
+    });
+
+    if (recordingType === 'audio') {
+      interview.aiInterview.localAudioRecordingUrl = uploadResult.url;
+    } else {
+      interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
+    }
+
+    await application.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        recordingUrl: uploadResult.url,
+        publicId: uploadResult.public_id,
+        size: uploadResult.size,
+        duration: uploadResult.duration,
+        format: uploadResult.format
+      }
+    });
+  } catch (error) {
+    console.error('[UploadPublic] Public recording upload error:', error);
+    return next(new ErrorResponse('Failed to upload recording', 500));
+  }
+});
+
+// @desc    Upload interview recording as raw binary (authenticated)
+// @route   POST /api/v1/applications/:id/ai-interview/:interviewId/recording/raw
+// @access  Private (HR/Manager/Admin)
+exports.uploadInterviewRecordingRaw = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const interview = application.interviews.id(interviewId);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+  if (!interview.aiInterview) {
+    return next(new ErrorResponse('AI interview data not found', 404));
+  }
+
+  if (!req.body || !(req.body instanceof Buffer) || req.body.length === 0) {
+    return next(new ErrorResponse('No recording binary provided', 400));
+  }
+
+  try {
+    const uploadResult = await uploadVideoRecording(
+      req.body,
+      `interview_${interviewId}.webm`,
+      application._id.toString(),
+      interviewId
+    );
+
+    interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
+    await application.save();
+
+    console.log('[UploadRaw] Recording uploaded to Cloudinary', {
+      applicationId: application._id.toString(),
+      interviewId,
+      url: uploadResult.url
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        recordingUrl: uploadResult.url
+      }
+    });
+  } catch (err) {
+    console.error('[UploadRaw] Recording upload error:', err);
+    return next(new ErrorResponse('Failed to upload raw recording', 500));
+  }
+});
+
+// @desc    Upload interview recording as raw binary by public link (candidate)
+// @route   POST /api/v1/applications/public/ai-interview/:link/recording/raw
+// @access  Public
+exports.uploadInterviewRecordingRawPublic = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+  const application = await Application.findOne({ 'interviews.aiInterview.uniqueLink': link });
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+  const interview = application.interviews.find(i => i.aiInterview && i.aiInterview.uniqueLink === link);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+  if (!req.body || !(req.body instanceof Buffer) || req.body.length === 0) {
+    return next(new ErrorResponse('No recording binary provided', 400));
+  }
+  try {
+    const uploadResult = await uploadVideoRecording(
+      req.body,
+      `interview_${interview._id.toString()}.webm`,
+      application._id.toString(),
+      interview._id.toString()
+    );
+    interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
+    await application.save();
+    console.log('[UploadRawPublic] Recording uploaded to Cloudinary', {
+      link,
+      applicationId: application._id.toString(),
+      interviewId: interview._id.toString(),
+      url: uploadResult.url
+    });
+    res.status(200).json({ success: true, data: { recordingUrl: uploadResult.url } });
+  } catch (err) {
+    console.error('[UploadRawPublic] Recording upload error:', err);
+    return next(new ErrorResponse('Failed to upload raw recording', 500));
+  }
+});
+
+// @desc    Start recording (authenticated)
+// @route   POST /api/v1/applications/:id/ai-interview/:interviewId/recording/start
+// @access  Private (HR/Manager/Admin)
+exports.startInterviewRecording = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const interview = application.interviews.id(interviewId);
+  if (!interview || interview.type !== 'ai_video' || !interview.aiInterview) {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  interview.aiInterview.recordingStartedAt = new Date();
+  interview.aiInterview.recordingLastHeartbeatAt = new Date();
+  interview.aiInterview.recordingActive = true;
+
+  console.log('[Recording] Started interview video recording', {
+    applicationId: application._id.toString(),
+    interviewId
+  });
+
+  await application.save();
+
+  res.status(200).json({
+    success: true,
+    data: {
+      startedAt: interview.aiInterview.recordingStartedAt,
+      active: interview.aiInterview.recordingActive
+    }
+  });
+});
+
+// @desc    Recording heartbeat (authenticated)
+// @route   POST /api/v1/applications/:id/ai-interview/:interviewId/recording/heartbeat
+// @access  Private (HR/Manager/Admin)
+exports.heartbeatInterviewRecording = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const interview = application.interviews.id(interviewId);
+  if (!interview || interview.type !== 'ai_video' || !interview.aiInterview) {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  interview.aiInterview.recordingLastHeartbeatAt = new Date();
+  interview.aiInterview.recordingActive = true;
+
+  await application.save();
+
+  res.status(200).json({
+    success: true,
+    data: {
+      lastHeartbeatAt: interview.aiInterview.recordingLastHeartbeatAt,
+      active: interview.aiInterview.recordingActive
+    }
+  });
+});
+
+// @desc    Get recording status (authenticated)
+// @route   GET /api/v1/applications/:id/ai-interview/:interviewId/recording/status
+// @access  Private (HR/Manager/Admin)
+exports.getInterviewRecordingStatus = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const interview = application.interviews.id(interviewId);
+  if (!interview || interview.type !== 'ai_video' || !interview.aiInterview) {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  const { recordingStartedAt, recordingLastHeartbeatAt, recordingActive } = interview.aiInterview;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      recordingStartedAt: recordingStartedAt || null,
+      recordingLastHeartbeatAt: recordingLastHeartbeatAt || null,
+      recordingActive: Boolean(recordingActive)
+    }
+  });
+});
+
+// @desc    Start recording by public link (candidate)
+// @route   POST /api/v1/applications/public/ai-interview/:link/recording/start
+// @access  Public
+exports.startInterviewRecordingPublic = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+  const application = await Application.findOne({ 'interviews.aiInterview.uniqueLink': link });
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+  const interview = application.interviews.find(i => i.aiInterview && i.aiInterview.uniqueLink === link);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+  interview.aiInterview.recordingStartedAt = new Date();
+  interview.aiInterview.recordingLastHeartbeatAt = new Date();
+  interview.aiInterview.recordingActive = true;
+  console.log('[Recording] Started interview video recording (public link)', {
+    applicationId: application._id.toString(),
+    interviewId: interview._id.toString(),
+    link
+  });
+  await application.save();
+  res.status(200).json({ success: true, data: { startedAt: interview.aiInterview.recordingStartedAt, active: true } });
+});
+
+// @desc    Recording heartbeat by public link (candidate)
+// @route   POST /api/v1/applications/public/ai-interview/:link/recording/heartbeat
+// @access  Public
+exports.heartbeatInterviewRecordingPublic = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+  const application = await Application.findOne({ 'interviews.aiInterview.uniqueLink': link });
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+  const interview = application.interviews.find(i => i.aiInterview && i.aiInterview.uniqueLink === link);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+  interview.aiInterview.recordingLastHeartbeatAt = new Date();
+  interview.aiInterview.recordingActive = true;
+  await application.save();
+  res.status(200).json({ success: true, data: { lastHeartbeatAt: interview.aiInterview.recordingLastHeartbeatAt, active: true } });
+});
+
+// @desc    Get recording status by public link (candidate)
+// @route   GET /api/v1/applications/public/ai-interview/:link/recording/status
+// @access  Public
+exports.getInterviewRecordingStatusPublic = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+  const application = await Application.findOne({ 'interviews.aiInterview.uniqueLink': link });
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+  const interview = application.interviews.find(i => i.aiInterview && i.aiInterview.uniqueLink === link);
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+  const { recordingStartedAt, recordingLastHeartbeatAt, recordingActive } = interview.aiInterview;
+  res.status(200).json({
+    success: true,
+    data: {
+      recordingStartedAt: recordingStartedAt || null,
+      recordingLastHeartbeatAt: recordingLastHeartbeatAt || null,
+      recordingActive: Boolean(recordingActive)
+    }
   });
 });
 
@@ -296,7 +722,7 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
   }
 
-  const { duration = 30, notes } = req.body;
+  const { duration = 30, notes, questions = 5, secondsPerQuestion } = req.body;
 
   // Validate duration
   if (duration < 15 || duration > 120) {
@@ -305,7 +731,7 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
 
   // Generate interview questions
   const { generateInterviewQuestions, generateUniqueInterviewLink } = require('../services/aiService');
-  const questions = await generateInterviewQuestions(application.job, application.resume, duration);
+  const generated = await generateInterviewQuestions(application.job, application.resume, duration, { numQuestions: 5 });
 
   // Generate unique link
   const uniqueLink = generateUniqueInterviewLink();
@@ -317,12 +743,14 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
   // Create AI interview object
   const aiInterviewData = {
     duration,
-    questions,
+    questions: generated.map(q => ({
+      ...q,
+      timeLimit: typeof secondsPerQuestion === 'number' && secondsPerQuestion > 0 ? secondsPerQuestion : q.timeLimit
+    })),
     uniqueLink,
     expiresAt,
-    vapiSessionId: null, // Will be set when Vapi session is created
-    vapiCallId: null,
-    transcript: '',
+    
+    transcript: [],
     aiFeedback: null,
     completedAt: null
   };
@@ -406,7 +834,7 @@ exports.updateAIInterviewStatus = asyncHandler(async (req, res, next) => {
   }
 
   const { interviewId } = req.params;
-  const { status, transcript, vapiCallId, notes } = req.body;
+  const { status, transcript, notes, recordingUrl, recordingBase64 } = req.body;
 
   // Find the specific interview
   const interview = application.interviews.id(interviewId);
@@ -420,16 +848,99 @@ exports.updateAIInterviewStatus = asyncHandler(async (req, res, next) => {
 
     if (status === 'completed') {
       interview.aiInterview.completedAt = new Date();
+      // Expire the public link immediately when interview ends
+      interview.aiInterview.expiresAt = new Date();
 
       // Analyze transcript if provided
-      if (transcript) {
-        interview.aiInterview.transcript = transcript;
-        interview.aiInterview.vapiCallId = vapiCallId || interview.aiInterview.vapiCallId;
+      if (transcript !== undefined) {
+        // Ensure transcript is stored as array of objects with required fields
+        let processedTranscript;
+        if (Array.isArray(transcript)) {
+          processedTranscript = transcript.filter(item =>
+            item &&
+            typeof item.id !== 'undefined' &&
+            typeof item.speaker === 'string' &&
+            item.timestamp &&
+            typeof item.message === 'string' &&
+            item.message.trim() !== ''
+          );
+        } else if (typeof transcript === 'string' && transcript.trim() !== '') {
+          processedTranscript = [{ id: 1, speaker: 'Candidate', timestamp: new Date(), message: transcript }];
+        } else {
+          processedTranscript = [];
+        }
 
-        // Generate AI feedback
-        const { analyzeInterviewTranscript } = require('../services/aiService');
-        const feedback = await analyzeInterviewTranscript(transcript, interview.aiInterview.questions);
-        interview.aiInterview.aiFeedback = feedback;
+        interview.aiInterview.transcript = processedTranscript;
+
+        // Generate AI feedback only if we have valid transcript data
+        if (processedTranscript.length > 0) {
+          const { analyzeInterviewTranscript } = require('../services/aiService');
+          const feedback = await analyzeInterviewTranscript(processedTranscript, interview.aiInterview.questions);
+          interview.aiInterview.aiFeedback = feedback;
+        }
+      }
+
+      // If a file blob was sent with this completion request, upload it now
+      if (req.files && req.files.recording) {
+        try {
+          const recordingFile = req.files.recording;
+          const uploadResult = await uploadVideoRecording(
+            recordingFile.data,
+            recordingFile.name,
+            application._id.toString(),
+            interviewId
+          );
+          interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
+          console.log('[AIInterview] Uploaded local recording on completion (status endpoint)', {
+            applicationId: application._id.toString(),
+            interviewId,
+            cloudinaryUrl: uploadResult.url
+          });
+        } catch (err) {
+          console.error('[AIInterview] Failed uploading local recording on completion:', err);
+        }
+      }
+
+      // If a recording URL is provided in this flow, mirror it to Cloudinary
+      if (recordingUrl && typeof recordingUrl === 'string') {
+        try {
+          const upload = await uploadRemoteVideoUrl(
+            recordingUrl,
+            application._id.toString(),
+            interviewId
+          );
+          interview.aiInterview.localVideoRecordingUrl = upload.url;
+          console.log('[AIInterview] Mirrored recording to Cloudinary (status endpoint)', {
+            applicationId: application._id.toString(),
+            interviewId,
+            cloudinaryUrl: upload.url
+          });
+        } catch (err) {
+          console.error('[AIInterview] Failed to mirror recording on completion:', err);
+        }
+      }
+
+      // If a base64 recording is provided, decode and upload
+      if (!interview.aiInterview.localVideoRecordingUrl && recordingBase64 && typeof recordingBase64 === 'string') {
+        try {
+          const match = recordingBase64.match(/^data:(.*?);base64,(.*)$/);
+          const base64Data = match ? match[2] : recordingBase64;
+          const buffer = Buffer.from(base64Data, 'base64');
+          const uploadResult = await uploadVideoRecording(
+            buffer,
+            `interview_${interviewId}.webm`,
+            application._id.toString(),
+            interviewId
+          );
+          interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
+          console.log('[AIInterview] Uploaded base64 recording to Cloudinary (status endpoint)', {
+            applicationId: application._id.toString(),
+            interviewId,
+            cloudinaryUrl: uploadResult.url
+          });
+        } catch (err) {
+          console.error('[AIInterview] Failed uploading base64 recording on completion:', err);
+        }
       }
 
       // Update application status
@@ -440,6 +951,23 @@ exports.updateAIInterviewStatus = asyncHandler(async (req, res, next) => {
         updatedBy: req.user.id,
         notes: notes || 'AI video interview completed'
       });
+
+    console.log('[Recording] Ended interview video recording', {
+        applicationId: application._id.toString(),
+        interviewId,
+      localUrl: interview.aiInterview.localVideoRecordingUrl || null,
+        providerUrl: null
+      });
+
+      if (interview.aiInterview.localVideoRecordingUrl) {
+        console.log('[Recording] Cloudinary URL', {
+          applicationId: application._id.toString(),
+          interviewId,
+          cloudinaryUrl: interview.aiInterview.localVideoRecordingUrl
+        });
+      } else {
+        console.error('[Recording] Missing recording payload on completion; no Cloudinary URL produced. Include one of: multipart recording file, recordingUrl, or recordingBase64.');
+      }
     }
   }
 
@@ -447,7 +975,8 @@ exports.updateAIInterviewStatus = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: application
+    data: application,
+    cloudinaryUrl: application.interviews.id(interviewId)?.aiInterview?.localVideoRecordingUrl || null
   });
 });
 
@@ -474,12 +1003,9 @@ exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse('Interview not found', 404));
     }
 
-    if (aiInterview.aiInterview.expiresAt < new Date()) {
-      return next(new ErrorResponse('This interview link has expired', 400));
-    }
-
-    if (aiInterview.status === 'completed') {
-      return next(new ErrorResponse('This interview has already been completed', 400));
+    // If interview is completed or expired, return 410 Gone to prevent access
+    if (aiInterview.status === 'completed' || aiInterview.aiInterview.expiresAt < new Date()) {
+      return next(new ErrorResponse('This interview link has expired', 410));
     }
 
     return res.status(200).json({
@@ -505,7 +1031,8 @@ exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
           duration: aiInterview.aiInterview.duration,
           questions: aiInterview.aiInterview.questions || [],
           expiresAt: aiInterview.aiInterview.expiresAt,
-          vapiAssistantId: '78f66dae-06aa-4b30-a6c9-81a7618451cb'
+          completedAt: aiInterview.aiInterview.completedAt || null,
+          localVideoRecordingUrl: aiInterview.aiInterview.localVideoRecordingUrl || null
         }
       }
     });
@@ -516,103 +1043,4 @@ exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
 });
 
 
-// @desc    Get Vapi configuration for interview
-// @route   GET /api/v1/applications/:id/vapi-config
-// @access  Private (HR/Manager/Admin)
-exports.getVapiConfig = asyncHandler(async (req, res, next) => {
-  const application = await Application.findById(req.params.id);
-
-  if (!application) {
-    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
-  }
-
-  // Find AI interview
-  const aiInterview = application.interviews.find(
-    interview => interview.type === 'ai_video' && interview.aiInterview
-  );
-
-  if (!aiInterview) {
-    return next(new ErrorResponse('No AI interview found for this application', 404));
-  }
-
-  // Vapi configuration - in production, these should come from environment variables
-  const vapiConfig = {
-    apiKey: process.env.VAPI_PRIVATE_KEY || '603f024b-e19c-42b6-966a-955f1b2e96ab', // Should be set in .env
-    assistantId: aiInterview.aiInterview.vapiAssistantId || '5966f84b-85ec-47ca-b294-9b1ca366ac2f',
-    model: {
-      provider: "openai",
-      model: "gpt-3.5-turbo",
-      temperature: 0.7,
-    },
-    voice: {
-      provider: "11labs",
-      voiceId: "burt",
-    }
-  };
-
-  res.status(200).json({
-    success: true,
-    data: vapiConfig
-  });
-});
-
-// @desc    Update AI interview with Vapi call details
-// @route   PUT /api/v1/applications/:id/ai-interview/:interviewId/vapi
-// @access  Private (HR/Manager/Admin)
-exports.updateAIInterviewWithVapi = asyncHandler(async (req, res, next) => {
-  const application = await Application.findById(req.params.id);
-
-  if (!application) {
-    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
-  }
-
-  const { interviewId } = req.params;
-  const { vapiCallId, transcript, recordingUrl, duration, feedback, completedAt } = req.body;
-
-  // Find the specific interview
-  const interview = application.interviews.id(interviewId);
-  if (!interview || interview.type !== 'ai_video') {
-    return next(new ErrorResponse('AI interview not found', 404));
-  }
-
-  // Update Vapi-related fields
-  if (vapiCallId) {
-    interview.aiInterview.vapiCallId = vapiCallId;
-  }
-
-  if (transcript) {
-    interview.aiInterview.transcript = transcript;
-  }
-
-  if (recordingUrl) {
-    interview.aiInterview.recordingUrl = recordingUrl;
-  }
-
-  if (duration) {
-    interview.aiInterview.actualDuration = duration;
-  }
-
-  if (feedback) {
-    interview.aiInterview.candidateFeedback = feedback;
-  }
-
-  if (completedAt) {
-    interview.aiInterview.completedAt = new Date(completedAt);
-    interview.status = 'completed';
-
-    // Update application status
-    application.status = 'interviewed';
-    application.timeline.push({
-      status: 'ai_interview_completed',
-      date: new Date(),
-      notes: 'AI video interview completed via Vapi'
-    });
-  }
-
-  await application.save();
-
-  res.status(200).json({
-    success: true,
-    data: application
-  });
-});
+// Vapi integration removed

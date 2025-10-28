@@ -35,16 +35,17 @@ initAIModel().catch(console.error);
 
 const app = express();
 
-// Body parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parser with increased limits for large payloads (recordings, base64, etc.)
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 
 // Cookie parser
 app.use(cookieParser());
 
-// File upload
+// File upload with size limit
 app.use(fileupload({
-  createParentPath: true
+  createParentPath: true,
+  limits: { fileSize: 200 * 1024 * 1024 } // 200MB
 }));
 
 // Dev logging middleware
@@ -119,6 +120,7 @@ app.use('/api/v1/jobs', require('./routes/jobRoutes'));
 app.use('/api/v1/applications', require('./routes/applicationRoutes'));
 app.use('/api/v1/resumes', require('./routes/resumeRoutes'));
 app.use('/api/v1/analytics', require('./routes/analyticsRoutes'));
+app.use('/api/v1/transcriptions', require('./routes/transcriptionRoutes'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

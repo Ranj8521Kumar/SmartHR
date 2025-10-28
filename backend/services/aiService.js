@@ -640,10 +640,11 @@ exports.initAIModel = async () => {
 };
 
 // Generate AI interview questions based on job requirements and candidate profile
-exports.generateInterviewQuestions = async (job, candidateResume, duration = 30) => {
+exports.generateInterviewQuestions = async (job, candidateResume, duration = 30, opts = {}) => {
   try {
-    // Calculate number of questions based on duration (roughly 2-3 minutes per question)
-    const numQuestions = Math.max(5, Math.min(15, Math.floor(duration / 3)));
+    // Respect explicit question count if provided, else derive from duration
+    const desiredCount = typeof opts.numQuestions === 'number' ? opts.numQuestions : null;
+    const numQuestions = desiredCount && desiredCount > 0 ? desiredCount : Math.max(5, Math.min(15, Math.floor(duration / 3)));
 
     // Extract key information from job and resume
     const jobSkills = job.skills || [];
@@ -651,21 +652,35 @@ exports.generateInterviewQuestions = async (job, candidateResume, duration = 30)
     const jobResponsibilities = job.responsibilities || [];
     const candidateSkills = candidateResume.parsedData?.skills?.map(s => s.name) || [];
     const candidateExperience = candidateResume.aiAnalysis?.experienceYears || 0;
+    const jobTitle = job.title || 'the role';
 
-    // Generate questions by category
+    // Identify top overlapping skills to tailor questions
+    const overlap = [...new Set(candidateSkills.map(s => s.toLowerCase()))]
+      .filter(cs => jobSkills.map(j => j.toLowerCase()).some(js => cs.includes(js) || js.includes(cs)));
+    const prioritizedSkills = (overlap.length ? overlap : jobSkills.map(s => s.toLowerCase())).slice(0, 6);
+
+    // Generate questions by category with professional tone and role alignment
     const questions = [];
 
     // Technical questions (40% of questions)
     const technicalCount = Math.ceil(numQuestions * 0.4);
     for (let i = 0; i < technicalCount; i++) {
-      const question = await generateTechnicalQuestion(jobSkills, candidateSkills, candidateExperience);
-      if (question) questions.push(question);
+      const question = await generateTechnicalQuestion(
+        prioritizedSkills.length ? prioritizedSkills : jobSkills,
+        candidateSkills,
+        candidateExperience
+      );
+      if (question) {
+        question.question = `For the ${jobTitle}, ${question.question} Please focus on specifics relevant to our responsibilities.`;
+        questions.push(question);
+      }
     }
 
     // Behavioral questions (30% of questions)
     const behavioralCount = Math.ceil(numQuestions * 0.3);
     for (let i = 0; i < behavioralCount; i++) {
       const question = generateBehavioralQuestion();
+      question.question = `${question.question} Use the STAR method (Situation, Task, Action, Result) and relate it to ${jobTitle}.`;
       questions.push(question);
     }
 
@@ -673,6 +688,7 @@ exports.generateInterviewQuestions = async (job, candidateResume, duration = 30)
     const situationalCount = Math.ceil(numQuestions * 0.2);
     for (let i = 0; i < situationalCount; i++) {
       const question = generateSituationalQuestion(jobDescription, jobResponsibilities);
+      question.question = `${question.question} Please outline your approach, trade-offs, and expected impact for the ${jobTitle}.`;
       questions.push(question);
     }
 
@@ -680,15 +696,16 @@ exports.generateInterviewQuestions = async (job, candidateResume, duration = 30)
     const experienceCount = Math.max(1, Math.floor(numQuestions * 0.1));
     for (let i = 0; i < experienceCount; i++) {
       const question = generateExperienceQuestion(candidateExperience, job.title);
+      question.question = `${question.question} Highlight tools, metrics, and contributions most relevant to ${jobTitle}.`;
       questions.push(question);
     }
 
     // Shuffle questions and assign time limits
     const shuffledQuestions = questions.sort(() => Math.random() - 0.5);
     const totalTime = duration * 60; // Convert to seconds
-    const timePerQuestion = Math.floor(totalTime / shuffledQuestions.length);
+    const timePerQuestion = Math.max(30, Math.floor(totalTime / shuffledQuestions.length));
 
-    return shuffledQuestions.map((q, index) => ({
+    return shuffledQuestions.slice(0, numQuestions).map((q) => ({
       ...q,
       timeLimit: timePerQuestion
     }));
@@ -696,7 +713,8 @@ exports.generateInterviewQuestions = async (job, candidateResume, duration = 30)
   } catch (error) {
     console.error('Error generating interview questions:', error);
     // Return fallback questions
-    return generateFallbackQuestions(duration);
+    const count = typeof opts.numQuestions === 'number' ? opts.numQuestions : undefined;
+    return generateFallbackQuestions(duration, count);
   }
 };
 
@@ -801,9 +819,9 @@ const generateExperienceQuestion = (years, jobTitle) => {
 };
 
 // Generate fallback questions if AI generation fails
-const generateFallbackQuestions = (duration) => {
-  const numQuestions = Math.max(5, Math.min(15, Math.floor(duration / 3)));
-  const timePerQuestion = Math.floor((duration * 60) / numQuestions);
+const generateFallbackQuestions = (duration, forcedCount) => {
+  const numQuestions = forcedCount && forcedCount > 0 ? forcedCount : Math.max(5, Math.min(15, Math.floor(duration / 3)));
+  const timePerQuestion = Math.max(30, Math.floor((duration * 60) / numQuestions));
 
   const fallbackQuestions = [
     "Tell me about yourself and your background.",

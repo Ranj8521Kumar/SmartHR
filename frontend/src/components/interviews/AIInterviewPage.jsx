@@ -19,10 +19,12 @@ import {
   Loader2,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
+  LogOut,
+  Upload
 } from 'lucide-react';
-import interviewService from '../../services/interviewService';
-import vapiService from '../../services/vapiService';
+import interviewService, { uploadInterviewRecording, uploadInterviewRecordingByLink } from '../../services/interviewService';
+import recordingService from '../../services/recordingService';
 
 export default function AIInterviewPage() {
   const { link } = useParams();
@@ -33,8 +35,7 @@ export default function AIInterviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Vapi state
-  const [isVapiReady, setIsVapiReady] = useState(false);
+  // Voice/Interview state
   const [isInterviewActive, setIsInterviewActive] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
@@ -42,7 +43,17 @@ export default function AIInterviewPage() {
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [questionIndex, setQuestionIndex] = useState(-1);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [questionTimeRemaining, setQuestionTimeRemaining] = useState(120); // default, replaced per-question
+  const [totalQuestions] = useState(5); // Fixed to 5 questions
+  const [currentQuestionNumber, setCurrentQuestionNumber] = useState(0);
   const [interviewStatus, setInterviewStatus] = useState('waiting'); // waiting, active, paused, completed
+  const [videoStream, setVideoStream] = useState(null);
+
+  // Recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingBlob, setRecordingBlob] = useState(null);
+  const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+  const [uploadedRecordingUrl, setUploadedRecordingUrl] = useState(null);
 
   // UI state
   const [showTranscript, setShowTranscript] = useState(true);
@@ -52,17 +63,125 @@ export default function AIInterviewPage() {
   // Refs
   const videoRef = useRef(null);
   const timerRef = useRef(null);
+  const questionTimerRef = useRef(null);
+  // Helper: save recording locally for testing
+  const downloadRecordingLocally = (blob, baseName = 'interview') => {
+    try {
+      if (!blob) return;
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${baseName}_${ts}.webm`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      console.log('Saved local copy:', filename);
+    } catch (e) {
+      console.warn('Failed to save local copy:', e);
+    }
+  };
+
+  const fullscreenRef = useRef(null);
+  const interviewRef = useRef(null);
+  const ttsUtteranceRef = useRef(null);
 
   useEffect(() => {
     fetchInterviewDetails();
+
+    // Set up fullscreen event listeners
+    const handleFullscreenChange = () => {
+      const isFullscreen = document.fullscreenElement ||
+                          document.webkitFullscreenElement ||
+                          document.msFullscreenElement;
+
+      if (isFullscreen && interviewStatus === 'active') {
+        // Prevent picture-in-picture when in fullscreen
+        document.addEventListener('keydown', preventShortcuts);
+        document.addEventListener('contextmenu', preventContextMenu);
+        document.addEventListener('visibilitychange', preventVisibilityChange);
+
+        // Prevent picture-in-picture
+        if (videoRef.current) {
+          videoRef.current.disablePictureInPicture = true;
+        }
+      } else {
+        // Remove restrictions when exiting fullscreen
+        document.removeEventListener('keydown', preventShortcuts);
+        document.removeEventListener('contextmenu', preventContextMenu);
+        document.removeEventListener('visibilitychange', preventVisibilityChange);
+
+        if (videoRef.current) {
+          videoRef.current.disablePictureInPicture = false;
+        }
+      }
+    };
+
+    const preventShortcuts = (e) => {
+      // Prevent F11, Alt+F4, Alt+Tab, Ctrl+Shift+Esc, Windows key, etc.
+      if (e.key === 'F11' ||
+          (e.altKey && e.key === 'F4') ||
+          (e.altKey && e.key === 'Tab') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'Escape') ||
+          e.key === 'Meta' ||
+          e.key === 'OS') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Allow ESC to exit fullscreen, but prevent other shortcuts
+      if (e.key === 'Escape') {
+        // Only allow ESC if we're in fullscreen and interview is active
+        const isFullscreen = document.fullscreenElement ||
+                            document.webkitFullscreenElement ||
+                            document.msFullscreenElement;
+        if (!isFullscreen) {
+          e.preventDefault();
+          return false;
+        }
+      }
+    };
+
+    const preventContextMenu = (e) => {
+      e.preventDefault();
+      return false;
+    };
+
+    const preventVisibilityChange = () => {
+      // Prevent tab switching or window minimization
+      if (document.hidden && interviewStatus === 'active') {
+        // Force focus back to the window
+        window.focus();
+      }
+    };
+
+    // Add fullscreen change listeners
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
     return () => {
       // Cleanup
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      vapiService.destroy();
+      // Stop any ongoing TTS
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+      // Remove event listeners
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('keydown', preventShortcuts);
+      document.removeEventListener('contextmenu', preventContextMenu);
+      document.removeEventListener('visibilitychange', preventVisibilityChange);
     };
-  }, [link]);
+  }, [link, interviewStatus]);
 
   const fetchInterviewDetails = async () => {
     try {
@@ -80,15 +199,20 @@ export default function AIInterviewPage() {
 
         console.log('Interview data:', {
           applicationId: response.data.application._id,
-          duration: response.data.duration,
+          duration: response.data.aiInterview?.duration,
           status: response.data.status
         });
 
         setInterview(response.data);
-        setTimeRemaining(response.data.duration * 60); // Convert to seconds
+        const durationMinutes = response.data.aiInterview?.duration || 0;
+        setTimeRemaining(durationMinutes * 60); // Convert to seconds
 
-        // Initialize Vapi
-        await initializeVapi(response.data);
+        // No external voice initialization required
+        setIsInterviewActive(false);
+      } else if (response.expired) {
+        const errorMsg = response.error || 'This interview link has expired';
+        console.error('Expired interview link:', errorMsg);
+        setError(errorMsg);
       } else {
         const errorMsg = response.error || 'Failed to load interview';
         console.error('Failed to load interview:', errorMsg);
@@ -102,136 +226,18 @@ export default function AIInterviewPage() {
     }
   };
 
-  const initializeVapi = async (interviewData) => {
+  const speakOutLoud = (text) => {
     try {
-      if (!interviewData || !interviewData.application) {
-        throw new Error('Invalid interview data: Missing application information');
-      }
-
-      if (!interviewData.application._id) {
-        throw new Error('Invalid interview data: Missing application ID');
-      }
-
-      console.log('Starting Vapi initialization...', {
-        applicationId: interviewData.application._id,
-        hasApplication: !!interviewData.application
-      });
-      
-      // Get Vapi config from backend
-      const configResponse = await interviewService.getVapiConfig(interviewData.application._id);
-      console.log('Vapi config response:', configResponse);
-
-      if (configResponse.success) {
-        const { apiKey, assistantId, model, voice } = configResponse.data;
-        console.log('Got Vapi configuration:', { 
-          assistantId,
-          hasApiKey: !!apiKey,
-          model: model?.provider,
-          voice: voice?.provider
-        });
-
-        // Initialize Vapi service
-        console.log('Initializing Vapi service...');
-        await vapiService.initialize(apiKey);
-        console.log('Vapi service initialized successfully');
-
-        // Validate Vapi connection
-        const isConnected = await vapiService.validateConnection();
-        console.log('Vapi connection status:', isConnected ? 'Connected' : 'Not Connected');
-
-        if (!isConnected) {
-          throw new Error('Failed to establish connection with Vapi service');
-        }
-
-        // Set up event listeners
-        console.log('Setting up Vapi event listeners...');
-        setupVapiEventListeners();
-        console.log('Vapi event listeners set up successfully');
-
-        setIsVapiReady(true);
-        console.log('Vapi initialization complete - Ready for interview');
-      } else {
-        console.error('Failed to get Vapi configuration:', configResponse.error);
-        throw new Error('Failed to get Vapi configuration');
-      }
-    } catch (err) {
-      console.error('Failed to initialize Vapi:', err);
-      setError(`Failed to initialize voice system: ${err.message}`);
-      console.log('Detailed error:', {
-        name: err.name,
-        message: err.message,
-        stack: err.stack,
-        cause: err.cause
-      });
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      ttsUtteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      // ignore
     }
-  };
-
-  const setupVapiEventListeners = () => {
-    vapiService.on('call-start', (event) => {
-      console.log('Call started:', event);
-      setIsInterviewActive(true);
-      setInterviewStatus('active');
-      startTimer();
-
-      // Reset question index and schedule first question after assistant intro
-      setQuestionIndex(-1);
-      setTimeout(() => {
-        if (interview?.aiInterview?.questions?.length) {
-          sendNextQuestion();
-        }
-      }, 3000);
-    });
-
-    vapiService.on('call-end', async (event) => {
-      console.log('Call ended:', event);
-      setIsInterviewActive(false);
-      setInterviewStatus('completed');
-      stopTimer();
-
-      // Auto-submit interview data
-      await submitInterviewResults(event);
-    });
-
-    vapiService.on('speech-start', (event) => {
-      setIsMicEnabled(true);
-    });
-
-    vapiService.on('speech-end', (event) => {
-      setIsMicEnabled(false);
-
-      // After candidate finishes speaking, ask next question (if any)
-      try {
-        const total = interview?.aiInterview?.questions?.length || 0;
-        if (interviewStatus === 'active' && questionIndex < total - 1) {
-          // Small delay to allow assistant TTS to start
-          setTimeout(() => sendNextQuestion(), 1000);
-        }
-      } catch (err) {
-        console.error('Error scheduling next question on speech-end:', err);
-      }
-    });
-
-    vapiService.on('message', (event) => {
-      if (event.type === 'transcript') {
-        setTranscript(prev => [...prev, {
-          id: Date.now(),
-          speaker: event.speaker || 'AI',
-          text: event.text,
-          timestamp: new Date()
-        }]);
-      }
-    });
-
-    vapiService.on('conversation-update', (event) => {
-      if (event.type === 'question') {
-        setCurrentQuestion(event.question);
-      }
-    });
-
-    vapiService.on('error', (event) => {
-      console.error('Vapi error:', event);
-      setError('Voice system error occurred');
-    });
   };
 
   const startTimer = () => {
@@ -254,6 +260,57 @@ export default function AIInterviewPage() {
     }
   };
 
+  const startQuestionTimer = () => {
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+    }
+
+    questionTimerRef.current = setInterval(() => {
+      setQuestionTimeRemaining(prev => {
+        if (prev <= 1) {
+          // Time's up for this question, move to next
+          stopQuestionTimer();
+          sendNextQuestion();
+          return 120; // Reset for next question
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopQuestionTimer = () => {
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
+  };
+
+  const stopMediaDevices = () => {
+    try {
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => {
+          try { t.stop(); } catch {}
+        });
+      }
+      if (videoRef.current) {
+        try { videoRef.current.srcObject = null; } catch {}
+      }
+      setIsMicEnabled(false);
+      setIsVideoEnabled(false);
+      setVideoStream(null);
+    } catch {}
+  };
+
+  // Allow manual advance to next question
+  const nextQuestionNow = () => {
+    try {
+      stopQuestionTimer();
+      sendNextQuestion();
+    } catch (e) {
+      console.warn('Failed to advance to next question');
+    }
+  };
+
   // Send the next question from the generated list
   const sendNextQuestion = async () => {
     try {
@@ -271,16 +328,17 @@ export default function AIInterviewPage() {
       const q = questions[nextIndex];
       const qText = typeof q === 'string' ? q : (q.text || q.question || q.prompt || JSON.stringify(q));
 
-      console.log('Sending next question to Vapi:', { index: nextIndex, text: qText });
+      console.log('Asking next question:', { index: nextIndex, text: qText });
       setQuestionIndex(nextIndex);
       setCurrentQuestion(qText);
+      const limit = typeof q === 'object' && q.timeLimit ? q.timeLimit : 120;
+      setQuestionTimeRemaining(limit);
 
-      // Send the question to the assistant so it asks aloud
-      try {
-        await vapiService.sendMessage(qText);
-      } catch (err) {
-        console.error('Failed to send question to Vapi:', err);
-      }
+      // Start the question timer
+      startQuestionTimer();
+
+      // Ask aloud via browser TTS (optional)
+      speakOutLoud(qText);
     } catch (err) {
       console.error('Error in sendNextQuestion:', err);
     }
@@ -292,45 +350,85 @@ export default function AIInterviewPage() {
 
       if (!interview) return;
 
-      // Start Vapi interview with assistant overrides
-      const name = interview.candidate?.firstName || 'Candidate';
-      const assistantOverrides = {
-        recordingEnabled: false,
-        variableValues: {
-          name,
-        },
-        // Friendly intro to make candidate comfortable
-        firstMessage: `Hi ${name}, welcome to your interview. Take a deep breath — this is a friendly conversation. When you're ready, I'll ask you a few questions about the ${interview.job?.title || 'role'}. Please answer naturally.`
-      };
-
       // Reset question index
       setQuestionIndex(-1);
 
-      await vapiService.startInterviewWithAssistant(
-        interview.vapiAssistantId || '78f66dae-06aa-4b30-a6c9-81a7618451cb',
-        assistantOverrides
-      );
+      // Mark active and start timers
+      setIsInterviewActive(true);
+      setInterviewStatus('active');
+      startTimer();
 
-      // Request microphone permission
+      // Request microphone and camera permissions
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          }
+        });
         setIsMicEnabled(true);
+        setIsVideoEnabled(true);
+        setVideoStream(stream);
 
-        // You could set up video stream here if needed
-        // videoRef.current.srcObject = stream;
+        // Set up video stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          console.log('Video stream assigned to video element');
+
+          // Start recording using the recording service with the existing stream
+          try {
+            await recordingService.startRecording(stream);
+            setIsRecording(true);
+            console.log('Recording started via service');
+          } catch (recordErr) {
+            console.error('Failed to start recording:', recordErr);
+            // Continue with interview even if recording fails
+          }
+
+          // Enter fullscreen mode after video is set up
+          try {
+            if (videoRef.current.requestFullscreen) {
+              await videoRef.current.requestFullscreen();
+            } else if (videoRef.current.webkitRequestFullscreen) {
+              await videoRef.current.webkitRequestFullscreen();
+            } else if (videoRef.current.msRequestFullscreen) {
+              await videoRef.current.msRequestFullscreen();
+            }
+            console.log('Entered fullscreen mode');
+          } catch (fullscreenErr) {
+            console.warn('Failed to enter fullscreen mode:', fullscreenErr);
+            // Continue with interview even if fullscreen fails
+          }
+        }
       }
+
+      // Kick off the first question shortly after entering fullscreen
+      setTimeout(() => {
+        try {
+          if (interview?.aiInterview?.questions?.length) {
+            // Friendly intro via TTS, then first question
+            const name = interview.candidate?.firstName || 'Candidate';
+            speakOutLoud(`Hi ${name}, let's begin. I will ask you five questions related to the ${interview.job?.title || 'role'}.`);
+            setTimeout(() => {
+              sendNextQuestion();
+            }, 800);
+          }
+        } catch {}
+      }, 500);
 
     } catch (err) {
       console.error('Failed to start interview:', err);
-      setError('Failed to start interview. Please check your microphone permissions.');
+      setError('Failed to start interview. Please check your microphone and camera permissions.');
     }
   };
 
   const pauseInterview = async () => {
     try {
-      await vapiService.stopInterview();
       setInterviewStatus('paused');
       stopTimer();
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
     } catch (err) {
       console.error('Failed to pause interview:', err);
     }
@@ -338,7 +436,8 @@ export default function AIInterviewPage() {
 
   const resumeInterview = async () => {
     try {
-      await startInterview();
+      setInterviewStatus('active');
+      startTimer();
     } catch (err) {
       console.error('Failed to resume interview:', err);
     }
@@ -346,39 +445,189 @@ export default function AIInterviewPage() {
 
   const endInterview = async () => {
     try {
-      await vapiService.stopInterview();
       setInterviewStatus('completed');
       stopTimer();
+      stopQuestionTimer();
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+      // Stop recording if active
+      let finalBlob = recordingBlob;
+      if (isRecording) {
+        try {
+          const blob = await recordingService.stopRecording();
+          finalBlob = blob;
+          setRecordingBlob(blob);
+          setIsRecording(false);
+          // Save a local copy for testing
+          downloadRecordingLocally(blob, 'ai_interview');
+        } catch (stopErr) {}
+      }
+
+      // Stop camera and mic
+      stopMediaDevices();
 
       // Submit results
-      await submitInterviewResults();
+      await submitInterviewResults(null, finalBlob);
     } catch (err) {
       console.error('Failed to end interview:', err);
     }
   };
 
-  const submitInterviewResults = async (vapiEvent = null) => {
+  const exitInterview = async () => {
+    try {
+      // Stop the interview immediately
+      setInterviewStatus('completed');
+      stopTimer();
+      stopQuestionTimer();
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+      // Submit results with current state
+      await submitInterviewResults();
+
+      // Navigate away or show completion message
+      setInterviewStatus('submitted');
+
+      // Stop camera and mic
+      stopMediaDevices();
+    } catch (err) {
+      console.error('Failed to exit interview:', err);
+      setError('Failed to exit interview');
+    }
+  };
+
+  const submitInterviewResults = async (vapiEvent = null, finalBlob = null) => {
     try {
       setIsSubmitting(true);
 
-      const interviewData = {
-        status: 'completed',
-        transcript: transcript,
-        vapiCallId: vapiEvent?.call?.id,
-        recordingUrl: vapiEvent?.call?.recordingUrl,
-        duration: interview?.duration * 60 - timeRemaining,
-        feedback: feedback,
-        completedAt: new Date()
-      };
+      if (!interview || !interview.application || !interview.application._id) {
+        console.error('Invalid interview data for submission:', interview);
+        throw new Error('Invalid interview data: Missing application information');
+      }
 
-      await interviewService.updateAIInterviewWithVapi(
-        interview.application._id,
-        interview._id,
-        interviewData
-      );
+      // Upload recording if available
+      let recordingUrl = undefined;
+      const blobToUpload = finalBlob || recordingBlob;
+      if (blobToUpload && !recordingUrl) {
+        try {
+          setIsUploadingRecording(true);
+          console.log('Uploading interview recording...');
+          let uploadResponse;
+          if (link) {
+            uploadResponse = await uploadInterviewRecordingByLink(
+              link,
+              blobToUpload,
+              'video'
+            );
+          } else {
+            uploadResponse = await uploadInterviewRecording(
+              interview.application._id,
+              interview._id,
+              blobToUpload,
+              'video'
+            );
+          }
+          if (uploadResponse.success) {
+            recordingUrl = uploadResponse.data.recordingUrl || uploadResponse.data.url;
+            setUploadedRecordingUrl(recordingUrl || null);
+            console.log('Recording uploaded successfully. URL:', recordingUrl);
+            if (uploadResponse.data.publicId) {
+              console.log('Cloudinary public ID:', uploadResponse.data.publicId);
+            }
+          } else {
+            console.warn('Failed to upload recording:', uploadResponse.error);
+          }
+        } catch (uploadErr) {
+          console.error('Error uploading recording:', uploadErr);
+        } finally {
+          setIsUploadingRecording(false);
+        }
+      }
+
+      // Optionally transcribe local recording for a text transcript
+      try {
+        if (recordingBlob) {
+          const tr = await interviewService.transcribeAudio(recordingBlob);
+          if (tr?.success && tr.data?.text) {
+            setTranscript(prev => [...prev, { id: Date.now(), speaker: 'Transcript', text: tr.data.text, timestamp: new Date() }]);
+          }
+        }
+      } catch (e) {
+        console.warn('Transcription failed, continuing without transcript');
+      }
+
+      // Fallback: if upload didn't return a URL but we still have a blob, inline as base64
+      let recordingBase64;
+      if (!recordingUrl && (finalBlob || recordingBlob)) {
+        try {
+          const blobToEncode = finalBlob || recordingBlob;
+          const toBase64 = (blob) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          recordingBase64 = await toBase64(blobToEncode);
+          console.log('Prepared base64 fallback for recording.');
+        } catch (e) {
+          console.warn('Failed to create base64 fallback, continuing without video.');
+        }
+      }
+
+      // Prefer sending multipart with file on completion if we have a blob
+      const hasBlob = Boolean(finalBlob || recordingBlob);
+      if (hasBlob && !recordingUrl) {
+        try {
+          const form = new FormData();
+          form.append('status', 'completed');
+          form.append('transcript', JSON.stringify(transcript || []));
+          form.append('duration', String((interview?.duration * 60 - timeRemaining) || 0));
+          form.append('feedback', feedback || '');
+          form.append('completedAt', new Date().toISOString());
+          const fileBlob = finalBlob || recordingBlob;
+          form.append('recording', fileBlob, 'interview.webm');
+
+          await interviewService.updateAIInterviewStatus(
+            interview.application._id,
+            interview._id,
+            form
+          );
+        } catch (e) {
+          console.warn('Multipart completion failed, falling back to JSON payload.');
+          const interviewData = {
+            status: 'completed',
+            transcript: transcript,
+            recordingUrl: recordingUrl,
+            recordingBase64,
+            duration: interview?.duration * 60 - timeRemaining,
+            feedback: feedback,
+            completedAt: new Date()
+          };
+          await interviewService.updateAIInterviewStatus(
+            interview.application._id,
+            interview._id,
+            interviewData
+          );
+        }
+      } else {
+        const interviewData = {
+          status: 'completed',
+          transcript: transcript,
+          recordingUrl: recordingUrl,
+          recordingBase64,
+          duration: interview?.duration * 60 - timeRemaining,
+          feedback: feedback,
+          completedAt: new Date()
+        };
+        await interviewService.updateAIInterviewStatus(
+          interview.application._id,
+          interview._id,
+          interviewData
+        );
+      }
 
       // Navigate to completion page or show success message
       setInterviewStatus('submitted');
+      setError(null);
 
     } catch (err) {
       console.error('Failed to submit interview results:', err);
@@ -427,6 +676,31 @@ export default function AIInterviewPage() {
     );
   }
 
+  if (interviewStatus === 'submitted') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-10">
+            <div className="text-center">
+              <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Thank you for completing your interview</h2>
+              <p className="text-gray-600 mb-4">Your responses have been successfully saved.</p>
+              {uploadedRecordingUrl && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">Recording URL:</p>
+                  <a className="text-sm text-blue-600 underline break-all" href={uploadedRecordingUrl} target="_blank" rel="noreferrer">
+                    {uploadedRecordingUrl}
+                  </a>
+                </div>
+              )}
+              <Button onClick={() => navigate('/')}>Return Home</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -463,6 +737,13 @@ export default function AIInterviewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Recording Indicator */}
+      {interviewStatus === 'active' && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg ${isRecording ? 'bg-red-600 text-white' : 'bg-yellow-500 text-white'}`}>
+          <span className={`inline-block w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-white animate-pulse' : 'bg-white/90'}`}></span>
+          <span className="text-sm font-medium">{isRecording ? 'Recording' : 'Preparing recorder...'}</span>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -478,6 +759,25 @@ export default function AIInterviewPage() {
                 <Clock className="h-4 w-4" />
                 <span>{formatTime(timeRemaining)}</span>
               </div>
+              {interviewStatus === 'active' && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Clock className="h-4 w-4" />
+                  <span className={questionTimeRemaining <= 30 ? 'text-red-600 font-medium' : ''}>
+                    {formatTime(questionTimeRemaining)}
+                  </span>
+                </div>
+              )}
+              {interviewStatus !== 'submitted' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exitInterview}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Exit Interview
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -504,40 +804,8 @@ export default function AIInterviewPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center mb-4">
-                  {interviewStatus === 'waiting' && (
-                    <div className="text-center text-white">
-                      <Video className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                      <p className="text-lg">Ready to start your interview</p>
-                      <p className="text-sm opacity-75 mt-2">Click "Start Interview" to begin</p>
-                    </div>
-                  )}
-
-                  {interviewStatus === 'active' && (
-                    <div className="text-center text-white">
-                      <div className="flex items-center justify-center gap-4 mb-4">
-                        <div className={`w-4 h-4 rounded-full ${isMicEnabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span className="text-sm">AI Interview in Progress</span>
-                      </div>
-                      <p className="text-sm opacity-75">Listen carefully and respond naturally</p>
-                    </div>
-                  )}
-
-                  {interviewStatus === 'paused' && (
-                    <div className="text-center text-white">
-                      <Pause className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                      <p className="text-lg">Interview Paused</p>
-                    </div>
-                  )}
-
-                  {interviewStatus === 'completed' && (
-                    <div className="text-center text-white">
-                      <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
-                      <p className="text-lg">Interview Completed</p>
-                      <p className="text-sm opacity-75 mt-2">Thank you for participating</p>
-                    </div>
-                  )}
-
+                <div className="aspect-video bg-gray-900 rounded-lg relative mb-4">
+                  {/* Video Element - Always present */}
                   <video
                     ref={videoRef}
                     className="w-full h-full object-cover rounded-lg"
@@ -545,14 +813,55 @@ export default function AIInterviewPage() {
                     muted
                     playsInline
                   />
+
+                  {/* Status Overlays - Show when video is not active or not enabled */}
+                  {interviewStatus === 'active' && !isVideoEnabled && (
+                    <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-4 mb-4">
+                          <div className={`w-4 h-4 rounded-full ${isMicEnabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                          <span className="text-sm">AI Interview in Progress</span>
+                        </div>
+                        <p className="text-sm opacity-75">Listen carefully and respond naturally</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {interviewStatus === 'paused' && (
+                    <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">
+                      <Pause className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg">Interview Paused</p>
+                    </div>
+                  )}
+
+                  {interviewStatus === 'completed' && (
+                    <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">
+                      <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
+                      <p className="text-lg">Interview Completed</p>
+                      <p className="text-sm opacity-75 mt-2">Thank you for participating</p>
+                    </div>
+                  )}
                 </div>
+
+                {/* Waiting Status Banner - Below Video */}
+                {interviewStatus === 'waiting' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <Video className="h-8 w-8 text-blue-600" />
+                      <div>
+                        <p className="text-lg font-medium text-blue-900">Ready to start your interview</p>
+                        <p className="text-sm text-blue-700">Click "Start Interview" to begin</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Interview Controls */}
                 <div className="flex items-center justify-center gap-4">
                   {interviewStatus === 'waiting' && (
                     <Button
                       onClick={startInterview}
-                      disabled={!isVapiReady}
+                      disabled={isLoading || !interview}
                       size="lg"
                       className="px-8"
                     >
@@ -563,9 +872,8 @@ export default function AIInterviewPage() {
 
                   {interviewStatus === 'active' && (
                     <>
-                      <Button onClick={pauseInterview} variant="outline">
-                        <Pause className="h-4 w-4 mr-2" />
-                        Pause
+                      <Button onClick={nextQuestionNow} variant="outline">
+                        Next Question
                       </Button>
                       <Button onClick={endInterview} variant="destructive">
                         <PhoneOff className="h-4 w-4 mr-2" />
@@ -576,10 +884,6 @@ export default function AIInterviewPage() {
 
                   {interviewStatus === 'paused' && (
                     <>
-                      <Button onClick={resumeInterview}>
-                        <Play className="h-4 w-4 mr-2" />
-                        Resume
-                      </Button>
                       <Button onClick={endInterview} variant="destructive">
                         <PhoneOff className="h-4 w-4 mr-2" />
                         End Interview
@@ -608,10 +912,22 @@ export default function AIInterviewPage() {
             {currentQuestion && interviewStatus === 'active' && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Current Question</CardTitle>
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span>Current Question</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Clock className="h-4 w-4" />
+                      <span className={questionTimeRemaining <= 30 ? 'text-red-600 font-medium' : ''}>
+                        {formatTime(questionTimeRemaining)}
+                      </span>
+                    </div>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-700">{currentQuestion}</p>
+                  <Progress
+                    value={(questionTimeRemaining / 120) * 100}
+                    className="mt-3"
+                  />
                 </CardContent>
               </Card>
             )}

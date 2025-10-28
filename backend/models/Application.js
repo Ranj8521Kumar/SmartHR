@@ -130,9 +130,10 @@ const ApplicationSchema = new mongoose.Schema({
         unique: true,
         sparse: true
       },
-      vapiSessionId: String,
-      vapiCallId: String,
-      transcript: String,
+      transcript: {
+        type: mongoose.Schema.Types.Mixed,
+        default: []
+      },
       aiFeedback: {
         overallScore: Number,
         communicationScore: Number,
@@ -140,6 +141,15 @@ const ApplicationSchema = new mongoose.Schema({
         confidenceScore: Number,
         analysis: String
       },
+      // Recording status tracking
+      recordingStartedAt: Date,
+      recordingLastHeartbeatAt: Date,
+      recordingActive: {
+        type: Boolean,
+        default: false
+      },
+      // Recording URLs
+      localVideoRecordingUrl: String, // URL of the local video recording uploaded to Cloudinary
       completedAt: Date,
       expiresAt: Date // Link expiration date
     }
@@ -165,6 +175,25 @@ const ApplicationSchema = new mongoose.Schema({
   }]
 }, {
   timestamps: true
+});
+
+// Pre-save hook to fix transcript data type issues
+ApplicationSchema.pre('save', function(next) {
+  this.interviews.forEach(interview => {
+    if (interview.aiInterview && typeof interview.aiInterview.transcript === 'string') {
+      if (interview.aiInterview.transcript.trim() === '') {
+        interview.aiInterview.transcript = [];
+      } else {
+        interview.aiInterview.transcript = [{
+          id: 1,
+          speaker: 'Candidate',
+          timestamp: new Date(),
+          message: interview.aiInterview.transcript
+        }];
+      }
+    }
+  });
+  next();
 });
 
 // Compound index for efficient queries
