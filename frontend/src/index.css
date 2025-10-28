@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import '/public/styles/globals.css';
+
 
 
 /*! tailwindcss v4.1.3 | MIT License | https://tailwindcss.com */
