@@ -1,8 +1,8 @@
+@import '/public/styles/globals.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import '/public/styles/globals.css';
 
 
 

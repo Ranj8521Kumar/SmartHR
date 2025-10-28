@@ -825,63 +825,63 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               Ready to Transform Your Hiring?
             </h2>
-          <p className="text-xl text-gray-600 mb-8">
-            Join hundreds of companies already using our AI-powered HRMS
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Popover>
-              <PopoverTrigger asChild>
+            <p className="text-xl text-gray-600 mb-8">
+              Join hundreds of companies already using our AI-powered HRMS
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Popover>
+                <PopoverTrigger asChild>
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button size="lg" className="shadow-xl">
-                  Get Started Today
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                      Get Started Today
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
                   </motion.div>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-2">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => handleRoleSelect('admin')}
-                  >
-                    <UserCog className="mr-2 h-4 w-4" />
-                    Admin
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => handleRoleSelect('hr_recruiter')}
-                  >
-                    <UserCheck className="mr-2 h-4 w-4" />
-                    HR Manager
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => handleRoleSelect('manager')}
-                  >
-                    <Building2 className="mr-2 h-4 w-4" />
-                    Manager
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => handleRoleSelect('employee')}
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    Employee
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('admin')}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" />
+                      Admin
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('hr_recruiter')}
+                    >
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      HR Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('manager')}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Manager
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleRoleSelect('employee')}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      Employee
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="lg" variant="outline" className="shadow-xl">
-              Schedule a Demo
-            </Button>
+                  Schedule a Demo
+                </Button>
               </motion.div>
-          </div>
+            </div>
           </motion.div>
         </div>
       </section>
