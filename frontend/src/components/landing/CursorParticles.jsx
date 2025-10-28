@@ -120,8 +120,13 @@ function WireframeCircleParticle({ initialPosition, index, total }) {
 
 export default function CursorReactiveParticles() {
   const [particles] = useState(() => {
+    // Detect if mobile for performance optimization
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const starCount = isMobile ? 40 : 60;
+    const circleCount = isMobile ? 25 : 30;
+
     // Generate star particles
-    const stars = Array.from({ length: 60 }, (_, i) => ({
+    const stars = Array.from({ length: starCount }, (_, i) => ({
       id: i,
       type: 'star',
       position: [
@@ -132,8 +137,8 @@ export default function CursorReactiveParticles() {
     }));
 
     // Generate circle particles
-    const circles = Array.from({ length: 30 }, (_, i) => ({
-      id: i + 60,
+    const circles = Array.from({ length: circleCount }, (_, i) => ({
+      id: i + starCount,
       type: 'circle',
       position: [
         (Math.random() - 0.5) * 10,

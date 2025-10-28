@@ -188,7 +188,7 @@ function SceneContent() {
       <RotatingRing position={[0, 0, 1.5]} color="#ec4899" radius={2.2} />
 
       {/* Floating particles representing data */}
-      {[...Array(40)].map((_, i) => (
+      {[...Array(typeof window !== 'undefined' && window.innerWidth < 768 ? 20 : 40)].map((_, i) => (
         <Particle
           key={i}
           position={[
@@ -208,10 +208,12 @@ function SceneContent() {
 
 export default function HeroScene() {
   return (
-    <div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600/20 via-purple-600/30 to-pink-500/20">
+    <div className="relative w-full h-full min-h-[400px] md:min-h-[450px] lg:min-h-[500px] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600/20 via-purple-600/30 to-pink-500/20">
       <Canvas
         camera={{ position: [0, 0, 8], fov: 60 }}
         className="w-full h-full"
+        gl={{ antialias: false, alpha: true }}
+        dpr={[1, 2]} // Limit pixel ratio for better mobile performance
       >
         <PerspectiveCamera makeDefault position={[0, 0, 8]} fov={60} />
         <SceneContent />

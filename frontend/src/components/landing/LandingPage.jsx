@@ -71,42 +71,42 @@ export default function LandingPage() {
 
   const features = [
     {
-      icon: <Brain className="h-8 w-8" />,
+      icon: <Brain className="h-8 w-8 text-white" />,
       title: 'AI-Powered Resume Analysis',
       description: 'Intelligent candidate matching and resume parsing with advanced ML algorithms',
       gradient: 'from-blue-500 to-blue-600',
       delay: 0
     },
     {
-      icon: <BarChart3 className="h-8 w-8" />,
+      icon: <BarChart3 className="h-8 w-8 text-white" />,
       title: 'Smart Application Tracking',
       description: 'Manage your entire recruitment pipeline in one centralized platform',
       gradient: 'from-purple-500 to-purple-600',
       delay: 0.1
     },
     {
-      icon: <Users className="h-8 w-8" />,
+      icon: <Users className="h-8 w-8 text-white" />,
       title: 'Collaborative Hiring',
       description: 'Seamless collaboration between HR, managers, and teams throughout the process',
       gradient: 'from-pink-500 to-pink-600',
       delay: 0.2
     },
     {
-      icon: <BarChart3 className="h-8 w-8" />,
+      icon: <BarChart3 className="h-8 w-8 text-white" />,
       title: 'Advanced Analytics',
       description: 'Data-driven insights for better hiring decisions and process optimization',
       gradient: 'from-green-500 to-green-600',
       delay: 0.3
     },
     {
-      icon: <Zap className="h-8 w-8" />,
+      icon: <Zap className="h-8 w-8 text-white" />,
       title: 'Automated Workflows',
       description: 'Save time with automated screening, communications, and scheduling',
       gradient: 'from-yellow-500 to-yellow-600',
       delay: 0.4
     },
     {
-      icon: <Shield className="h-8 w-8" />,
+      icon: <Shield className="h-8 w-8 text-white" />,
       title: 'Secure & Scalable',
       description: 'Enterprise-grade security with role-based access control and compliance',
       gradient: 'from-indigo-500 to-indigo-600',
@@ -115,37 +115,37 @@ export default function LandingPage() {
   ];
 
   const steps = [
-    { icon: <Briefcase className="h-6 w-6" />, title: 'Post Jobs', description: 'Create and publish job postings' },
-    { icon: <Inbox className="h-6 w-6" />, title: 'Receive Applications', description: 'Collect candidate submissions' },
-    { icon: <Bot className="h-6 w-6" />, title: 'AI-Powered Screening', description: 'Automated resume analysis' },
-    { icon: <Calendar className="h-6 w-6" />, title: 'Review & Interview', description: 'Schedule and conduct interviews' },
-    { icon: <CheckCircle className="h-6 w-6" />, title: 'Make Offers', description: 'Send offers and onboard talent' }
+    { icon: <Briefcase className="h-6 w-6 text-white" />, title: 'Post Jobs', description: 'Create and publish job postings' },
+    { icon: <Inbox className="h-6 w-6 text-white" />, title: 'Receive Applications', description: 'Collect candidate submissions' },
+    { icon: <Bot className="h-6 w-6 text-white" />, title: 'AI-Powered Screening', description: 'Automated resume analysis' },
+    { icon: <Calendar className="h-6 w-6 text-white" />, title: 'Review & Interview', description: 'Schedule and conduct interviews' },
+    { icon: <CheckCircle className="h-6 w-6 text-white" />, title: 'Make Offers', description: 'Send offers and onboard talent' }
   ];
 
   const roles = [
     {
-      icon: <UserCog className="h-12 w-12" />,
+      icon: <UserCog className="h-12 w-12 text-white" />,
       title: 'Admin',
       description: 'Complete system control and user management with full access to all features',
       color: 'from-blue-500 to-blue-600',
       delay: 0
     },
     {
-      icon: <UserCheck className="h-12 w-12" />,
+      icon: <UserCheck className="h-12 w-12 text-white" />,
       title: 'HR Manager',
       description: 'End-to-end recruitment and candidate management with AI-powered tools',
       color: 'from-purple-500 to-purple-600',
       delay: 0.1
     },
     {
-      icon: <Building2 className="h-12 w-12" />,
+      icon: <Building2 className="h-12 w-12 text-white" />,
       title: 'Manager',
       description: 'Department-specific hiring and team building with approval workflows',
       color: 'from-green-500 to-green-600',
       delay: 0.2
     },
     {
-      icon: <Search className="h-12 w-12" />,
+      icon: <Search className="h-12 w-12 text-white" />,
       title: 'Employee',
       description: 'Easy job search and application tracking with personalized recommendations',
       color: 'from-orange-500 to-orange-600',
@@ -227,33 +227,94 @@ export default function LandingPage() {
             </motion.div>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
-              <a href="#features" className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}>
-                Features
-              </a>
-              <a href="#how-it-works" className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}>
-                How It Works
-              </a>
-              <a href="#roles" className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}>
-                Roles
-              </a>
-              <Button
-                variant="ghost"
-                className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}
-                onClick={() => setIsOpportunitiesOpen(true)}
+            <div className="hidden md:flex items-center gap-6">
+              <motion.a 
+                href="#features"
+                whileHover={{ y: -2 }}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
               >
+                <span className="relative">
+                Features
+                  <motion.span 
+                    className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500"
+                    whileHover={{ width: '100%' }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </span>
+              </motion.a>
+              <motion.a 
+                href="#how-it-works"
+                whileHover={{ y: -2 }}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+              >
+                <span className="relative">
+                How It Works
+                  <motion.span 
+                    className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500"
+                    whileHover={{ width: '100%' }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </span>
+              </motion.a>
+              <motion.a 
+                href="#roles"
+                whileHover={{ y: -2 }}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+              >
+                <span className="relative">
+                Roles
+                  <motion.span 
+                    className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500"
+                    whileHover={{ width: '100%' }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </span>
+              </motion.a>
+              <motion.button
+                onClick={() => setIsOpportunitiesOpen(true)}
+                whileHover={{ y: -2 }}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+              >
+                <span className="relative">
                 Opportunities
-              </Button>
-              <a href="#contact" className={`transition-colors hover:text-blue-600 ${isScrolled ? 'text-gray-700' : 'text-white'}`}>
+                  <motion.span 
+                    className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500"
+                    whileHover={{ width: '100%' }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </span>
+              </motion.button>
+              <motion.a 
+                href="#contact"
+                whileHover={{ y: -2 }}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+              >
+                <span className="relative">
                 Contact
-              </a>
+                  <motion.span 
+                    className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500"
+                    whileHover={{ width: '100%' }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </span>
+              </motion.a>
               <Popover>
                 <PopoverTrigger asChild>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
                   <Button 
-                    variant={isScrolled ? 'outline' : 'secondary'}
+                      variant={isScrolled ? 'outline' : 'ghost'}
+                      className={`transition-all duration-300 ${
+                        !isScrolled 
+                          ? 'bg-white/10 backdrop-blur-md text-white border border-white/30 hover:bg-white/20 hover:border-white/50 shadow-lg' 
+                          : 'bg-transparent hover:bg-gray-100'
+                      }`}
                   >
                     Sign In
                   </Button>
+                  </motion.div>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-2">
                   <div className="space-y-2">
@@ -315,25 +376,55 @@ export default function LandingPage() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t"
+            className="md:hidden bg-gradient-to-br from-white/95 via-white/90 to-white/95 backdrop-blur-xl border-t border-white/40 shadow-2xl relative overflow-hidden"
           >
-            <div className="px-4 py-4 space-y-3">
-              <a href="#features" className="block py-2 text-gray-700 hover:text-blue-600">Features</a>
-              <a href="#how-it-works" className="block py-2 text-gray-700 hover:text-blue-600">How It Works</a>
-              <a href="#roles" className="block py-2 text-gray-700 hover:text-blue-600">Roles</a>
-              <button
+            {/* Decorative background gradient */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 pointer-events-none"></div>
+            
+            <div className="px-4 py-4 space-y-3 relative z-10">
+              <motion.a 
+                href="#features" 
+                whileHover={{ x: 5 }}
+                className="block py-2 text-gray-700 hover:text-blue-600 transition-colors duration-300 font-medium"
+              >
+                Features
+              </motion.a>
+              <motion.a 
+                href="#how-it-works"
+                whileHover={{ x: 5 }}
+                className="block py-2 text-gray-700 hover:text-blue-600 transition-colors duration-300 font-medium"
+              >
+                How It Works
+              </motion.a>
+              <motion.a 
+                href="#roles"
+                whileHover={{ x: 5 }}
+                className="block py-2 text-gray-700 hover:text-blue-600 transition-colors duration-300 font-medium"
+              >
+                Roles
+              </motion.a>
+              <motion.button
                 onClick={() => {
                   setIsOpportunitiesOpen(true);
                   setIsMobileMenuOpen(false);
                 }}
-                className="block w-full text-left py-2 text-gray-700 hover:text-blue-600"
+                whileHover={{ x: 5 }}
+                className="block w-full text-left py-2 text-gray-700 hover:text-blue-600 transition-colors duration-300 font-medium"
               >
                 Opportunities
-              </button>
-              <a href="#contact" className="block py-2 text-gray-700 hover:text-blue-600">Contact</a>
+              </motion.button>
+              <motion.a 
+                href="#contact"
+                whileHover={{ x: 5 }}
+                className="block py-2 text-gray-700 hover:text-blue-600 transition-colors duration-300 font-medium"
+              >
+                Contact
+              </motion.a>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button className="w-full">Sign In</Button>
+                  <Button className="w-full bg-purple-600/80 text-white hover:bg-purple-700 shadow-lg">
+                    Sign In
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-2">
                   <div className="space-y-2">
@@ -384,6 +475,15 @@ export default function LandingPage() {
           <AnimatedBackground />
         </div>
         
+        {/* Mobile: Centered 3D Scene in Background */}
+        <div className="absolute inset-0 lg:hidden z-0 opacity-60">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-full h-full max-w-md">
+              <HeroScene />
+            </div>
+          </div>
+        </div>
+        
         <div className="absolute inset-0 bg-gradient-to-b from-blue-600/90 via-purple-600/90 to-pink-500/90 z-10"></div>
         
         <motion.div
@@ -394,7 +494,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-white space-y-6"
+            className="text-white space-y-6 relative z-30"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -412,7 +512,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.8 }}
-              className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight"
+              className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight drop-shadow-2xl"
             >
               Streamline Your Hiring Process with{' '}
               <span className="bg-gradient-to-r from-yellow-300 via-pink-300 to-purple-300 bg-clip-text text-transparent">
@@ -433,18 +533,22 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7, duration: 0.8 }}
-              className="flex flex-col sm:flex-row gap-4"
+              className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
             >
               <Popover>
                 <PopoverTrigger asChild>
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button 
-                      size="lg" 
-                      className="bg-white text-blue-600 hover:bg-gray-100 shadow-xl"
-                    >
-                      Sign In
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
+                  <motion.div 
+                    whileHover={{ scale: 1.05 }} 
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full sm:w-auto"
+                  >
+                  <Button 
+                    size="lg" 
+                      className="w-full sm:w-auto bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/30 shadow-xl font-semibold px-8 py-6 text-base sm:text-lg"
+                  >
+                    Sign In
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
                   </motion.div>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-2">
@@ -485,13 +589,17 @@ export default function LandingPage() {
                   </div>
                 </PopoverContent>
               </Popover>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button 
-                  size="lg" 
-                  className="bg-purple-600/50 text-white border border-white/30 hover:bg-purple-300 hover:text-gray-900 hover:border-purple-400 backdrop-blur-sm transition-all duration-300 shadow-xl"
-                >
-                  Get Started
-                </Button>
+              <motion.div 
+                whileHover={{ scale: 1.05 }} 
+                whileTap={{ scale: 0.95 }}
+                className="w-full sm:w-auto"
+              >
+              <Button 
+                size="lg" 
+                  className="w-full sm:w-auto bg-purple-600/50 text-white border border-white/30 hover:bg-purple-300 hover:text-gray-900 hover:border-purple-400 backdrop-blur-sm transition-all duration-300 shadow-xl font-semibold px-8 py-6 text-base sm:text-lg whitespace-nowrap"
+              >
+                Get Started
+              </Button>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -535,7 +643,7 @@ export default function LandingPage() {
           >
             <div className="inline-block mb-4">
               <Sparkles className="h-12 w-12 text-blue-600 mx-auto" />
-            </div>
+          </div>
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               Powerful Features
             </h2>
@@ -561,7 +669,17 @@ export default function LandingPage() {
                 className="bg-white p-8 rounded-xl shadow-sm hover:shadow-2xl transition-all duration-300 group relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-5 transition-opacity"></div>
-                <div className={`w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-lg flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform shadow-lg`}>
+                <div 
+                  className={`w-16 h-16 rounded-lg flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform shadow-lg bg-gradient-to-br ${feature.gradient}`}
+                  style={{
+                    background: feature.gradient === 'from-blue-500 to-blue-600' ? 'linear-gradient(to bottom right, #3b82f6, #2563eb)' :
+                               feature.gradient === 'from-purple-500 to-purple-600' ? 'linear-gradient(to bottom right, #a855f7, #9333ea)' :
+                               feature.gradient === 'from-pink-500 to-pink-600' ? 'linear-gradient(to bottom right, #ec4899, #db2777)' :
+                               feature.gradient === 'from-green-500 to-green-600' ? 'linear-gradient(to bottom right, #10b981, #059669)' :
+                               feature.gradient === 'from-yellow-500 to-yellow-600' ? 'linear-gradient(to bottom right, #eab308, #ca8a04)' :
+                               feature.gradient === 'from-indigo-500 to-indigo-600' ? 'linear-gradient(to bottom right, #6366f1, #4f46e5)' : ''
+                  }}
+                >
                   {feature.icon}
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
@@ -649,6 +767,12 @@ export default function LandingPage() {
                   whileHover={{ rotate: [0, -10, 10, 0] }}
                   transition={{ duration: 0.5 }}
                   className={`w-20 h-20 bg-gradient-to-br ${role.color} rounded-xl flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform shadow-lg`}
+                  style={{
+                    background: role.color === 'from-blue-500 to-blue-600' ? 'linear-gradient(to bottom right, #3b82f6, #2563eb)' :
+                               role.color === 'from-purple-500 to-purple-600' ? 'linear-gradient(to bottom right, #a855f7, #9333ea)' :
+                               role.color === 'from-green-500 to-green-600' ? 'linear-gradient(to bottom right, #10b981, #059669)' :
+                               role.color === 'from-orange-500 to-orange-600' ? 'linear-gradient(to bottom right, #f97316, #ea580c)' : ''
+                  }}
                 >
                   {role.icon}
                 </motion.div>
@@ -701,63 +825,63 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               Ready to Transform Your Hiring?
             </h2>
-            <p className="text-xl text-gray-600 mb-8">
-              Join hundreds of companies already using our AI-powered HRMS
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Popover>
-                <PopoverTrigger asChild>
+          <p className="text-xl text-gray-600 mb-8">
+            Join hundreds of companies already using our AI-powered HRMS
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Popover>
+              <PopoverTrigger asChild>
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button size="lg" className="shadow-xl">
-                      Get Started Today
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
+                  Get Started Today
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
                   </motion.div>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-2">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => handleRoleSelect('admin')}
-                    >
-                      <UserCog className="mr-2 h-4 w-4" />
-                      Admin
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => handleRoleSelect('hr_recruiter')}
-                    >
-                      <UserCheck className="mr-2 h-4 w-4" />
-                      HR Manager
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => handleRoleSelect('manager')}
-                    >
-                      <Building2 className="mr-2 h-4 w-4" />
-                      Manager
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => handleRoleSelect('employee')}
-                    >
-                      <Users className="mr-2 h-4 w-4" />
-                      Employee
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700 px-2 py-1">Login as:</p>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('admin')}
+                  >
+                    <UserCog className="mr-2 h-4 w-4" />
+                    Admin
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('hr_recruiter')}
+                  >
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    HR Manager
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('manager')}
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    Manager
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleRoleSelect('employee')}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Employee
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="lg" variant="outline" className="shadow-xl">
-                  Schedule a Demo
-                </Button>
+              Schedule a Demo
+            </Button>
               </motion.div>
-            </div>
+          </div>
           </motion.div>
         </div>
       </section>
