@@ -46,8 +46,9 @@ export default function AIInterviewPage() {
   const [questionTimeRemaining, setQuestionTimeRemaining] = useState(120); // default, replaced per-question
   const [totalQuestions] = useState(5); // Fixed to 5 questions
   const [currentQuestionNumber, setCurrentQuestionNumber] = useState(0);
-  const [interviewStatus, setInterviewStatus] = useState('waiting'); // waiting, active, paused, completed
+  const [interviewStatus, setInterviewStatus] = useState('waiting'); // waiting, greeting, active, paused, completed
   const [videoStream, setVideoStream] = useState(null);
+  const [hasGreeted, setHasGreeted] = useState(false);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -56,7 +57,7 @@ export default function AIInterviewPage() {
   const [uploadedRecordingUrl, setUploadedRecordingUrl] = useState(null);
 
   // UI state
-  const [showTranscript, setShowTranscript] = useState(true);
+  const [showTranscript, setShowTranscript] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,26 +65,6 @@ export default function AIInterviewPage() {
   const videoRef = useRef(null);
   const timerRef = useRef(null);
   const questionTimerRef = useRef(null);
-  // Helper: save recording locally for testing
-  const downloadRecordingLocally = (blob, baseName = 'interview') => {
-    try {
-      if (!blob) return;
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${baseName}_${ts}.webm`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      console.log('Saved local copy:', filename);
-    } catch (e) {
-      console.warn('Failed to save local copy:', e);
-    }
-  };
-
   const fullscreenRef = useRef(null);
   const interviewRef = useRef(null);
   const ttsUtteranceRef = useRef(null);
@@ -189,6 +170,29 @@ export default function AIInterviewPage() {
       console.log('Fetching interview details for link:', link);
       const response = await interviewService.getAIInterviewByLink(link);
       console.log('Interview response:', response);
+
+      // Check if authentication is required
+      if (response.requiresAuth) {
+        console.log('Authentication required, redirecting to login...');
+        // Store the interview link to redirect back after login
+        localStorage.setItem('redirectAfterLogin', `/ai-interview/${link}`);
+        navigate('/login', {
+          state: {
+            message: 'Please log in to access your interview',
+            returnUrl: `/ai-interview/${link}`
+          }
+        });
+        return;
+      }
+
+      // Check if wrong account is used
+      if (response.requiresCorrectAccount) {
+        console.log('Wrong account used');
+        setError(
+          `This interview is assigned to ${response.expectedEmail}. Please log out and log in with the correct account.`
+        );
+        return;
+      }
 
       if (response.success && response.data) {
         // Validate interview data structure
@@ -360,30 +364,86 @@ export default function AIInterviewPage() {
 
       // Request microphone and camera permissions
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        console.log('Requesting camera and microphone access...');
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          },
           video: {
             width: { ideal: 1280 },
             height: { ideal: 720 },
             facingMode: 'user'
           }
         });
+        console.log('✅ Media stream obtained:', {
+          videoTracks: stream.getVideoTracks().length,
+          audioTracks: stream.getAudioTracks().length,
+          videoTrackEnabled: stream.getVideoTracks()[0]?.enabled,
+          audioTrackEnabled: stream.getAudioTracks()[0]?.enabled
+        });
+
+        console.log('Setting state updates...');
         setIsMicEnabled(true);
         setIsVideoEnabled(true);
         setVideoStream(stream);
+        console.log('State updates set');
+
+        // Wait for React to render the video element
+        console.log('Waiting for video element to be available...');
+        await new Promise((resolve) => {
+          const checkVideoRef = () => {
+            if (videoRef.current) {
+              console.log('✅ Video element is now available');
+              resolve();
+            } else {
+              console.log('⏳ Video element not ready yet, checking again...');
+              setTimeout(checkVideoRef, 100);
+            }
+          };
+          checkVideoRef();
+        });
 
         // Set up video stream
+        console.log('Checking videoRef.current:', videoRef.current ? 'exists' : 'NULL');
         if (videoRef.current) {
+          console.log('Assigning stream to video element...');
           videoRef.current.srcObject = stream;
-          console.log('Video stream assigned to video element');
+          console.log('✅ Video stream assigned to video element');
+
+          // Wait for video to start playing with timeout
+          try {
+            await Promise.race([
+              new Promise((resolve) => {
+                videoRef.current.onloadedmetadata = () => {
+                  console.log('✅ Video metadata loaded');
+                  videoRef.current.play().then(() => {
+                    console.log('✅ Video playing');
+                    resolve();
+                  }).catch((playErr) => {
+                    console.warn('Video autoplay blocked, continuing anyway:', playErr);
+                    resolve(); // Continue even if autoplay is blocked
+                  });
+                };
+              }),
+              new Promise((resolve) => setTimeout(() => {
+                console.log('⚠️ Video metadata timeout, continuing anyway');
+                resolve();
+              }, 2000)) // 2 second timeout
+            ]);
+          } catch (videoErr) {
+            console.warn('Video setup warning:', videoErr);
+          }
 
           // Start recording using the recording service with the existing stream
           try {
+            console.log('Starting recording service...');
             await recordingService.startRecording(stream);
             setIsRecording(true);
-            console.log('Recording started via service');
+            console.log('✅ Recording started successfully');
           } catch (recordErr) {
-            console.error('Failed to start recording:', recordErr);
+            console.error('❌ Failed to start recording:', recordErr);
+            setError(`Warning: Recording failed to start - ${recordErr.message}`);
             // Continue with interview even if recording fails
           }
 
@@ -396,24 +456,23 @@ export default function AIInterviewPage() {
             } else if (videoRef.current.msRequestFullscreen) {
               await videoRef.current.msRequestFullscreen();
             }
-            console.log('Entered fullscreen mode');
+            console.log('✅ Entered fullscreen mode');
           } catch (fullscreenErr) {
-            console.warn('Failed to enter fullscreen mode:', fullscreenErr);
+            console.warn('⚠️ Failed to enter fullscreen mode:', fullscreenErr);
             // Continue with interview even if fullscreen fails
           }
+        } else {
+          console.error('❌ videoRef.current is NULL! Cannot assign video stream.');
         }
+      } else {
+        console.error('❌ navigator.mediaDevices.getUserMedia not available!');
       }
 
-      // Kick off the first question shortly after entering fullscreen
+      // Start first question immediately
       setTimeout(() => {
         try {
           if (interview?.aiInterview?.questions?.length) {
-            // Friendly intro via TTS, then first question
-            const name = interview.candidate?.firstName || 'Candidate';
-            speakOutLoud(`Hi ${name}, let's begin. I will ask you five questions related to the ${interview.job?.title || 'role'}.`);
-            setTimeout(() => {
-              sendNextQuestion();
-            }, 800);
+            sendNextQuestion();
           }
         } catch {}
       }, 500);
@@ -458,9 +517,10 @@ export default function AIInterviewPage() {
           finalBlob = blob;
           setRecordingBlob(blob);
           setIsRecording(false);
-          // Save a local copy for testing
-          downloadRecordingLocally(blob, 'ai_interview');
-        } catch (stopErr) {}
+          console.log('Recording stopped successfully, blob size:', blob.size);
+        } catch (stopErr) {
+          console.error('Error stopping recording:', stopErr);
+        }
       }
 
       // Stop camera and mic
@@ -504,13 +564,18 @@ export default function AIInterviewPage() {
         throw new Error('Invalid interview data: Missing application information');
       }
 
-      // Upload recording if available
-      let recordingUrl = undefined;
+      // Upload recording to Cloudinary FIRST
+      let recordingUrl = null;
       const blobToUpload = finalBlob || recordingBlob;
-      if (blobToUpload && !recordingUrl) {
+
+      if (blobToUpload) {
         try {
           setIsUploadingRecording(true);
-          console.log('Uploading interview recording...');
+          console.log('Uploading recording to Cloudinary...', {
+            blobSize: blobToUpload.size,
+            blobType: blobToUpload.type
+          });
+
           let uploadResponse;
           if (link) {
             uploadResponse = await uploadInterviewRecordingByLink(
@@ -526,112 +591,64 @@ export default function AIInterviewPage() {
               'video'
             );
           }
+
           if (uploadResponse.success) {
             recordingUrl = uploadResponse.data.recordingUrl || uploadResponse.data.url;
-            setUploadedRecordingUrl(recordingUrl || null);
-            console.log('Recording uploaded successfully. URL:', recordingUrl);
-            if (uploadResponse.data.publicId) {
-              console.log('Cloudinary public ID:', uploadResponse.data.publicId);
-            }
+            setUploadedRecordingUrl(recordingUrl);
+            console.log('✅ Recording uploaded to Cloudinary successfully!', {
+              url: recordingUrl,
+              publicId: uploadResponse.data.publicId,
+              size: uploadResponse.data.size,
+              duration: uploadResponse.data.duration
+            });
           } else {
-            console.warn('Failed to upload recording:', uploadResponse.error);
+            console.error('❌ Cloudinary upload failed:', uploadResponse.error);
+            setError('Warning: Recording upload failed. Please contact support.');
+            throw new Error('Recording upload failed: ' + (uploadResponse.error || 'Unknown error'));
           }
         } catch (uploadErr) {
-          console.error('Error uploading recording:', uploadErr);
+          console.error('❌ Error uploading recording to Cloudinary:', uploadErr);
+          setError('Failed to upload recording to cloud storage. Please try again or contact support.');
+          setIsUploadingRecording(false);
+          setIsSubmitting(false);
+          return; // Stop here if upload fails
         } finally {
           setIsUploadingRecording(false);
         }
-      }
-
-      // Optionally transcribe local recording for a text transcript
-      try {
-        if (recordingBlob) {
-          const tr = await interviewService.transcribeAudio(recordingBlob);
-          if (tr?.success && tr.data?.text) {
-            setTranscript(prev => [...prev, { id: Date.now(), speaker: 'Transcript', text: tr.data.text, timestamp: new Date() }]);
-          }
-        }
-      } catch (e) {
-        console.warn('Transcription failed, continuing without transcript');
-      }
-
-      // Fallback: if upload didn't return a URL but we still have a blob, inline as base64
-      let recordingBase64;
-      if (!recordingUrl && (finalBlob || recordingBlob)) {
-        try {
-          const blobToEncode = finalBlob || recordingBlob;
-          const toBase64 = (blob) => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          recordingBase64 = await toBase64(blobToEncode);
-          console.log('Prepared base64 fallback for recording.');
-        } catch (e) {
-          console.warn('Failed to create base64 fallback, continuing without video.');
-        }
-      }
-
-      // Prefer sending multipart with file on completion if we have a blob
-      const hasBlob = Boolean(finalBlob || recordingBlob);
-      if (hasBlob && !recordingUrl) {
-        try {
-          const form = new FormData();
-          form.append('status', 'completed');
-          form.append('transcript', JSON.stringify(transcript || []));
-          form.append('duration', String((interview?.duration * 60 - timeRemaining) || 0));
-          form.append('feedback', feedback || '');
-          form.append('completedAt', new Date().toISOString());
-          const fileBlob = finalBlob || recordingBlob;
-          form.append('recording', fileBlob, 'interview.webm');
-
-          await interviewService.updateAIInterviewStatus(
-            interview.application._id,
-            interview._id,
-            form
-          );
-        } catch (e) {
-          console.warn('Multipart completion failed, falling back to JSON payload.');
-          const interviewData = {
-            status: 'completed',
-            transcript: transcript,
-            recordingUrl: recordingUrl,
-            recordingBase64,
-            duration: interview?.duration * 60 - timeRemaining,
-            feedback: feedback,
-            completedAt: new Date()
-          };
-          await interviewService.updateAIInterviewStatus(
-            interview.application._id,
-            interview._id,
-            interviewData
-          );
-        }
       } else {
-        const interviewData = {
-          status: 'completed',
-          transcript: transcript,
-          recordingUrl: recordingUrl,
-          recordingBase64,
-          duration: interview?.duration * 60 - timeRemaining,
-          feedback: feedback,
-          completedAt: new Date()
-        };
-        await interviewService.updateAIInterviewStatus(
-          interview.application._id,
-          interview._id,
-          interviewData
-        );
+        console.warn('No recording blob available to upload');
       }
 
-      // Navigate to completion page or show success message
+      // Now submit interview completion with the Cloudinary URL
+      const interviewData = {
+        status: 'completed',
+        transcript: transcript,
+        recordingUrl: recordingUrl, // Cloudinary URL
+        duration: interview?.duration * 60 - timeRemaining,
+        feedback: feedback,
+        completedAt: new Date()
+      };
+
+      console.log('Submitting interview completion data:', {
+        status: interviewData.status,
+        hasRecordingUrl: !!interviewData.recordingUrl,
+        transcriptLength: transcript.length,
+        duration: interviewData.duration
+      });
+
+      await interviewService.updateAIInterviewStatus(
+        interview.application._id,
+        interview._id,
+        interviewData
+      );
+
+      console.log('✅ Interview submitted successfully');
       setInterviewStatus('submitted');
       setError(null);
 
     } catch (err) {
       console.error('Failed to submit interview results:', err);
-      setError('Failed to save interview results');
+      setError(err.message || 'Failed to save interview results. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -679,21 +696,23 @@ export default function AIInterviewPage() {
   if (interviewStatus === 'submitted') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md shadow-xl border-2 border-green-100">
           <CardContent className="pt-8 pb-10">
             <div className="text-center">
-              <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Thank you for completing your interview</h2>
-              <p className="text-gray-600 mb-4">Your responses have been successfully saved.</p>
-              {uploadedRecordingUrl && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500">Recording URL:</p>
-                  <a className="text-sm text-blue-600 underline break-all" href={uploadedRecordingUrl} target="_blank" rel="noreferrer">
-                    {uploadedRecordingUrl}
-                  </a>
-                </div>
-              )}
-              <Button onClick={() => navigate('/')}>Return Home</Button>
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-6">
+                <CheckCircle className="h-12 w-12 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Interview Completed Successfully</h2>
+              <p className="text-gray-600 mb-6 text-lg">
+                Thank you for completing your interview. Your responses and recording have been successfully saved.
+              </p>
+              <Button
+                onClick={() => navigate('/')}
+                size="lg"
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                Return Home
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -745,84 +764,65 @@ export default function AIInterviewPage() {
         </div>
       )}
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 shadow-xl border-b-4 border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-semibold text-gray-900">AI Video Interview</h1>
-              <Badge variant={getStatusBadgeVariant(interviewStatus)}>
-                {getStatusLabel(interviewStatus)}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Clock className="h-4 w-4" />
-                <span>{formatTime(timeRemaining)}</span>
+              <div className="bg-white/20 backdrop-blur-md rounded-xl p-3 shadow-lg">
+                <Video className="h-7 w-7 text-white" />
               </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">AI Video Interview</h1>
+                <Badge variant={getStatusBadgeVariant(interviewStatus)} className="mt-1.5 bg-white/20 text-white border-white/40 backdrop-blur-sm shadow-sm">
+                  {getStatusLabel(interviewStatus)}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
               {interviewStatus === 'active' && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Clock className="h-4 w-4" />
-                  <span className={questionTimeRemaining <= 30 ? 'text-red-600 font-medium' : ''}>
-                    {formatTime(questionTimeRemaining)}
-                  </span>
+                <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-5 py-3 rounded-xl shadow-lg border border-white/30">
+                  <Clock className="h-5 w-5 text-white" />
+                  <div className="text-white">
+                    <p className="text-xs opacity-90 font-medium">Question Time</p>
+                    <p className={`text-xl font-bold ${questionTimeRemaining <= 30 ? 'text-red-200' : ''}`}>
+                      {formatTime(questionTimeRemaining)}
+                    </p>
+                  </div>
                 </div>
               )}
-              {interviewStatus !== 'submitted' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exitInterview}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Exit Interview
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTranscript(!showTranscript)}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                {showTranscript ? 'Hide' : 'Show'} Transcript
-              </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Interview Area */}
           <div className="lg:col-span-2 space-y-6">
             {/* Video/Interview Area */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Video className="h-5 w-5" />
-                  Interview Session
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="aspect-video bg-gray-900 rounded-lg relative mb-4">
+            <Card className="shadow-xl border-2 border-purple-100 overflow-hidden">
+              <CardContent className="p-0">
+                <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 relative overflow-hidden">
                   {/* Video Element - Always present */}
                   <video
                     ref={videoRef}
-                    className="w-full h-full object-cover rounded-lg"
+                    className="w-full h-full object-cover"
                     autoPlay
                     muted
                     playsInline
                   />
 
+                  {/* Greeting Overlay - Removed */}
+
                   {/* Status Overlays - Show when video is not active or not enabled */}
                   {interviewStatus === 'active' && !isVideoEnabled && (
-                    <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">
+                    <div className="absolute inset-0 flex items-center justify-center text-white bg-gradient-to-br from-purple-900/80 to-blue-900/80 backdrop-blur-sm">
                       <div className="text-center">
-                        <div className="flex items-center justify-center gap-4 mb-4">
-                          <div className={`w-4 h-4 rounded-full ${isMicEnabled ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                          <span className="text-sm">AI Interview in Progress</span>
+                        <div className="inline-flex items-center justify-center gap-4 mb-4 bg-white/10 rounded-full px-6 py-3">
+                          <div className={`w-3 h-3 rounded-full ${isMicEnabled ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+                          <span className="text-sm font-medium">Interview in Progress</span>
                         </div>
-                        <p className="text-sm opacity-75">Listen carefully and respond naturally</p>
+                        <p className="text-sm opacity-90">Listen carefully and respond naturally</p>
                       </div>
                     </div>
                   )}
@@ -836,47 +836,59 @@ export default function AIInterviewPage() {
 
                   {interviewStatus === 'completed' && (
                     <div className="absolute inset-0 flex items-center justify-center text-white bg-black bg-opacity-50">
-                      <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
-                      <p className="text-lg">Interview Completed</p>
-                      <p className="text-sm opacity-75 mt-2">Thank you for participating</p>
+                      <div className="text-center">
+                        <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
+                        <p className="text-lg">Interview Completed</p>
+                        <p className="text-sm opacity-75 mt-2">Thank you for participating</p>
+                        {isUploadingRecording && (
+                          <div className="mt-4 flex items-center justify-center gap-2">
+                            <Upload className="h-4 w-4 animate-pulse" />
+                            <p className="text-sm">Uploading recording to cloud storage...</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Waiting Status Banner - Below Video */}
-                {interviewStatus === 'waiting' && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-center gap-3">
-                      <Video className="h-8 w-8 text-blue-600" />
-                      <div>
-                        <p className="text-lg font-medium text-blue-900">Ready to start your interview</p>
-                        <p className="text-sm text-blue-700">Click "Start Interview" to begin</p>
+                {/* Interview Controls */}
+                <div className="p-6 bg-white border-t-2 border-gray-100">
+                  {/* Waiting Status Banner */}
+                  {interviewStatus === 'waiting' && (
+                    <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 mb-6 shadow-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 text-white shadow-lg flex-shrink-0">
+                          <Video className="h-7 w-7" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-lg font-bold text-gray-900 mb-1">Ready to start your interview?</p>
+                          <p className="text-sm text-gray-600">Make sure you're in a quiet environment with good lighting</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Interview Controls */}
-                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center justify-center gap-4">
                   {interviewStatus === 'waiting' && (
                     <Button
                       onClick={startInterview}
                       disabled={isLoading || !interview}
                       size="lg"
-                      className="px-8"
+                      className="px-12 py-6 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
                     >
-                      <Play className="h-5 w-5 mr-2" />
+                      <Play className="h-6 w-6 mr-3" />
                       Start Interview
                     </Button>
                   )}
 
                   {interviewStatus === 'active' && (
                     <>
-                      <Button onClick={nextQuestionNow} variant="outline">
+                      <Button onClick={nextQuestionNow} variant="outline" size="lg" className="border-2 hover:bg-gray-50">
+                        <MessageSquare className="h-5 w-5 mr-2" />
                         Next Question
                       </Button>
-                      <Button onClick={endInterview} variant="destructive">
-                        <PhoneOff className="h-4 w-4 mr-2" />
+                      <Button onClick={endInterview} variant="destructive" size="lg" className="shadow-lg hover:bg-red-700">
+                        <PhoneOff className="h-5 w-5 mr-2" />
                         End Interview
                       </Button>
                     </>
@@ -891,42 +903,60 @@ export default function AIInterviewPage() {
                     </>
                   )}
 
-                  {interviewStatus === 'completed' && !isSubmitting && (
-                    <Button onClick={submitInterviewResults} disabled={isSubmitting}>
+                  {interviewStatus === 'completed' && !isSubmitting && !isUploadingRecording && (
+                    <Button onClick={submitInterviewResults} disabled={isSubmitting || isUploadingRecording}>
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Submit Results
                     </Button>
                   )}
 
-                  {isSubmitting && (
+                  {isUploadingRecording && (
                     <Button disabled>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Submitting...
+                      <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                      Uploading recording to cloud...
                     </Button>
                   )}
+
+                  {isSubmitting && !isUploadingRecording && (
+                    <Button disabled>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting interview...
+                    </Button>
+                  )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Current Question */}
             {currentQuestion && interviewStatus === 'active' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    <span>Current Question</span>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock className="h-4 w-4" />
-                      <span className={questionTimeRemaining <= 30 ? 'text-red-600 font-medium' : ''}>
+              <Card className="shadow-lg border-2 border-blue-100 bg-gradient-to-br from-white to-blue-50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg">
+                        {questionIndex + 1}
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">Question {questionIndex + 1} of {totalQuestions}</CardTitle>
+                        <p className="text-xs text-gray-500 mt-1">Take your time to answer</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm border">
+                      <Clock className="h-4 w-4 text-gray-600" />
+                      <span className={`text-sm font-semibold ${questionTimeRemaining <= 30 ? 'text-red-600' : 'text-gray-900'}`}>
                         {formatTime(questionTimeRemaining)}
                       </span>
                     </div>
-                  </CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700">{currentQuestion}</p>
+                  <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
+                    <p className="text-lg text-gray-800 leading-relaxed">{currentQuestion}</p>
+                  </div>
                   <Progress
                     value={(questionTimeRemaining / 120) * 100}
-                    className="mt-3"
+                    className="mt-4 h-2"
                   />
                 </CardContent>
               </Card>
@@ -953,62 +983,88 @@ export default function AIInterviewPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Interview Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Interview Details</CardTitle>
+            <Card className="shadow-lg border-2 border-purple-100">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
+                <CardTitle className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                    <MessageSquare className="h-4 w-4 text-white" />
+                  </div>
+                  Interview Details
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500">Position</p>
-                  <p className="font-medium">{interview.job?.title}</p>
+              <CardContent className="space-y-5 pt-6">
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-100">
+                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">Position</p>
+                  <p className="font-bold text-gray-900 text-lg">{interview.application?.job?.title || interview.job?.title || 'Not specified'}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">Company</p>
-                  <p className="font-medium">{interview.job?.company || 'SmartHR'}</p>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Candidate</p>
+                  <p className="font-semibold text-gray-900">
+                    {interview.application?.applicant?.firstName && interview.application?.applicant?.lastName
+                      ? `${interview.application.applicant.firstName} ${interview.application.applicant.lastName}`
+                      : 'Not specified'}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">Duration</p>
-                  <p className="font-medium">{interview.duration} minutes</p>
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Total Duration</p>
+                  <p className="font-bold text-blue-900 text-lg">{interview.aiInterview?.duration || interview.duration || 30} minutes</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">Time Remaining</p>
-                  <p className="font-medium">{formatTime(timeRemaining)}</p>
+                <div className="bg-white rounded-lg p-4 border-2 border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Time Remaining</p>
+                    <Clock className="h-4 w-4 text-gray-500" />
+                  </div>
+                  <p className="font-bold text-gray-900 text-2xl mb-3">{formatTime(timeRemaining)}</p>
                   <Progress
-                    value={(timeRemaining / (interview.duration * 60)) * 100}
-                    className="mt-2"
+                    value={(timeRemaining / ((interview.aiInterview?.duration || interview.duration || 30) * 60)) * 100}
+                    className="h-3"
                   />
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    {Math.round((timeRemaining / ((interview.aiInterview?.duration || interview.duration || 30) * 60)) * 100)}% remaining
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Transcript */}
-            {showTranscript && (
-              <Card>
-                <CardHeader>
+            {/* Progress Tracker */}
+            {interviewStatus === 'active' && (
+              <Card className="shadow-lg border-2 border-green-100">
+                <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
                   <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Transcript
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                      <CheckCircle className="h-4 w-4 text-white" />
+                    </div>
+                    Progress
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {transcript.length === 0 ? (
-                      <p className="text-gray-500 text-sm">No transcript available yet</p>
-                    ) : (
-                      transcript.map((message) => (
-                        <div key={message.id} className="flex gap-3">
-                          <Badge variant={message.speaker === 'AI' ? 'default' : 'secondary'} className="text-xs">
-                            {message.speaker}
-                          </Badge>
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-700">{message.text}</p>
-                            <p className="text-xs text-gray-500">
-                              {message.timestamp.toLocaleTimeString()}
-                            </p>
-                          </div>
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    {Array.from({ length: totalQuestions }, (_, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm ${
+                          i < questionIndex + 1
+                            ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md'
+                            : i === questionIndex + 1
+                            ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white shadow-md animate-pulse'
+                            : 'bg-gray-100 text-gray-400 border-2 border-gray-200'
+                        }`}>
+                          {i < questionIndex + 1 ? <CheckCircle className="h-4 w-4" /> : i + 1}
                         </div>
-                      ))
-                    )}
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${
+                            i < questionIndex + 1 ? 'text-green-600' : i === questionIndex + 1 ? 'text-blue-600' : 'text-gray-400'
+                          }`}>
+                            Question {i + 1}
+                          </p>
+                          {i < questionIndex + 1 && (
+                            <p className="text-xs text-green-500">Completed</p>
+                          )}
+                          {i === questionIndex + 1 && (
+                            <p className="text-xs text-blue-500">In progress...</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>

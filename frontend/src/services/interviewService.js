@@ -345,6 +345,33 @@ const interviewService = {
   },
 
   /**
+   * Update AI interview status via public link (for candidates)
+   * @param {String} link - Unique interview link
+   * @param {Object} data - Interview status data
+   * @returns {Promise} - Response with updated status
+   */
+  updateAIInterviewStatusByLink: async (link, data) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `${API_BASE_URL}/applications/public/ai-interview/${link}`,
+        data,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          timeout: 300000
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error updating AI interview status by link:', error);
+      throw error.response?.data || { success: false, error: 'Failed to update AI interview status' };
+    }
+  },
+
+  /**
    * Get AI interview by unique link (public route for candidates)
    * @param {String} link - Unique interview link
    * @returns {Promise} - Response with AI interview details
@@ -352,11 +379,17 @@ const interviewService = {
   getAIInterviewByLink: async (link) => {
     try {
       console.log('Fetching AI interview for link:', link);
-      const response = await axios.get(`${API_BASE_URL}/applications/public/ai-interview/${link}`);
-      
+
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+
+      const response = await axios.get(`${API_BASE_URL}/applications/public/ai-interview/${link}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+
       // Log the raw response for debugging
       console.log('Raw API response:', response.data);
-      
+
       // Validate the response data structure
       const data = response.data;
       if (!data) {
@@ -371,7 +404,7 @@ const interviewService = {
 
       // Extract interview data
       const interviewData = data.data;
-      
+
       // Validate required fields
       if (!interviewData) {
         console.error('No interview data in response:', data);
@@ -398,9 +431,30 @@ const interviewService = {
       };
     } catch (error) {
       console.error('Error getting AI interview by link:', error);
-      // Gracefully handle 410 Gone (expired/completed link)
+      // Handle authentication errors
       if (axios.isAxiosError?.(error) && error.response) {
         const { status, data } = error.response;
+
+        // Handle authentication required (401)
+        if (status === 401) {
+          return {
+            success: false,
+            requiresAuth: true,
+            error: data?.error || 'You must be logged in to access this interview'
+          };
+        }
+
+        // Handle wrong account (403)
+        if (status === 403) {
+          return {
+            success: false,
+            requiresCorrectAccount: true,
+            expectedEmail: data?.expectedEmail,
+            error: data?.error || 'This interview is assigned to a different account'
+          };
+        }
+
+        // Handle expired/completed link (410)
         if (status === 410) {
           return {
             success: false,
@@ -408,6 +462,7 @@ const interviewService = {
             error: data?.error || 'This interview link has expired'
           };
         }
+
         return {
           success: false,
           error: data?.error || `Request failed with status ${status}`

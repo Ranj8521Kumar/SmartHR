@@ -166,7 +166,7 @@ net start MongoDB
 Get-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess | Stop-Process
 
 # Or change port in .env
-# PORT=3000
+# PORT=5000
 ```
 
 ### Module Not Found?

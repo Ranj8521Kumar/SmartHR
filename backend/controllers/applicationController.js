@@ -159,7 +159,25 @@ exports.uploadInterviewRecording = asyncHandler(async (req, res, next) => {
       interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
     }
 
+    // Save to MongoDB
     await application.save();
+
+    // ✅ VERIFICATION: Log that URL was saved to MongoDB
+    console.log('[MongoDB] ✅ Recording URL saved to database', {
+      applicationId: application._id.toString(),
+      interviewId: interviewId,
+      savedVideoUrl: interview.aiInterview.localVideoRecordingUrl,
+      savedAudioUrl: interview.aiInterview.localAudioRecordingUrl,
+      cloudinaryUrl: uploadResult.url
+    });
+
+    // ✅ VERIFICATION: Re-fetch from database to confirm persistence
+    const verifyApp = await Application.findById(application._id);
+    const verifyInterview = verifyApp.interviews.id(interviewId);
+    console.log('[MongoDB] ✅ Verification - URL exists in database:', {
+      urlInDb: verifyInterview.aiInterview.localVideoRecordingUrl || verifyInterview.aiInterview.localAudioRecordingUrl,
+      matchesCloudinary: (verifyInterview.aiInterview.localVideoRecordingUrl === uploadResult.url) || (verifyInterview.aiInterview.localAudioRecordingUrl === uploadResult.url)
+    });
 
     res.status(200).json({
       success: true,
@@ -168,7 +186,8 @@ exports.uploadInterviewRecording = asyncHandler(async (req, res, next) => {
         publicId: uploadResult.public_id,
         size: uploadResult.size,
         duration: uploadResult.duration,
-        format: uploadResult.format
+        format: uploadResult.format,
+        savedToDatabase: true  // ✅ Confirmation flag
       }
     });
   } catch (error) {
@@ -244,7 +263,25 @@ exports.uploadInterviewRecordingPublic = asyncHandler(async (req, res, next) => 
       interview.aiInterview.localVideoRecordingUrl = uploadResult.url;
     }
 
+    // Save to MongoDB
     await application.save();
+
+    // ✅ VERIFICATION: Log that URL was saved to MongoDB
+    console.log('[MongoDB] ✅ Recording URL saved to database', {
+      applicationId: application._id.toString(),
+      interviewId: interview._id.toString(),
+      savedVideoUrl: interview.aiInterview.localVideoRecordingUrl,
+      savedAudioUrl: interview.aiInterview.localAudioRecordingUrl,
+      cloudinaryUrl: uploadResult.url
+    });
+
+    // ✅ VERIFICATION: Re-fetch from database to confirm persistence
+    const verifyApp = await Application.findById(application._id);
+    const verifyInterview = verifyApp.interviews.id(interview._id);
+    console.log('[MongoDB] ✅ Verification - URL exists in database:', {
+      urlInDb: verifyInterview.aiInterview.localVideoRecordingUrl || verifyInterview.aiInterview.localAudioRecordingUrl,
+      matchesCloudinary: (verifyInterview.aiInterview.localVideoRecordingUrl === uploadResult.url) || (verifyInterview.aiInterview.localAudioRecordingUrl === uploadResult.url)
+    });
 
     res.status(200).json({
       success: true,
@@ -253,7 +290,8 @@ exports.uploadInterviewRecordingPublic = asyncHandler(async (req, res, next) => 
         publicId: uploadResult.public_id,
         size: uploadResult.size,
         duration: uploadResult.duration,
-        format: uploadResult.format
+        format: uploadResult.format,
+        savedToDatabase: true  // ✅ Confirmation flag
       }
     });
   } catch (error) {
@@ -716,7 +754,8 @@ exports.scheduleInterview = asyncHandler(async (req, res, next) => {
 exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
   const application = await Application.findById(req.params.id)
     .populate('job')
-    .populate('resume');
+    .populate('resume')
+    .populate('applicant', 'firstName lastName email');
 
   if (!application) {
     return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
@@ -749,7 +788,7 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
     })),
     uniqueLink,
     expiresAt,
-    
+    candidateEmail: application.applicant.email, // Store candidate email for verification
     transcript: [],
     aiFeedback: null,
     completedAt: null
@@ -774,16 +813,118 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
 
   // Return interview data with link
   const interview = application.interviews[application.interviews.length - 1];
+  const interviewLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/ai-interview/${uniqueLink}`;
+
+  // Send email to candidate with interview link
+  try {
+    const candidateName = `${application.applicant.firstName} ${application.applicant.lastName}`;
+    const jobTitle = application.job.title;
+    const companyName = application.job.company || 'Our Company';
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
+          .info-box { background: white; padding: 15px; border-left: 4px solid #667eea; margin: 15px 0; }
+          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          .warning { background: #fef3c7; padding: 15px; border-left: 4px solid #f59e0b; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🎥 AI Video Interview Invitation</h1>
+          </div>
+          <div class="content">
+            <p>Dear ${candidateName},</p>
+
+            <p>Congratulations! We are pleased to invite you to the next stage of our recruitment process for the <strong>${jobTitle}</strong> position at ${companyName}.</p>
+
+            <div class="info-box">
+              <h3>📋 Interview Details:</h3>
+              <ul>
+                <li><strong>Position:</strong> ${jobTitle}</li>
+                <li><strong>Duration:</strong> ${duration} minutes</li>
+                <li><strong>Number of Questions:</strong> ${generated.length}</li>
+                <li><strong>Expires:</strong> ${expiresAt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</li>
+              </ul>
+            </div>
+
+            <div class="warning">
+              <strong>⚠️ Important:</strong> You must be logged in with the email address <strong>${application.applicant.email}</strong> to access this interview. Please log in before clicking the link below.
+            </div>
+
+            <h3>🚀 How to Take Your Interview:</h3>
+            <ol>
+              <li><strong>Log in to your account</strong> using your registered email (${application.applicant.email})</li>
+              <li>Click the button below or copy the interview link</li>
+              <li>Ensure you have a <strong>stable internet connection</strong></li>
+              <li>Find a <strong>quiet environment</strong> with good lighting</li>
+              <li>Make sure your <strong>camera and microphone</strong> are working</li>
+              <li>The interview will be <strong>recorded</strong> for evaluation purposes</li>
+            </ol>
+
+            <div style="text-align: center;">
+              <a href="${interviewLink}" class="button">Start AI Interview</a>
+            </div>
+
+            <p style="margin-top: 20px;">Or copy this link: <br><code style="background: #e5e7eb; padding: 5px 10px; border-radius: 3px; font-size: 12px;">${interviewLink}</code></p>
+
+            <div class="info-box">
+              <h4>💡 Tips for Success:</h4>
+              <ul>
+                <li>Answer questions naturally and take your time</li>
+                <li>Speak clearly and maintain eye contact with the camera</li>
+                <li>Be yourself and showcase your skills and experience</li>
+                <li>Each question has a time limit, so stay focused</li>
+              </ul>
+            </div>
+
+            <p>If you have any technical difficulties or questions, please don't hesitate to contact us.</p>
+
+            <p>We look forward to learning more about you!</p>
+
+            <p>Best regards,<br>
+            <strong>${companyName} Recruitment Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email. Please do not reply to this message.</p>
+            <p>This interview link will expire on ${expiresAt.toLocaleDateString()}.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await sendEmail({
+      email: application.applicant.email,
+      subject: `AI Video Interview Invitation - ${jobTitle} Position`,
+      message: `You have been invited to take an AI video interview for the ${jobTitle} position. Please log in to your account and visit: ${interviewLink}`,
+      html: emailHtml
+    });
+
+    console.log(`✅ Interview invitation email sent to ${application.applicant.email}`);
+  } catch (emailError) {
+    console.error('Failed to send interview invitation email:', emailError);
+    // Don't fail the entire request if email fails, just log it
+  }
 
   res.status(200).json({
     success: true,
     data: {
       application: application._id,
       interviewId: interview._id,
-      uniqueLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/ai-interview/${uniqueLink}`,
-      questions: questions.length,
+      uniqueLink: interviewLink,
+      questions: generated.length,
       duration,
-      expiresAt
+      expiresAt,
+      emailSent: true
     }
   });
 });
@@ -815,7 +956,7 @@ exports.getAIInterviewLink = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     success: true,
     data: {
-      uniqueLink: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/ai-interview/${aiInterview.aiInterview.uniqueLink}`,
+      uniqueLink: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/ai-interview/${aiInterview.aiInterview.uniqueLink}`,
       expiresAt: aiInterview.aiInterview.expiresAt,
       status: aiInterview.status,
       completedAt: aiInterview.aiInterview.completedAt
@@ -980,12 +1121,118 @@ exports.updateAIInterviewStatus = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Update AI interview status via public link (for candidates)
+// @route   PUT /api/v1/applications/public/ai-interview/:link
+// @access  Private (Must be authenticated as the candidate)
+exports.updateAIInterviewStatusPublic = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+  const { status, transcript } = req.body;
+
+  // Find application and interview by link
+  const application = await Application.findOne({
+    'interviews.aiInterview.uniqueLink': link
+  });
+
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+
+  const interview = application.interviews.find(
+    i => i.aiInterview && i.aiInterview.uniqueLink === link
+  );
+
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  // Verify the logged-in user's email matches the candidate email (if authentication is enabled)
+  if (req.user) {
+    const candidateEmail = interview.aiInterview.candidateEmail;
+    if (candidateEmail && req.user.email !== candidateEmail) {
+      return next(new ErrorResponse(`This interview is assigned to ${candidateEmail}. Please log in with the correct account.`, 403));
+    }
+  }
+
+  // Update status
+  if (status) {
+    interview.status = status;
+
+    if (status === 'completed') {
+      interview.aiInterview.completedAt = new Date();
+      // Expire the public link immediately when interview ends
+      interview.aiInterview.expiresAt = new Date();
+
+      // Process transcript if provided
+      if (transcript !== undefined) {
+        let processedTranscript;
+        if (Array.isArray(transcript)) {
+          processedTranscript = transcript.filter(item =>
+            item &&
+            typeof item.id !== 'undefined' &&
+            typeof item.speaker === 'string' &&
+            item.timestamp &&
+            typeof item.message === 'string' &&
+            item.message.trim() !== ''
+          );
+        } else if (typeof transcript === 'string' && transcript.trim() !== '') {
+          processedTranscript = [{ id: 1, speaker: 'Candidate', timestamp: new Date(), message: transcript }];
+        } else {
+          processedTranscript = [];
+        }
+
+        interview.aiInterview.transcript = processedTranscript;
+
+        // Generate AI feedback only if we have valid transcript data
+        if (processedTranscript.length > 0) {
+          try {
+            const { analyzeInterviewTranscript } = require('../services/aiService');
+            const feedback = await analyzeInterviewTranscript(processedTranscript, interview.aiInterview.questions);
+            interview.aiInterview.aiFeedback = feedback;
+          } catch (err) {
+            console.error('[AIInterview] Failed to analyze transcript:', err);
+          }
+        }
+      }
+
+      // Update application status
+      application.status = 'interviewed';
+      application.timeline.push({
+        status: 'ai_interview_completed',
+        date: new Date(),
+        notes: 'AI interview completed by candidate'
+      });
+    }
+  }
+
+  await application.save();
+
+  res.status(200).json({
+    success: true,
+    data: {
+      status: interview.status,
+      completedAt: interview.aiInterview.completedAt
+    }
+  });
+});
+
 // @desc    Get AI interview by unique link (public route for candidates)
 // @route   GET /api/v1/public/ai-interview/:link
 // @access  Public
+// @desc    Get AI interview by unique link (requires authentication)
+// @route   GET /api/v1/applications/public/ai-interview/:link
+// @access  Private (Must be authenticated as the candidate)
 exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
   try {
     const { link } = req.params;
+
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'You must be logged in to access this interview',
+        requiresAuth: true
+      });
+    }
 
     const application = await Application.findOne({
       'interviews.aiInterview.uniqueLink': link
@@ -1003,9 +1250,24 @@ exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse('Interview not found', 404));
     }
 
+    // Verify the logged-in user's email matches the candidate email
+    const candidateEmail = aiInterview.aiInterview.candidateEmail || application.applicant.email;
+    if (req.user.email !== candidateEmail) {
+      return res.status(403).json({
+        success: false,
+        error: `This interview is assigned to ${candidateEmail}. Please log in with the correct account.`,
+        requiresCorrectAccount: true,
+        expectedEmail: candidateEmail
+      });
+    }
+
     // If interview is completed or expired, return 410 Gone to prevent access
     if (aiInterview.status === 'completed' || aiInterview.aiInterview.expiresAt < new Date()) {
-      return next(new ErrorResponse('This interview link has expired', 410));
+      return res.status(410).json({
+        success: false,
+        expired: true,
+        error: 'This interview link has expired'
+      });
     }
 
     return res.status(200).json({
@@ -1044,3 +1306,81 @@ exports.getAIInterviewByLink = asyncHandler(async (req, res, next) => {
 
 
 // Vapi integration removed
+
+// @desc    Verify if recording URL exists in database
+// @route   GET /api/v1/applications/:id/ai-interview/:interviewId/recording/verify
+// @access  Private (HR/Manager/Admin)
+exports.verifyRecordingInDatabase = asyncHandler(async (req, res, next) => {
+  const application = await Application.findById(req.params.id);
+
+  if (!application) {
+    return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
+  }
+
+  const { interviewId } = req.params;
+  const interview = application.interviews.id(interviewId);
+
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  if (!interview.aiInterview) {
+    return next(new ErrorResponse('AI interview data not found', 404));
+  }
+
+  const videoUrl = interview.aiInterview.localVideoRecordingUrl;
+  const audioUrl = interview.aiInterview.localAudioRecordingUrl;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      applicationId: application._id.toString(),
+      interviewId: interviewId,
+      hasVideoRecording: !!videoUrl,
+      hasAudioRecording: !!audioUrl,
+      videoRecordingUrl: videoUrl || null,
+      audioRecordingUrl: audioUrl || null,
+      recordingExists: !!(videoUrl || audioUrl)
+    }
+  });
+});
+
+// @desc    Verify if recording URL exists in database (Public by link)
+// @route   GET /api/v1/applications/public/ai-interview/:link/recording/verify
+// @access  Public (candidate via unique link)
+exports.verifyRecordingInDatabasePublic = asyncHandler(async (req, res, next) => {
+  const { link } = req.params;
+
+  // Find application and interview by link
+  const application = await Application.findOne({
+    'interviews.aiInterview.uniqueLink': link
+  });
+
+  if (!application) {
+    return next(new ErrorResponse('Invalid interview link', 404));
+  }
+
+  const interview = application.interviews.find(
+    i => i.aiInterview && i.aiInterview.uniqueLink === link
+  );
+
+  if (!interview || interview.type !== 'ai_video') {
+    return next(new ErrorResponse('AI interview not found', 404));
+  }
+
+  const videoUrl = interview.aiInterview.localVideoRecordingUrl;
+  const audioUrl = interview.aiInterview.localAudioRecordingUrl;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      applicationId: application._id.toString(),
+      interviewId: interview._id.toString(),
+      hasVideoRecording: !!videoUrl,
+      hasAudioRecording: !!audioUrl,
+      videoRecordingUrl: videoUrl || null,
+      audioRecordingUrl: audioUrl || null,
+      recordingExists: !!(videoUrl || audioUrl)
+    }
+  });
+});

@@ -9,6 +9,7 @@ const {
   scheduleAIInterview,
   getAIInterviewLink,
   updateAIInterviewStatus,
+  updateAIInterviewStatusPublic,
   getAIInterviewByLink,
   uploadInterviewRecording,
   uploadInterviewRecordingPublic,
@@ -19,7 +20,9 @@ const {
   getInterviewRecordingStatus,
   startInterviewRecordingPublic,
   heartbeatInterviewRecordingPublic,
-  getInterviewRecordingStatusPublic
+  getInterviewRecordingStatusPublic,
+  verifyRecordingInDatabase,
+  verifyRecordingInDatabasePublic
 } = require('../controllers/applicationController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -37,7 +40,10 @@ router.route('/:id')
 router.post('/:id/interview', protect, authorize('hr_recruiter', 'manager', 'admin'), scheduleInterview);
 
 // Public AI Interview routes (placed before dynamic :id routes to avoid collisions)
-router.get('/public/ai-interview/:link', getAIInterviewByLink);
+// Now requires authentication - candidate must be logged in
+router.get('/public/ai-interview/:link', protect, getAIInterviewByLink);
+// Public interview status update (candidate completing interview)
+router.put('/public/ai-interview/:link', protect, updateAIInterviewStatusPublic);
 // Public recording upload by link (candidate)
 router.post('/public/ai-interview/:link/recording', uploadInterviewRecordingPublic);
 router.post('/public/ai-interview/:link/recording/raw', express.raw({ type: 'application/octet-stream', limit: '200mb' }), uploadInterviewRecordingRawPublic);
@@ -45,6 +51,8 @@ router.post('/public/ai-interview/:link/recording/raw', express.raw({ type: 'app
 router.post('/public/ai-interview/:link/recording/start', startInterviewRecordingPublic);
 router.post('/public/ai-interview/:link/recording/heartbeat', heartbeatInterviewRecordingPublic);
 router.get('/public/ai-interview/:link/recording/status', getInterviewRecordingStatusPublic);
+// ✅ Public recording verification route (candidate)
+router.get('/public/ai-interview/:link/recording/verify', verifyRecordingInDatabasePublic);
 
 // AI Interview routes (authenticated)
 router.post('/:id/ai-interview', protect, authorize('hr_recruiter', 'manager', 'admin'), scheduleAIInterview);
@@ -60,5 +68,7 @@ router.post('/:id/ai-interview/:interviewId/recording/raw', protect, authorize('
 router.post('/:id/ai-interview/:interviewId/recording/start', protect, authorize('hr_recruiter', 'manager', 'admin'), startInterviewRecording);
 router.post('/:id/ai-interview/:interviewId/recording/heartbeat', protect, authorize('hr_recruiter', 'manager', 'admin'), heartbeatInterviewRecording);
 router.get('/:id/ai-interview/:interviewId/recording/status', protect, authorize('hr_recruiter', 'manager', 'admin'), getInterviewRecordingStatus);
+// ✅ Recording verification route (authenticated)
+router.get('/:id/ai-interview/:interviewId/recording/verify', protect, authorize('hr_recruiter', 'manager', 'admin'), verifyRecordingInDatabase);
 
 module.exports = router;

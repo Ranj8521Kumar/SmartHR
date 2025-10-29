@@ -130,6 +130,9 @@ const ApplicationSchema = new mongoose.Schema({
         unique: true,
         sparse: true
       },
+      candidateEmail: {
+        type: String // Store candidate email for authentication verification
+      },
       transcript: {
         type: mongoose.Schema.Types.Mixed,
         default: []
@@ -195,6 +198,18 @@ ApplicationSchema.pre('save', function(next) {
   });
   next();
 });
+
+// Virtual field to populate interview recordings
+ApplicationSchema.virtual('interviewRecordings', {
+  ref: 'InterviewRecording',
+  localField: '_id',
+  foreignField: 'application',
+  justOne: false
+});
+
+// Enable virtuals in JSON and Object output
+ApplicationSchema.set('toJSON', { virtuals: true });
+ApplicationSchema.set('toObject', { virtuals: true });
 
 // Compound index for efficient queries
 ApplicationSchema.index({ job: 1, applicant: 1 }, { unique: true });

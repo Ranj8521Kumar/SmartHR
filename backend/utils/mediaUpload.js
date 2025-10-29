@@ -1,11 +1,13 @@
 const cloudinary = require('cloudinary').v2;
 const ErrorResponse = require('./errorResponse');
 
-// Configure Cloudinary
+// Configure Cloudinary with extended timeout
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  timeout: 600000, // 10 minutes for large video uploads
+  upload_timeout: 600000 // 10 minutes upload timeout
 });
 
 /**
@@ -21,25 +23,72 @@ const uploadVideoRecording = async (buffer, filename, applicationId, interviewId
     const folder = `SmartHR/InterviewVideo/${applicationId}`;
     const publicId = `interview_${interviewId}_${Date.now()}`;
 
-    const result = await cloudinary.uploader.upload(buffer, {
-      folder: folder,
-      public_id: publicId,
-      resource_type: 'video',
-      use_filename: false,
-      unique_filename: false,
-      type: 'upload',
-      access_mode: 'public',
-      overwrite: false,
-      // Video-specific options
-      format: 'webm', // Keep original format, typically webm from MediaRecorder
-      quality: 'auto',
-      // Add metadata
-      context: {
-        application_id: applicationId,
-        interview_id: interviewId,
-        upload_type: 'interview_recording',
-        uploaded_at: new Date().toISOString()
+    console.log('[Cloudinary] Starting video upload...', {
+      bufferSize: buffer.length,
+      bufferSizeMB: (buffer.length / (1024 * 1024)).toFixed(2) + ' MB',
+      applicationId,
+      interviewId,
+      publicId,
+      timestamp: new Date().toISOString()
+    });
+
+    // Use upload_stream for more efficient binary uploads
+    const result = await new Promise((resolve, reject) => {
+      let uploadedBytes = 0;
+
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: folder,
+          public_id: publicId,
+          resource_type: 'video',
+          use_filename: false,
+          unique_filename: false,
+          type: 'upload',
+          access_mode: 'public',
+          overwrite: false,
+          // Video-specific options
+          format: 'webm',
+          quality: 'auto',
+          timeout: 600000, // 10 minute timeout for large files
+          chunk_size: 6000000, // 6MB chunks for better reliability
+          // Add metadata
+          context: {
+            application_id: applicationId,
+            interview_id: interviewId,
+            upload_type: 'interview_recording',
+            uploaded_at: new Date().toISOString()
+          }
+        },
+        (error, result) => {
+          if (error) {
+            console.error('[Cloudinary] Upload stream error:', error);
+            console.error('[Cloudinary] Upload failed at', uploadedBytes, 'bytes');
+            reject(error);
+          } else {
+            console.log('[Cloudinary] Upload completed successfully');
+            resolve(result);
+          }
+        }
+      );
+
+      // Write buffer to stream in chunks for better reliability
+      const chunkSize = 1024 * 1024; // 1MB chunks
+      console.log('[Cloudinary] Writing buffer in', Math.ceil(buffer.length / chunkSize), 'chunks');
+
+      for (let i = 0; i < buffer.length; i += chunkSize) {
+        const chunk = buffer.slice(i, Math.min(i + chunkSize, buffer.length));
+        stream.write(chunk);
+        uploadedBytes += chunk.length;
+
+        // Log progress every 10%
+        const progress = Math.floor((uploadedBytes / buffer.length) * 100);
+        if (progress % 10 === 0 || uploadedBytes === buffer.length) {
+          console.log(`[Cloudinary] Upload progress: ${progress}% (${(uploadedBytes / (1024 * 1024)).toFixed(2)} MB)`);
+        }
       }
+
+      console.log('[Cloudinary] Buffer write complete, finalizing upload...');
+      stream.end();
     });
 
     // Helpful success log (non-sensitive)
@@ -78,23 +127,53 @@ const uploadAudioRecording = async (buffer, filename, applicationId, interviewId
     const folder = `SmartHR/InterviewVideo/${applicationId}`;
     const publicId = `interview_audio_${interviewId}_${Date.now()}`;
 
-    const result = await cloudinary.uploader.upload(buffer, {
-      folder: folder,
-      public_id: publicId,
-      resource_type: 'video', // Cloudinary treats audio as video resource
-      use_filename: false,
-      unique_filename: false,
-      type: 'upload',
-      access_mode: 'public',
-      overwrite: false,
-      format: 'webm', // Common format for MediaRecorder audio
-      // Add metadata
-      context: {
-        application_id: applicationId,
-        interview_id: interviewId,
-        upload_type: 'interview_audio_recording',
-        uploaded_at: new Date().toISOString()
+    console.log('[Cloudinary] Uploading audio...', {
+      bufferSize: buffer.length,
+      applicationId,
+      interviewId,
+      publicId
+    });
+
+    // Use upload_stream for more efficient binary uploads
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: folder,
+          public_id: publicId,
+          resource_type: 'video', // Cloudinary treats audio as video resource
+          use_filename: false,
+          unique_filename: false,
+          type: 'upload',
+          access_mode: 'public',
+          overwrite: false,
+          format: 'webm',
+          timeout: 600000, // 10 minute timeout for large files
+          chunk_size: 6000000, // 6MB chunks for better reliability
+          // Add metadata
+          context: {
+            application_id: applicationId,
+            interview_id: interviewId,
+            upload_type: 'interview_audio_recording',
+            uploaded_at: new Date().toISOString()
+          }
+        },
+        (error, result) => {
+          if (error) {
+            console.error('[Cloudinary] Upload stream error:', error);
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+
+      // Write buffer to stream in chunks for better reliability
+      const chunkSize = 1024 * 1024; // 1MB chunks
+      for (let i = 0; i < buffer.length; i += chunkSize) {
+        const chunk = buffer.slice(i, Math.min(i + chunkSize, buffer.length));
+        stream.write(chunk);
       }
+      stream.end();
     });
 
     // Helpful success log (non-sensitive)

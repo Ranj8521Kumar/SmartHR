@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Briefcase, 
   Users, 
@@ -33,12 +34,23 @@ import LoginForm from '../auth/LoginForm';
 import JobOpportunitiesDialog from '../jobs/JobOpportunitiesDialog';
 
 export default function LandingPage() {
+  const location = useLocation();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [animateStats, setAnimateStats] = useState(false);
   const [isOpportunitiesOpen, setIsOpportunitiesOpen] = useState(false);
+  const [loginMessage, setLoginMessage] = useState('');
+
+  // Check if redirected from interview link
+  useEffect(() => {
+    if (location.state?.message) {
+      setLoginMessage(location.state.message);
+      setSelectedRole('employee'); // Default to employee for interview candidates
+      setIsLoginOpen(true);
+    }
+  }, [location]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -639,6 +651,11 @@ export default function LandingPage() {
               <span className="text-white text-xl">HR</span>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+            {loginMessage && (
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">{loginMessage}</p>
+              </div>
+            )}
             {selectedRole && (
               <p className="text-sm text-gray-500 mb-2">
                 Logging in as <span className="font-semibold text-blue-600">{getRoleTitle()}</span>
@@ -648,8 +665,11 @@ export default function LandingPage() {
           </div>
 
           {/* Real Login Form */}
-          <LoginForm 
-            onSuccess={() => setIsLoginOpen(false)} 
+          <LoginForm
+            onSuccess={() => {
+              setIsLoginOpen(false);
+              setLoginMessage(''); // Clear message after successful login
+            }}
             expectedRole={selectedRole}
           />
 

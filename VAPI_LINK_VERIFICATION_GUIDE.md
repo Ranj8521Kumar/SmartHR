@@ -48,7 +48,7 @@ This guide provides HR recruiters with a step-by-step process to verify that Vap
 
 3. **Copy the Generated Link**
    - After scheduling, you'll see a success message with the interview link
-   - Copy the full URL (e.g., `http://localhost:3000/ai-interview/abc123def456`)
+   - Copy the full URL (e.g., `http://localhost:5000/ai-interview/abc123def456`)
 
 ### Step 2: Test Link Accessibility
 

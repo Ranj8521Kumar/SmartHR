@@ -69,7 +69,7 @@ app.use('/api/', limiter);
 
 // Enable CORS
 const allowedOrigins = [
-  'http://localhost:3000',
+  'http://localhost:5000',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://0.0.0.0:5173',
@@ -121,6 +121,7 @@ app.use('/api/v1/applications', require('./routes/applicationRoutes'));
 app.use('/api/v1/resumes', require('./routes/resumeRoutes'));
 app.use('/api/v1/analytics', require('./routes/analyticsRoutes'));
 app.use('/api/v1/transcriptions', require('./routes/transcriptionRoutes'));
+app.use('/api/v1/interview-recordings', require('./routes/interviewRecordingRoutes'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -143,7 +144,8 @@ app.get('/api/v1', (req, res) => {
       jobs: '/api/v1/jobs',
       applications: '/api/v1/applications',
       resumes: '/api/v1/resumes',
-      analytics: '/api/v1/analytics'
+      analytics: '/api/v1/analytics',
+      interviewRecordings: '/api/v1/interview-recordings'
     },
     documentation: 'See README.md for detailed API documentation'
   });
@@ -166,6 +168,11 @@ const server = app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
   console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
+
+// Increase timeout for large video uploads (10 minutes)
+server.timeout = 600000; // 10 minutes
+server.keepAliveTimeout = 610000; // Slightly higher than timeout
+server.headersTimeout = 620000; // Slightly higher than keepAliveTimeout
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
