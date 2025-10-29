@@ -70,7 +70,10 @@ export default function AIInterviewPage() {
   const ttsUtteranceRef = useRef(null);
 
   useEffect(() => {
-    fetchInterviewDetails();
+    // Only fetch if not already submitted
+    if (interviewStatus !== 'submitted') {
+      fetchInterviewDetails();
+    }
 
     // Set up fullscreen event listeners
     const handleFullscreenChange = () => {
@@ -176,7 +179,7 @@ export default function AIInterviewPage() {
         console.log('Authentication required, redirecting to login...');
         // Store the interview link to redirect back after login
         localStorage.setItem('redirectAfterLogin', `/ai-interview/${link}`);
-        navigate('/login', {
+        navigate('/', {
           state: {
             message: 'Please log in to access your interview',
             returnUrl: `/ai-interview/${link}`
@@ -636,15 +639,20 @@ export default function AIInterviewPage() {
         duration: interviewData.duration
       });
 
-      await interviewService.updateAIInterviewStatus(
-        interview.application._id,
-        interview._id,
+      // Use public endpoint for status update
+      await interviewService.updateAIInterviewStatusByLink(
+        link,
         interviewData
       );
 
       console.log('✅ Interview submitted successfully');
       setInterviewStatus('submitted');
       setError(null);
+
+      // Show success message and redirect to home/dashboard after a short delay
+      setTimeout(() => {
+        navigate('/');
+      }, 3000); // 3 seconds to show the success message
 
     } catch (err) {
       console.error('Failed to submit interview results:', err);
@@ -699,20 +707,17 @@ export default function AIInterviewPage() {
         <Card className="w-full max-w-md shadow-xl border-2 border-green-100">
           <CardContent className="pt-8 pb-10">
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-6">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-6 animate-pulse">
                 <CheckCircle className="h-12 w-12 text-green-600" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-3">Interview Completed Successfully</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Thank You for Submitting the Interview</h2>
               <p className="text-gray-600 mb-6 text-lg">
-                Thank you for completing your interview. Your responses and recording have been successfully saved.
+                Your interview responses and recording have been successfully submitted. You will be redirected to your dashboard shortly.
               </p>
-              <Button
-                onClick={() => navigate('/')}
-                size="lg"
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              >
-                Return Home
-              </Button>
+              <div className="flex items-center justify-center gap-2 text-purple-600">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm font-medium">Redirecting to dashboard...</span>
+              </div>
             </div>
           </CardContent>
         </Card>
