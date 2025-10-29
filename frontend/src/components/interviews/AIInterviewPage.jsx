@@ -60,14 +60,35 @@ export default function AIInterviewPage() {
   const [showTranscript, setShowTranscript] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
+  const [fullscreenExitAttempts, setFullscreenExitAttempts] = useState(0);
 
   // Refs
   const videoRef = useRef(null);
   const timerRef = useRef(null);
   const questionTimerRef = useRef(null);
-  const fullscreenRef = useRef(null);
+  const fullscreenContainerRef = useRef(null);
   const interviewRef = useRef(null);
   const ttsUtteranceRef = useRef(null);
+  const fullscreenWarningTimeoutRef = useRef(null);
+
+  // Define enterFullscreen function outside useEffect so it can be called from anywhere
+  const enterFullscreen = async () => {
+    try {
+      const element = fullscreenContainerRef.current;
+      if (!element) return;
+
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      } else if (element.webkitRequestFullscreen) {
+        await element.webkitRequestFullscreen();
+      } else if (element.msRequestFullscreen) {
+        await element.msRequestFullscreen();
+      }
+    } catch (err) {
+      console.warn('Failed to enter fullscreen:', err);
+    }
+  };
 
   useEffect(() => {
     // Only fetch if not already submitted
@@ -92,6 +113,25 @@ export default function AIInterviewPage() {
           videoRef.current.disablePictureInPicture = true;
         }
       } else {
+        // User is trying to exit fullscreen during active interview
+        if (interviewStatus === 'active' && !isFullscreen) {
+          setFullscreenExitAttempts(prev => prev + 1);
+          setShowFullscreenWarning(true);
+
+          // Auto-hide warning after 5 seconds
+          if (fullscreenWarningTimeoutRef.current) {
+            clearTimeout(fullscreenWarningTimeoutRef.current);
+          }
+          fullscreenWarningTimeoutRef.current = setTimeout(() => {
+            setShowFullscreenWarning(false);
+          }, 5000);
+
+          // Try to re-enter fullscreen after a short delay
+          setTimeout(() => {
+            enterFullscreen();
+          }, 100);
+        }
+
         // Remove restrictions when exiting fullscreen
         document.removeEventListener('keydown', preventShortcuts);
         document.removeEventListener('contextmenu', preventContextMenu);
@@ -151,6 +191,9 @@ export default function AIInterviewPage() {
       // Cleanup
       if (timerRef.current) {
         clearInterval(timerRef.current);
+      }
+      if (fullscreenWarningTimeoutRef.current) {
+        clearTimeout(fullscreenWarningTimeoutRef.current);
       }
       // Stop any ongoing TTS
       if (window.speechSynthesis) {
@@ -452,13 +495,8 @@ export default function AIInterviewPage() {
 
           // Enter fullscreen mode after video is set up
           try {
-            if (videoRef.current.requestFullscreen) {
-              await videoRef.current.requestFullscreen();
-            } else if (videoRef.current.webkitRequestFullscreen) {
-              await videoRef.current.webkitRequestFullscreen();
-            } else if (videoRef.current.msRequestFullscreen) {
-              await videoRef.current.msRequestFullscreen();
-            }
+            console.log('Entering fullscreen mode on entire interview page...');
+            await enterFullscreen();
             console.log('✅ Entered fullscreen mode');
           } catch (fullscreenErr) {
             console.warn('⚠️ Failed to enter fullscreen mode:', fullscreenErr);
@@ -760,7 +798,49 @@ export default function AIInterviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div ref={fullscreenContainerRef} className="min-h-screen bg-gray-50">
+      {/* Fullscreen Warning Modal */}
+      {showFullscreenWarning && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-10 animate-in zoom-in-95 duration-300 border-4 border-red-500">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-6 animate-pulse">
+                <AlertCircle className="h-12 w-12 text-red-600" />
+              </div>
+              <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                ⚠️ Warning: Fullscreen Mode Required
+              </h3>
+              <p className="text-lg text-gray-700 mb-4 leading-relaxed font-medium">
+                You must remain in fullscreen mode during the interview!
+              </p>
+              <p className="text-base text-gray-600 mb-6 leading-relaxed">
+                Exiting fullscreen mode may result in disqualification or invalid interview recording. Please stay in fullscreen until the interview is complete.
+              </p>
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-xl p-5 mb-8 w-full shadow-lg">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <p className="text-base font-bold text-red-800">
+                    Exit Attempts: {fullscreenExitAttempts}
+                  </p>
+                </div>
+                <p className="text-sm text-red-700 mt-2">
+                  Multiple exit attempts are being recorded and may affect your application.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setShowFullscreenWarning(false);
+                  enterFullscreen();
+                }}
+                className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-xl py-7 shadow-xl font-bold"
+              >
+                ↩ Return to Fullscreen Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Recording Indicator */}
       {interviewStatus === 'active' && (
         <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg ${isRecording ? 'bg-red-600 text-white' : 'bg-yellow-500 text-white'}`}>
