@@ -9,7 +9,8 @@ const {
   forgotPassword,
   resetPassword,
   googleCallback,
-  linkedinCallback
+  linkedinCallback,
+  updateAvatar
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const passport = require('../config/passport');
@@ -22,6 +23,7 @@ router.get('/logout', logout);
 router.get('/me', protect, getMe);
 router.put('/updatedetails', protect, updateDetails);
 router.put('/updatepassword', protect, updatePassword);
+router.put('/avatar', protect, updateAvatar);
 router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:token', resetPassword);
 

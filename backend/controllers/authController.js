@@ -215,6 +215,58 @@ exports.updatePassword = asyncHandler(async (req, res, next) => {
   sendTokenResponse(user, 200, res);
 });
 
+// @desc    Update user avatar
+// @route   PUT /api/v1/auth/avatar
+// @access  Private
+exports.updateAvatar = asyncHandler(async (req, res, next) => {
+  const { cloudinary } = require('../utils/cloudinary');
+
+  // Using express-fileupload (already configured globally)
+  const uploadedFile = req.files && (req.files.avatar || req.files.file || req.files.image);
+  if (!uploadedFile) {
+    return next(new ErrorResponse('No image file uploaded', 400));
+  }
+
+  // Basic validation
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowed.includes(uploadedFile.mimetype)) {
+    return next(new ErrorResponse('Only image files are allowed (jpg, png, gif, webp)', 400));
+  }
+  const maxBytes = 2 * 1024 * 1024; // 2MB
+  if (uploadedFile.size > maxBytes) {
+    return next(new ErrorResponse('Image too large. Max 2MB', 400));
+  }
+
+  const result = await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'SmartHR/Avatars',
+        resource_type: 'image',
+        type: 'upload',
+        access_mode: 'public',
+        overwrite: true,
+        transformation: [{ width: 256, height: 256, crop: 'fill', gravity: 'auto' }]
+      },
+      (error, uploaded) => {
+        if (error) return reject(error);
+        return resolve(uploaded);
+      }
+    );
+    stream.end(uploadedFile.data);
+  });
+
+  const user = await User.findByIdAndUpdate(
+    req.user.id,
+    { avatar: result.secure_url },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    success: true,
+    data: user
+  });
+});
+
 // @desc    Forgot password
 // @route   POST /api/v1/auth/forgotpassword
 // @access  Public

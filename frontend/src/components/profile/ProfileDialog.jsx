@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
@@ -21,9 +22,12 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 
 export default function ProfileDialog({ isOpen, onClose }) {
-  const { user, updateUserDetails, isLoading } = useAuth();
+  const { user, updateUserDetails, updateAvatar, isLoading } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef(null);
+  const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -40,6 +44,32 @@ export default function ProfileDialog({ isOpen, onClose }) {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxBytes = 2 * 1024 * 1024; // 2 MB
+    if (file.size > maxBytes) {
+      toast.error('Image should be less or equal to 2 MB');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    try {
+      setIsUploadingAvatar(true);
+      await updateAvatar(file);
+      toast.success('Profile photo updated');
+    } catch (error) {
+      console.error('Failed to update avatar:', error);
+      toast.error(error?.message || 'Failed to update photo');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSave = async () => {
@@ -95,10 +125,31 @@ export default function ProfileDialog({ isOpen, onClose }) {
           <Card className="w-full max-w-full overflow-hidden">
             <CardContent className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                <Avatar className="h-20 w-20 sm:h-24 sm:w-24 shrink-0">
-                  <AvatarImage src={userAvatar} alt={fullName} />
-                  <AvatarFallback className="text-2xl">{user.firstName?.charAt(0)}{user.lastName?.charAt(0)}</AvatarFallback>
-                </Avatar>
+                <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 cursor-zoom-in" onClick={() => setIsAvatarPreviewOpen(true)}>
+                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
+                    <AvatarImage src={userAvatar} alt={fullName} />
+                    <AvatarFallback className="text-2xl">{user.firstName?.charAt(0)}{user.lastName?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <button
+                    type="button"
+                    onClick={handleAvatarClick}
+                    title="Edit photo"
+                    className="absolute bottom-1 right-1 z-10 inline-flex items-center justify-center p-0 m-0 bg-transparent hover:bg-transparent"
+                  >
+                    {isUploadingAvatar ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-700" />
+                    ) : (
+                      <Edit2 className="h-4 w-4 text-gray-700 hover:text-gray-900" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </div>
                 <div className="flex-1 text-center sm:text-left w-full min-w-0">
                   <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">
                     {fullName}
@@ -292,6 +343,21 @@ export default function ProfileDialog({ isOpen, onClose }) {
               </Button>
             )}
           </div>
+
+        {/* Avatar Preview Dialog */}
+        <Dialog open={isAvatarPreviewOpen} onOpenChange={setIsAvatarPreviewOpen}>
+          <DialogContent className="max-w-3xl w-[95vw] p-6">
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="rounded-full overflow-hidden w-[60vh] h-[60vh] max-w-[80vw] max-h-[80vh]">
+                <img
+                  src={userAvatar}
+                  alt={fullName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
         </div>
       </DialogContent>
     </Dialog>
