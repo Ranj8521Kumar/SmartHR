@@ -122,6 +122,7 @@ app.use('/api/v1/resumes', require('./routes/resumeRoutes'));
 app.use('/api/v1/analytics', require('./routes/analyticsRoutes'));
 app.use('/api/v1/transcriptions', require('./routes/transcriptionRoutes'));
 app.use('/api/v1/interview-recordings', require('./routes/interviewRecordingRoutes'));
+app.use('/api/v1/tts', require('./routes/ttsRoutes'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -145,7 +146,8 @@ app.get('/api/v1', (req, res) => {
       applications: '/api/v1/applications',
       resumes: '/api/v1/resumes',
       analytics: '/api/v1/analytics',
-      interviewRecordings: '/api/v1/interview-recordings'
+      interviewRecordings: '/api/v1/interview-recordings',
+      tts: '/api/v1/tts'
     },
     documentation: 'See README.md for detailed API documentation'
   });

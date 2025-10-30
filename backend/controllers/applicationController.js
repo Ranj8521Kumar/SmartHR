@@ -768,9 +768,12 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Interview duration must be between 15 and 120 minutes', 400));
   }
 
+  // Calculate number of questions based on duration (1 question per 5 minutes)
+  const numQuestions = Math.floor(duration / 5);
+
   // Generate interview questions
   const { generateInterviewQuestions, generateUniqueInterviewLink } = require('../services/aiService');
-  const generated = await generateInterviewQuestions(application.job, application.resume, duration, { numQuestions: 5 });
+  const generated = await generateInterviewQuestions(application.job, application.resume, duration, { numQuestions });
 
   // Generate unique link
   const uniqueLink = generateUniqueInterviewLink();
@@ -784,7 +787,7 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
     duration,
     questions: generated.map(q => ({
       ...q,
-      timeLimit: typeof secondsPerQuestion === 'number' && secondsPerQuestion > 0 ? secondsPerQuestion : q.timeLimit
+      timeLimit: 300 // 5 minutes per question
     })),
     uniqueLink,
     expiresAt,

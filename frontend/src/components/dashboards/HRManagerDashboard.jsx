@@ -889,6 +889,11 @@ export default function HRManagerDashboard({ user }) {
       }
     });
 
+    // Sort each group by AI score in descending order
+    Object.keys(grouped).forEach(key => {
+      grouped[key].sort((a, b) => b.score - a.score);
+    });
+
     return kanbanStages.map(stage => ({
       ...stage,
       count: grouped[stage.name].length,
