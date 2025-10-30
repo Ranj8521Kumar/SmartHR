@@ -48,7 +48,7 @@ This guide provides HR recruiters with a step-by-step process to verify that Vap
 
 3. **Copy the Generated Link**
    - After scheduling, you'll see a success message with the interview link
-   - Copy the full URL (e.g., `http://localhost:3000/ai-interview/abc123def456`)
+   - Copy the full URL (e.g., `http://localhost:5000/ai-interview/abc123def456`)
 
 ### Step 2: Test Link Accessibility
 
@@ -154,7 +154,7 @@ This guide provides HR recruiters with a step-by-step process to verify that Vap
 **Solutions:**
 - Grant microphone permissions
 - Try different browser
-- Check Vapi assistant ID in code (default: `5966f84b-85ec-47ca-b294-9b1ca366ac2f`)
+- Check Vapi assistant ID in code (default: `78f66dae-06aa-4b30-a6c9-81a7618451cb`)
 
 ### Issue: Transcript Not Appearing
 **Possible Causes:**

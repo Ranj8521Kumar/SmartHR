@@ -2,6 +2,88 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
+/**
+ * Upload interview recording to Cloudinary
+ * @param {string} applicationId - Application ID
+ * @param {string} interviewId - Interview ID
+ * @param {Blob} recordingBlob - Recorded video/audio blob
+ * @param {string} recordingType - 'video' or 'audio'
+ * @returns {Promise<Object>} - Upload response
+ */
+export const uploadInterviewRecording = async (applicationId, interviewId, recordingBlob, recordingType = 'video') => {
+  try {
+    const formData = new FormData();
+
+    // Create a filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `interview_${recordingType}_${timestamp}.webm`;
+
+    // Append the recording blob
+    formData.append('recording', recordingBlob, filename);
+
+    // Append recording type
+    formData.append('recordingType', recordingType);
+
+    const response = await axios.post(
+      `${API_BASE_URL}/applications/${applicationId}/ai-interview/${interviewId}/recording`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        timeout: 300000, // 5 minutes timeout for large video uploads
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`Upload progress: ${percentCompleted}%`);
+        }
+      }
+    );
+
+    if (response?.data?.success) {
+      console.log('[Frontend] Recording uploaded (private):', response.data.data);
+    } else {
+      console.warn('[Frontend] Upload response (private) not successful:', response?.data);
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error uploading interview recording:', error);
+    throw error.response?.data || error;
+  }
+};
+
+/**
+ * Public upload of interview recording via unique link (candidate-side)
+ */
+export const uploadInterviewRecordingByLink = async (link, recordingBlob, recordingType = 'video') => {
+  try {
+    const formData = new FormData();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `interview_${recordingType}_${timestamp}.webm`;
+    formData.append('recording', recordingBlob, filename);
+    formData.append('recordingType', recordingType);
+
+    const response = await axios.post(
+      `${API_BASE_URL}/applications/public/ai-interview/${link}/recording`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 300000,
+      }
+    );
+
+    if (response?.data?.success) {
+      console.log('[Frontend] Recording uploaded (public):', response.data.data);
+    } else {
+      console.warn('[Frontend] Upload response (public) not successful:', response?.data);
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error uploading interview recording by link:', error);
+    throw error.response?.data || error;
+  }
+};
+
 // Get auth token from localStorage
 const getAuthToken = () => {
   const token = localStorage.getItem('token');
@@ -238,10 +320,53 @@ const interviewService = {
    */
   updateAIInterviewStatus: async (applicationId, interviewId, data) => {
     try {
-      const response = await apiClient.put(`/applications/${applicationId}/ai-interview/${interviewId}`, data);
-      return response.data;
+      // Support both JSON and multipart (FormData) payloads
+      if (typeof FormData !== 'undefined' && data instanceof FormData) {
+        const response = await axios.put(
+          `${API_BASE_URL}/applications/${applicationId}/ai-interview/${interviewId}`,
+          data,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            },
+            timeout: 300000
+          }
+        );
+        return response.data;
+      } else {
+        const response = await apiClient.put(`/applications/${applicationId}/ai-interview/${interviewId}`, data);
+        return response.data;
+      }
     } catch (error) {
       console.error('Error updating AI interview status:', error);
+      throw error.response?.data || { success: false, error: 'Failed to update AI interview status' };
+    }
+  },
+
+  /**
+   * Update AI interview status via public link (for candidates)
+   * @param {String} link - Unique interview link
+   * @param {Object} data - Interview status data
+   * @returns {Promise} - Response with updated status
+   */
+  updateAIInterviewStatusByLink: async (link, data) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `${API_BASE_URL}/applications/public/ai-interview/${link}`,
+        data,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          timeout: 300000
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error updating AI interview status by link:', error);
       throw error.response?.data || { success: false, error: 'Failed to update AI interview status' };
     }
   },
@@ -253,43 +378,121 @@ const interviewService = {
    */
   getAIInterviewByLink: async (link) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/applications/public/ai-interview/${link}`);
-      return response.data;
+      console.log('Fetching AI interview for link:', link);
+
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+
+      const response = await axios.get(`${API_BASE_URL}/applications/public/ai-interview/${link}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+
+      // Log the raw response for debugging
+      console.log('Raw API response:', response.data);
+
+      // Validate the response data structure
+      const data = response.data;
+      if (!data) {
+        console.error('Empty response from API');
+        throw new Error('Empty response from server');
+      }
+
+      if (!data.success) {
+        console.error('API request failed:', data.error);
+        throw new Error(data.error || 'Server returned an error');
+      }
+
+      // Extract interview data
+      const interviewData = data.data;
+
+      // Validate required fields
+      if (!interviewData) {
+        console.error('No interview data in response:', data);
+        throw new Error('No interview data found');
+      }
+
+      if (!interviewData.application || !interviewData.application._id) {
+        console.error('Invalid interview data structure:', interviewData);
+        throw new Error('Invalid interview data structure');
+      }
+
+      // Log the validated data
+      console.log('Successfully fetched interview data:', {
+        applicationId: interviewData.application._id,
+        hasAIInterview: !!interviewData.aiInterview,
+        status: interviewData.status,
+        duration: interviewData.aiInterview?.duration,
+        expiresAt: interviewData.aiInterview?.expiresAt
+      });
+
+      return {
+        success: true,
+        data: interviewData
+      };
     } catch (error) {
       console.error('Error getting AI interview by link:', error);
-      throw error.response?.data || { success: false, error: 'Failed to get AI interview' };
+      // Handle authentication errors
+      if (axios.isAxiosError?.(error) && error.response) {
+        const { status, data } = error.response;
+
+        // Handle authentication required (401)
+        if (status === 401) {
+          return {
+            success: false,
+            requiresAuth: true,
+            error: data?.error || 'You must be logged in to access this interview'
+          };
+        }
+
+        // Handle wrong account (403)
+        if (status === 403) {
+          return {
+            success: false,
+            requiresCorrectAccount: true,
+            expectedEmail: data?.expectedEmail,
+            error: data?.error || 'This interview is assigned to a different account'
+          };
+        }
+
+        // Handle expired/completed link (410)
+        if (status === 410) {
+          return {
+            success: false,
+            expired: true,
+            error: data?.error || 'This interview link has expired'
+          };
+        }
+
+        return {
+          success: false,
+          error: data?.error || `Request failed with status ${status}`
+        };
+      }
+      return {
+        success: false,
+        error: error?.message || 'Failed to get AI interview'
+      };
     }
   },
 
-  /**
-   * Update AI interview with Vapi call details
-   * @param {String} applicationId - Application ID
-   * @param {String} interviewId - Interview ID
-   * @param {Object} vapiData - Vapi call data (callId, transcript, recordingUrl, etc.)
-   * @returns {Promise} - Response with updated interview
-   */
-  updateAIInterviewWithVapi: async (applicationId, interviewId, vapiData) => {
-    try {
-      const response = await apiClient.put(`/applications/${applicationId}/ai-interview/${interviewId}/vapi`, vapiData);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating AI interview with Vapi data:', error);
-      throw error.response?.data || { success: false, error: 'Failed to update AI interview' };
-    }
-  },
+  // Vapi integration removed
 
   /**
-   * Get Vapi configuration for interview
-   * @param {String} applicationId - Application ID
-   * @returns {Promise} - Response with Vapi config
+   * Transcribe audio blob via backend Whisper route
    */
-  getVapiConfig: async (applicationId) => {
+  transcribeAudio: async (blob) => {
     try {
-      const response = await apiClient.get(`/applications/${applicationId}/vapi-config`);
+      const formData = new FormData();
+      const filename = `audio_${Date.now()}.webm`;
+      formData.append('audio', blob, filename);
+      const response = await axios.post(`${API_BASE_URL}/transcriptions`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 300000,
+      });
       return response.data;
     } catch (error) {
-      console.error('Error getting Vapi config:', error);
-      throw error.response?.data || { success: false, error: 'Failed to get Vapi config' };
+      console.error('Error transcribing audio:', error);
+      throw error.response?.data || { success: false, error: 'Failed to transcribe audio' };
     }
   },
 };

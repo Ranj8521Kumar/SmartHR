@@ -39,32 +39,17 @@ initAIModel().catch(console.error);
 
 const app = express();
 
-// Body parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parser with increased limits for large payloads (recordings, base64, etc.)
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 
 // Cookie parser
 app.use(cookieParser());
 
-// Session configuration for OAuth
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'hrms-session-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
-
-// Initialize Passport
-app.use(passport.initialize());
-app.use(passport.session());
-
-// File upload
+// File upload with size limit
 app.use(fileupload({
-  createParentPath: true
+  createParentPath: true,
+  limits: { fileSize: 200 * 1024 * 1024 } // 200MB
 }));
 
 // Dev logging middleware
@@ -88,8 +73,10 @@ app.use('/api/', limiter);
 
 // Enable CORS
 const allowedOrigins = [
-  'http://localhost:3000',
+  'http://localhost:5000',
   'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://0.0.0.0:5173',
   process.env.CORS_ORIGIN
 ].filter(Boolean);
 
@@ -97,9 +84,16 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
+    // In development, allow localhost origins more permissively
+    if (process.env.NODE_ENV === 'development') {
+      if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0')) {
+        return callback(null, true);
+      }
+    }
+
     if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
       return callback(new Error(msg), false);
     }
     return callback(null, true);
@@ -130,6 +124,9 @@ app.use('/api/v1/jobs', require('./routes/jobRoutes'));
 app.use('/api/v1/applications', require('./routes/applicationRoutes'));
 app.use('/api/v1/resumes', require('./routes/resumeRoutes'));
 app.use('/api/v1/analytics', require('./routes/analyticsRoutes'));
+app.use('/api/v1/transcriptions', require('./routes/transcriptionRoutes'));
+app.use('/api/v1/interview-recordings', require('./routes/interviewRecordingRoutes'));
+app.use('/api/v1/tts', require('./routes/ttsRoutes'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -152,7 +149,9 @@ app.get('/api/v1', (req, res) => {
       jobs: '/api/v1/jobs',
       applications: '/api/v1/applications',
       resumes: '/api/v1/resumes',
-      analytics: '/api/v1/analytics'
+      analytics: '/api/v1/analytics',
+      interviewRecordings: '/api/v1/interview-recordings',
+      tts: '/api/v1/tts'
     },
     documentation: 'See README.md for detailed API documentation'
   });
@@ -175,6 +174,11 @@ const server = app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
   console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
+
+// Increase timeout for large video uploads (10 minutes)
+server.timeout = 600000; // 10 minutes
+server.keepAliveTimeout = 610000; // Slightly higher than timeout
+server.headersTimeout = 620000; // Slightly higher than keepAliveTimeout
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, _promise) => {

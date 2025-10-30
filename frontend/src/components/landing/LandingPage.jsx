@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { 
   Briefcase, 
@@ -39,6 +40,7 @@ import AnimatedBackground from './AnimatedBackground';
 import HeroScene from './HeroScene';
 
 export default function LandingPage() {
+  const location = useLocation();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -46,6 +48,16 @@ export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [animateStats, setAnimateStats] = useState(false);
   const [isOpportunitiesOpen, setIsOpportunitiesOpen] = useState(false);
+  const [loginMessage, setLoginMessage] = useState('');
+
+  // Check if redirected from interview link
+  useEffect(() => {
+    if (location.state?.message) {
+      setLoginMessage(location.state.message);
+      setSelectedRole('employee'); // Default to employee for interview candidates
+      setIsLoginOpen(true);
+    }
+  }, [location]);
 
   const { scrollY } = useScroll();
 

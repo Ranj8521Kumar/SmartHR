@@ -130,9 +130,13 @@ const ApplicationSchema = new mongoose.Schema({
         unique: true,
         sparse: true
       },
-      vapiSessionId: String,
-      vapiCallId: String,
-      transcript: String,
+      candidateEmail: {
+        type: String // Store candidate email for authentication verification
+      },
+      transcript: {
+        type: mongoose.Schema.Types.Mixed,
+        default: []
+      },
       aiFeedback: {
         overallScore: Number,
         communicationScore: Number,
@@ -140,6 +144,15 @@ const ApplicationSchema = new mongoose.Schema({
         confidenceScore: Number,
         analysis: String
       },
+      // Recording status tracking
+      recordingStartedAt: Date,
+      recordingLastHeartbeatAt: Date,
+      recordingActive: {
+        type: Boolean,
+        default: false
+      },
+      // Recording URLs
+      localVideoRecordingUrl: String, // URL of the local video recording uploaded to Cloudinary
       completedAt: Date,
       expiresAt: Date // Link expiration date
     }
@@ -166,6 +179,37 @@ const ApplicationSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Pre-save hook to fix transcript data type issues
+ApplicationSchema.pre('save', function(next) {
+  this.interviews.forEach(interview => {
+    if (interview.aiInterview && typeof interview.aiInterview.transcript === 'string') {
+      if (interview.aiInterview.transcript.trim() === '') {
+        interview.aiInterview.transcript = [];
+      } else {
+        interview.aiInterview.transcript = [{
+          id: 1,
+          speaker: 'Candidate',
+          timestamp: new Date(),
+          message: interview.aiInterview.transcript
+        }];
+      }
+    }
+  });
+  next();
+});
+
+// Virtual field to populate interview recordings
+ApplicationSchema.virtual('interviewRecordings', {
+  ref: 'InterviewRecording',
+  localField: '_id',
+  foreignField: 'application',
+  justOne: false
+});
+
+// Enable virtuals in JSON and Object output
+ApplicationSchema.set('toJSON', { virtuals: true });
+ApplicationSchema.set('toObject', { virtuals: true });
 
 // Compound index for efficient queries
 ApplicationSchema.index({ job: 1, applicant: 1 }, { unique: true });

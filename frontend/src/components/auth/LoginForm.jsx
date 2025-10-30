@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -11,7 +12,9 @@ import toast from 'react-hot-toast';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 export default function LoginForm({ onSuccess, expectedRole }) {
-  const { login, logout, forgotPassword, isLoading, error, clearError } = useAuth();
+  const { login, logout, isLoading, error, clearError } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -66,25 +69,18 @@ export default function LoginForm({ onSuccess, expectedRole }) {
 
     try {
       const response = await login(formData.email, formData.password);
-      
-      // Handle "Remember me" functionality
-      if (formData.rememberMe) {
-        localStorage.setItem('rememberedEmail', formData.email);
-      } else {
-        localStorage.removeItem('rememberedEmail');
-      }
-      
+
       // Validate role if expectedRole is provided
       if (expectedRole && response.user) {
         const userRole = response.user.role.toLowerCase();
         const expected = expectedRole.toLowerCase();
-        
+
         // Check if roles match (also handle hr_recruiter vs hr-manager)
-        const roleMatches = userRole === expected || 
+        const roleMatches = userRole === expected ||
                            (userRole === 'hr_recruiter' && expected === 'hr_recruiter') ||
                            (userRole === 'hr_recruiter' && expected === 'hr-manager') ||
                            (userRole === 'hr-manager' && expected === 'hr_recruiter');
-        
+
         if (!roleMatches) {
           // Logout the user immediately since role doesn't match
           await logout();
@@ -95,11 +91,23 @@ export default function LoginForm({ onSuccess, expectedRole }) {
           return;
         }
       }
-      
-      // Show success toast
-      const userName = response.user ? `${response.user.firstName} ${response.user.lastName}` : 'User';
-      toast.success(`Welcome back, ${userName}!`);
-      
+
+      // Check for redirect URL from localStorage (AI interview access)
+      const redirectAfterLogin = localStorage.getItem('redirectAfterLogin');
+      if (redirectAfterLogin) {
+        // Clear the redirect URL from localStorage
+        localStorage.removeItem('redirectAfterLogin');
+        // Navigate to the stored URL
+        navigate(redirectAfterLogin);
+        return;
+      }
+
+      // Check for redirect URL from location state
+      if (location.state?.returnUrl) {
+        navigate(location.state.returnUrl);
+        return;
+      }
+
       if (onSuccess) {
         onSuccess();
       }

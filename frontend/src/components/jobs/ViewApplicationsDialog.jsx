@@ -96,7 +96,7 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job, user: pro
         'hired': ['accepted'],
         'rejected': ['rejected', 'withdrawn']
       };
-      
+
       if (statusMap[activeTab]) {
         filtered = filtered.filter(app => statusMap[activeTab].includes(app.status));
       }
@@ -104,12 +104,19 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job, user: pro
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(app => 
+      filtered = filtered.filter(app =>
         app.applicant.firstName?.toLowerCase().includes(query) ||
         app.applicant.lastName?.toLowerCase().includes(query) ||
         app.applicant.email?.toLowerCase().includes(query)
       );
     }
+
+    // Sort by AI score in descending order (highest score first)
+    filtered = filtered.sort((a, b) => {
+      const scoreA = a.aiScore?.overallScore || 0;
+      const scoreB = b.aiScore?.overallScore || 0;
+      return scoreB - scoreA; // Descending order
+    });
 
     setFilteredApplications(filtered);
   };
