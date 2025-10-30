@@ -608,6 +608,7 @@ export default function LandingPage() {
               >
               <Button 
                 size="lg" 
+                  onClick={() => { setSelectedRole('employee'); setIsRegisterMode(true); setIsLoginOpen(true); }}
                   className="w-full sm:w-auto bg-purple-600 text-white border border-white/30 hover:bg-purple-700 hover:text-white hover:border-purple-500 backdrop-blur-sm transition-all duration-300 hover:scale-105 active:scale-105 shadow-xl font-semibold px-8 py-6 text-base sm:text-lg hover:text-lg whitespace-nowrap"
               >
                 Get Started

@@ -566,7 +566,7 @@ export default function AdminDashboard({ user }) {
       setFormError('');
       
       // Validate form
-      if (!userForm.firstName || !userForm.lastName || !userForm.email || !userForm.password || !userForm.role) {
+      if (!userForm.firstName || !userForm.email || !userForm.password || !userForm.role) {
         setFormError('Please fill in all required fields');
         return;
       }
@@ -642,7 +642,7 @@ export default function AdminDashboard({ user }) {
     try {
       setFormError('');
       
-      if (!userForm.firstName || !userForm.lastName || !userForm.email || !userForm.role) {
+      if (!userForm.firstName || !userForm.email || !userForm.role) {
         setFormError('Please fill in all required fields');
         return;
       }
@@ -1104,7 +1104,7 @@ export default function AdminDashboard({ user }) {
 
   const handleUpdateProfile = async () => {
     try {
-      if (!profileData.firstName || !profileData.lastName || !profileData.email) {
+  if (!profileData.firstName || !profileData.email) {
         alert('Please fill in all required fields');
         return;
       }
@@ -2686,7 +2686,7 @@ export default function AdminDashboard({ user }) {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="settingsLastName">Last Name *</Label>
+                    <Label htmlFor="settingsLastName">Last Name</Label>
                     <Input
                       id="settingsLastName"
                       value={profileData.lastName}

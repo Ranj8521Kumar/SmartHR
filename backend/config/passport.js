@@ -78,7 +78,8 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
         clientID: process.env.LINKEDIN_CLIENT_ID,
         clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
         callbackURL: process.env.LINKEDIN_CALLBACK_URL || '/api/v1/auth/linkedin/callback',
-        scope: ['openid', 'profile', 'email'],
+        // Use LinkedIn's standard OAuth scopes to reliably fetch profile and email
+        scope: ['r_liteprofile', 'r_emailaddress'],
         state: true,
       },
       async (accessToken, refreshToken, profile, done) => {

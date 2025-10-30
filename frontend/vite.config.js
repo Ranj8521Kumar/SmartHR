@@ -12,6 +12,16 @@ export default defineConfig({
     port: 5173,
     hmr: {
       overlay: false
+    },
+    proxy: {
+      // Proxy API calls during development to the backend server
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        // Map "/api/..." from the frontend to backend "/api/v1/..."
+        rewrite: (path) => path.replace(/^\/api/, '/api/v1')
+      }
     }
   }
 })
