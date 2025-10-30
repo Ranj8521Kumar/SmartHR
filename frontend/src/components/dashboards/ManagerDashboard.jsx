@@ -30,6 +30,22 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '../ui/pagination';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
 import CreateJobForm from '../jobs/CreateJobForm';
@@ -73,6 +89,12 @@ export default function ManagerDashboard({ user }) {
   const [loadingApprovals, setLoadingApprovals] = useState(false);
   const [approvingApprovalId, setApprovingApprovalId] = useState(null);
   const [rejectingApprovalId, setRejectingApprovalId] = useState(null);
+
+  // Requisitions page state
+  const [requisitionSearchQuery, setRequisitionSearchQuery] = useState('');
+  const [requisitionStatusFilter, setRequisitionStatusFilter] = useState('all');
+  const [currentRequisitionsPage, setCurrentRequisitionsPage] = useState(1);
+  const requisitionsPerPage = 6;
   
   const [dashboardData, setDashboardData] = useState({
     stats: {
@@ -360,6 +382,52 @@ export default function ManagerDashboard({ user }) {
     return date.toLocaleDateString();
   };
 
+  // Filter and paginate requisitions
+  const getFilteredRequisitions = () => {
+    let filtered = dashboardData.activeRequisitions || [];
+
+    // Apply search filter
+    if (requisitionSearchQuery.trim()) {
+      const query = requisitionSearchQuery.toLowerCase();
+      filtered = filtered.filter(req => 
+        req.title?.toLowerCase().includes(query) ||
+        req.department?.toLowerCase().includes(query) ||
+        req.location?.toLowerCase().includes(query) ||
+        req.type?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply status filter
+    if (requisitionStatusFilter !== 'all') {
+      filtered = filtered.filter(req => req.status === requisitionStatusFilter);
+    }
+
+    return filtered;
+  };
+
+  const getPaginatedRequisitions = () => {
+    const filtered = getFilteredRequisitions();
+    const startIndex = (currentRequisitionsPage - 1) * requisitionsPerPage;
+    const endIndex = startIndex + requisitionsPerPage;
+    return filtered.slice(startIndex, endIndex);
+  };
+
+  const getTotalRequisitionsPages = () => {
+    const filtered = getFilteredRequisitions();
+    return Math.ceil(filtered.length / requisitionsPerPage);
+  };
+
+  const handleRequisitionsPageChange = (page) => {
+    setCurrentRequisitionsPage(page);
+    // Smooth scroll to top of requisitions section
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentRequisitionsPage(1);
+  }, [requisitionSearchQuery, requisitionStatusFilter]);
+
   const getStatusBadgeVariant = (status) => {
     const variants = {
       'submitted': 'secondary',
@@ -583,6 +651,38 @@ export default function ManagerDashboard({ user }) {
             </Button>
           </div>
 
+          {/* Filters Section */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by title, department, location, or type..."
+                      value={requisitionSearchQuery}
+                      onChange={(e) => setRequisitionSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div className="w-full sm:w-48">
+                  <Select value={requisitionStatusFilter} onValueChange={setRequisitionStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="on_hold">On Hold</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <Card>
@@ -590,7 +690,7 @@ export default function ManagerDashboard({ user }) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs md:text-sm text-gray-600 mb-1">Total Requisitions</p>
-                    <p className="text-xl md:text-2xl font-bold">{dashboardData.activeRequisitions.length}</p>
+                    <p className="text-xl md:text-2xl font-bold">{getFilteredRequisitions().length}</p>
                   </div>
                   <Briefcase className="h-8 w-8 text-blue-600" />
                 </div>
@@ -602,7 +702,7 @@ export default function ManagerDashboard({ user }) {
                   <div>
                     <p className="text-xs md:text-sm text-gray-600 mb-1">Open Positions</p>
                     <p className="text-xl md:text-2xl font-bold">
-                      {dashboardData.activeRequisitions.filter(r => r.status === 'open').length}
+                      {getFilteredRequisitions().filter(r => r.status === 'open').length}
                     </p>
                   </div>
                   <FileText className="h-8 w-8 text-green-600" />
@@ -615,7 +715,7 @@ export default function ManagerDashboard({ user }) {
                   <div>
                     <p className="text-xs md:text-sm text-gray-600 mb-1">Total Applications</p>
                     <p className="text-xl md:text-2xl font-bold">
-                      {dashboardData.activeRequisitions.reduce((sum, r) => sum + r.applicants, 0)}
+                      {getFilteredRequisitions().reduce((sum, r) => sum + r.applicants, 0)}
                     </p>
                   </div>
                   <Users className="h-8 w-8 text-purple-600" />
@@ -628,7 +728,7 @@ export default function ManagerDashboard({ user }) {
                   <div>
                     <p className="text-xs md:text-sm text-gray-600 mb-1">Interviews</p>
                     <p className="text-xl md:text-2xl font-bold">
-                      {dashboardData.activeRequisitions.reduce((sum, r) => sum + r.interviews, 0)}
+                      {getFilteredRequisitions().reduce((sum, r) => sum + r.interviews, 0)}
                     </p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-orange-600" />
@@ -638,13 +738,21 @@ export default function ManagerDashboard({ user }) {
           </div>
 
           {/* Requisitions List */}
-          {dashboardData.activeRequisitions.length === 0 ? (
+          {getFilteredRequisitions().length === 0 ? (
             <Card>
               <CardContent className="p-8 md:p-12">
                 <div className="text-center text-gray-500">
                   <Briefcase className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 md:mb-4 text-gray-400" />
-                  <p className="text-sm md:text-base mb-2">No job requisitions found</p>
-                  <p className="text-xs md:text-sm text-gray-400 mb-4">Create your first job requisition to start hiring</p>
+                  <p className="text-sm md:text-base mb-2">
+                    {requisitionSearchQuery || requisitionStatusFilter !== 'all' 
+                      ? 'No requisitions found matching your filters' 
+                      : 'No job requisitions found'}
+                  </p>
+                  <p className="text-xs md:text-sm text-gray-400 mb-4">
+                    {requisitionSearchQuery || requisitionStatusFilter !== 'all'
+                      ? 'Try adjusting your search or filter criteria'
+                      : 'Create your first job requisition to start hiring'}
+                  </p>
                   <Button onClick={handleNewRequisition}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create Requisition
@@ -653,84 +761,143 @@ export default function ManagerDashboard({ user }) {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3 md:space-y-4">
-              {dashboardData.activeRequisitions.map((req) => (
-                <Card key={req._id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4 md:p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                      {/* Job Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <h3 className="text-base md:text-lg font-semibold text-gray-900">{req.title}</h3>
-                          <Badge variant={req.status === 'open' ? 'default' : 'secondary'} className="text-xs">
-                            {req.status}
-                          </Badge>
-                        </div>
-                        
-                        {/* Job Details Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                          <div>
-                            <p className="text-xs text-gray-500">Location</p>
-                            <p className="text-sm font-medium text-gray-900">{req.location || 'Remote'}</p>
+            <>
+              <div className="space-y-3 md:space-y-4">
+                {getPaginatedRequisitions().map((req) => (
+                  <Card key={req._id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 md:p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        {/* Job Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-3">
+                            <h3 className="text-base md:text-lg font-semibold text-gray-900">{req.title}</h3>
+                            <Badge variant={req.status === 'open' ? 'default' : 'secondary'} className="text-xs">
+                              {req.status}
+                            </Badge>
                           </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Type</p>
-                            <p className="text-sm font-medium text-gray-900">{req.type || 'Full-time'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Department</p>
-                            <p className="text-sm font-medium text-gray-900">{req.department || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Posted</p>
-                            <p className="text-sm font-medium text-gray-900">
-                              {req.createdAt ? formatDate(req.createdAt) : 'Recently'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Statistics */}
-                        <div className="flex flex-wrap items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1.5">
-                            <Users className="h-4 w-4 text-blue-600" />
-                            <span className="text-gray-600">{req.applicants} applicants</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            <span className="text-gray-600">{req.interviews} interviews</span>
-                          </div>
-                          {req.salary && (
-                            <div className="flex items-center gap-1.5">
-                              <Star className="h-4 w-4 text-yellow-600" />
-                              <span className="text-gray-600">${req.salary.min}k - ${req.salary.max}k</span>
+                          
+                          {/* Job Details Grid */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                            <div>
+                              <p className="text-xs text-gray-500">Location</p>
+                              <p className="text-sm font-medium text-gray-900">{req.location || 'Remote'}</p>
                             </div>
-                          )}
+                            <div>
+                              <p className="text-xs text-gray-500">Type</p>
+                              <p className="text-sm font-medium text-gray-900">{req.type || 'Full-time'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Department</p>
+                              <p className="text-sm font-medium text-gray-900">{req.department || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Posted</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {req.createdAt ? formatDate(req.createdAt) : 'Recently'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Statistics */}
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
+                            <div className="flex items-center gap-1.5">
+                              <Users className="h-4 w-4 text-blue-600" />
+                              <span className="text-gray-600">{req.applicants} applicants</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-gray-600">{req.interviews} interviews</span>
+                            </div>
+                            {req.salary && (
+                              <div className="flex items-center gap-1.5">
+                                <Star className="h-4 w-4 text-yellow-600" />
+                                <span className="text-gray-600">${req.salary.min}k - ${req.salary.max}k</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-40">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewJobDetails(req)}
+                            className="w-full text-xs md:text-sm"
+                          >
+                            View Details
+                          </Button>
+                          <Button 
+                            size="sm"
+                            onClick={() => handleReviewCandidates(req)}
+                            className="w-full text-xs md:text-sm"
+                          >
+                            Review Candidates
+                          </Button>
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-                      {/* Actions */}
-                      <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-40">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleViewJobDetails(req)}
-                          className="w-full text-xs md:text-sm"
-                        >
-                          View Details
-                        </Button>
-                        <Button 
-                          size="sm"
-                          onClick={() => handleReviewCandidates(req)}
-                          className="w-full text-xs md:text-sm"
-                        >
-                          Review Candidates
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+              {/* Pagination */}
+              {getTotalRequisitionsPages() > 1 && (
+                <div className="flex justify-center mt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => handleRequisitionsPageChange(Math.max(1, currentRequisitionsPage - 1))}
+                          className={currentRequisitionsPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                      
+                      {[...Array(getTotalRequisitionsPages())].map((_, index) => {
+                        const pageNumber = index + 1;
+                        const totalPages = getTotalRequisitionsPages();
+                        
+                        // Show first page, last page, current page, and pages around current
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentRequisitionsPage - 1 && pageNumber <= currentRequisitionsPage + 1)
+                        ) {
+                          return (
+                            <PaginationItem key={pageNumber}>
+                              <PaginationLink
+                                onClick={() => handleRequisitionsPageChange(pageNumber)}
+                                isActive={currentRequisitionsPage === pageNumber}
+                                className="cursor-pointer"
+                              >
+                                {pageNumber}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        } else if (
+                          pageNumber === currentRequisitionsPage - 2 ||
+                          pageNumber === currentRequisitionsPage + 2
+                        ) {
+                          return (
+                            <PaginationItem key={pageNumber}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
+                        }
+                        return null;
+                      })}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => handleRequisitionsPageChange(Math.min(getTotalRequisitionsPages(), currentRequisitionsPage + 1))}
+                          className={currentRequisitionsPage === getTotalRequisitionsPages() ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

@@ -36,9 +36,11 @@ import {
   Clock,
   Video,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Gift
 } from 'lucide-react';
 import { Progress } from '../ui/progress';
+import toast from 'react-hot-toast';
 import applicationService from '../../services/applicationService';
 import interviewService from '../../services/interviewService';
 
@@ -69,6 +71,21 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
       const response = await applicationService.getApplicationById(applicationId);
       if (response.success) {
         setApplication(response.data);
+        
+        // Extract AI interview link from the latest AI interview if available
+        const aiInterviews = response.data.interviews?.filter(interview => 
+          interview.type === 'ai_video' && interview.aiInterview?.uniqueLink
+        );
+        
+        if (aiInterviews && aiInterviews.length > 0) {
+          // Get the most recent AI interview link
+          const latestAIInterview = aiInterviews[aiInterviews.length - 1];
+          const baseUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+          const fullLink = latestAIInterview.aiInterview.uniqueLink.startsWith('http') 
+            ? latestAIInterview.aiInterview.uniqueLink 
+            : `${baseUrl}/ai-interview/${latestAIInterview.aiInterview.uniqueLink}`;
+          setAiInterviewLink(fullLink);
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -111,13 +128,19 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
       });
 
       if (response.success) {
-        setApplication(response.data);
-        setNotes('');
         // Set the interview link from the response
         setAiInterviewLink(response.data.uniqueLink);
-        if (onStatusUpdate) {
-          onStatusUpdate(response.data);
-        }
+        setNotes('');
+        
+        // Fetch updated application data in the background to update local state only
+        applicationService.getApplicationById(applicationId).then(updatedApp => {
+          if (updatedApp.success) {
+            setApplication(updatedApp.data);
+            // Don't call onStatusUpdate here to avoid triggering parent dashboard reload
+          }
+        }).catch(err => {
+          console.error('Error refreshing application data:', err);
+        });
       }
     } catch (err) {
       setError(err.message);
@@ -129,9 +152,10 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
   const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      // You could add a toast notification here
+      toast.success('Interview link copied!');
     } catch (err) {
       console.error('Failed to copy text: ', err);
+      toast.error('Failed to copy link');
     }
   };
 
@@ -477,32 +501,63 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                   </CardHeader>
                   <CardContent className="overflow-hidden px-4 sm:px-6">
                     <div className="space-y-4 w-full max-w-full overflow-hidden">
+                      {/* Initial submission */}
                       <div className="flex gap-3 sm:gap-4">
                         <div className="flex flex-col items-center">
                           <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-600 rounded-full"></div>
-                          <div className="w-0.5 h-full bg-gray-300"></div>
+                          {(application.timeline && application.timeline.length > 0) && (
+                            <div className="w-0.5 h-full bg-gray-300"></div>
+                          )}
                         </div>
                         <div className="pb-8 flex-1">
                           <div className="font-semibold text-sm sm:text-base">Application Submitted</div>
                           <div className="text-xs sm:text-sm text-gray-500">
                             {new Date(application.createdAt).toLocaleString()}
                           </div>
+                          <Badge variant="secondary" className="mt-1 text-xs">
+                            Submitted
+                          </Badge>
                         </div>
                       </div>
-                      {application.updatedAt !== application.createdAt && (
-                        <div className="flex gap-3 sm:gap-4">
+
+                      {/* Timeline events from the timeline array */}
+                      {application.timeline && application.timeline.length > 0 && application.timeline.map((event, index) => (
+                        <div key={index} className="flex gap-3 sm:gap-4">
                           <div className="flex flex-col items-center">
                             <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-600 rounded-full"></div>
+                            {index < application.timeline.length - 1 && (
+                              <div className="w-0.5 h-full bg-gray-300"></div>
+                            )}
                           </div>
-                          <div className="flex-1">
-                            <div className="font-semibold text-sm sm:text-base">Status Updated</div>
-                            <div className="text-xs sm:text-sm text-gray-500">
-                              {new Date(application.updatedAt).toLocaleString()}
+                          <div className={`flex-1 ${index < application.timeline.length - 1 ? 'pb-8' : ''}`}>
+                            <div className="font-semibold text-sm sm:text-base">
+                              Status Changed to {getStatusLabel(event.status)}
                             </div>
-                            <Badge variant={getStatusBadgeVariant(application.status)} className="mt-1 text-xs">
-                              {getStatusLabel(application.status)}
+                            <div className="text-xs sm:text-sm text-gray-500">
+                              {new Date(event.date).toLocaleString()}
+                            </div>
+                            {event.updatedBy && (
+                              <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                                Updated by: {event.updatedBy.firstName} {event.updatedBy.lastName}
+                              </div>
+                            )}
+                            <Badge variant={getStatusBadgeVariant(event.status)} className="mt-1 text-xs">
+                              {getStatusLabel(event.status)}
                             </Badge>
+                            {event.notes && (
+                              <div className="mt-2 text-xs sm:text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                <span className="font-medium">Note: </span>
+                                {event.notes}
+                              </div>
+                            )}
                           </div>
+                        </div>
+                      ))}
+
+                      {/* Show a message if no timeline events exist */}
+                      {(!application.timeline || application.timeline.length === 0) && (
+                        <div className="text-center py-4 text-sm text-gray-500">
+                          No status updates yet
                         </div>
                       )}
                     </div>
@@ -539,15 +594,33 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                       <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                       Move to Review
                     </Button>
-                    <Button
-                      onClick={() => handleStatusUpdate('shortlisted')}
-                      disabled={isUpdating || application.status === 'shortlisted'}
-                      variant="outline"
-                      className="w-full sm:w-auto text-xs sm:text-sm"
-                    >
-                      <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                      Shortlist
-                    </Button>
+                    
+                    {/* Show Shortlist button only if not yet interview scheduled */}
+                    {!['interview_scheduled', 'interviewed', 'offer_extended'].includes(application.status) && (
+                      <Button
+                        onClick={() => handleStatusUpdate('shortlisted')}
+                        disabled={isUpdating || application.status === 'shortlisted'}
+                        variant="outline"
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                      >
+                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                        Shortlist
+                      </Button>
+                    )}
+                    
+                    {/* Show Offer button when interview is scheduled or completed */}
+                    {['interview_scheduled', 'interviewed'].includes(application.status) && (
+                      <Button
+                        onClick={() => handleStatusUpdate('offer_extended')}
+                        disabled={isUpdating || application.status === 'offer_extended'}
+                        variant="outline"
+                        className="w-full sm:w-auto text-xs sm:text-sm bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
+                      >
+                        <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                        Extend Offer
+                      </Button>
+                    )}
+                    
                     <Button
                       onClick={() => handleStatusUpdate('rejected')}
                       disabled={isUpdating}

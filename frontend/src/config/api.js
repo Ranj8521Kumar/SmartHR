@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
   UPDATE_DETAILS: `${API_BASE_URL}/auth/updatedetails`,
   UPDATE_PASSWORD: `${API_BASE_URL}/auth/updatepassword`,
   FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgotpassword`,
+  RESET_PASSWORD: `${API_BASE_URL}/auth/resetpassword/:token`,
   
   // User endpoints
   USERS: `${API_BASE_URL}/users`,

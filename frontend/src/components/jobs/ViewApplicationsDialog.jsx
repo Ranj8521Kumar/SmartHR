@@ -31,7 +31,6 @@ import dashboardService from '../../services/dashboardService';
 import applicationService from '../../services/applicationService';
 import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
 import { useAuth } from '../../hooks/useAuth';
-import interviewService from '../../services/interviewService';
 
 export default function ViewApplicationsDialog({ isOpen, onClose, job, user: propUser }) {
   const { user: authUser } = useAuth();
@@ -45,19 +44,18 @@ export default function ViewApplicationsDialog({ isOpen, onClose, job, user: pro
   const [rejectingId, setRejectingId] = useState(null);
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-  const [schedulingInterviewId, setSchedulingInterviewId] = useState(null);
-  const [interviewLink, setInterviewLink] = useState(null);
-  const [showInterviewLinkDialog, setShowInterviewLinkDialog] = useState(false);
 
   useEffect(() => {
     if (isOpen && job?._id) {
       console.log('Fetching applications for job:', job._id);
       fetchApplications();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, job?._id]);
 
   useEffect(() => {
     filterApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applications, searchQuery, activeTab]);
 
   const fetchApplications = async () => {

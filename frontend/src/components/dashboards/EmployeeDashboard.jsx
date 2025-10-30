@@ -21,6 +21,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination';
 import jobService from '../../services/jobService';
 import applicationService from '../../services/applicationService';
 import resumeService from '../../services/resumeService';
@@ -36,10 +37,15 @@ const statusColors = {
   'Offer Received': 'bg-green-100 text-green-800',
   'Rejected': 'bg-red-100 text-red-800',
   'pending': 'bg-gray-100 text-gray-800',
+  'submitted': 'bg-gray-100 text-gray-800',
+  'under_review': 'bg-blue-100 text-blue-800',
   'reviewed': 'bg-blue-100 text-blue-800',
   'shortlisted': 'bg-purple-100 text-purple-800',
   'interview_scheduled': 'bg-purple-100 text-purple-800',
+  'interviewed': 'bg-purple-100 text-purple-800',
+  'offer_extended': 'bg-green-100 text-green-800',
   'offered': 'bg-green-100 text-green-800',
+  'accepted': 'bg-green-100 text-green-800',
   'rejected': 'bg-red-100 text-red-800',
   'withdrawn': 'bg-gray-100 text-gray-800',
 };
@@ -65,6 +71,12 @@ export default function EmployeeDashboard({ user }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [jobsPerPage] = useState(6); // Show 6 jobs per page (3 rows x 2 columns)
   
   // State for jobs
   const [jobs, setJobs] = useState([]);
@@ -168,46 +180,86 @@ export default function EmployeeDashboard({ user }) {
 
   // Generate notifications from applications (run on mount and when data changes)
   useEffect(() => {
-    // Generate notifications based on application status changes
-    const generatedNotifications = applications.map((app) => {
+    // Generate notifications from application timeline events to show ALL status changes
+    const generatedNotifications = [];
+    
+    applications.forEach((app) => {
       const job = jobs.find(j => j._id === app.job?._id) || app.job;
-      const timeAgo = formatTimeAgo(new Date(app.updatedAt));
       
-      let type = 'info';
-      let message = '';
-      
-      switch(app.status) {
-        case 'Accepted':
-          type = 'success';
-          message = `Your application for ${job?.title || 'a position'} has been accepted!`;
-          break;
-        case 'Rejected':
-          type = 'error';
-          message = `Your application for ${job?.title || 'a position'} was not successful.`;
-          break;
-        case 'Interview':
-          type = 'warning';
-          message = `You have been invited for an interview for ${job?.title || 'a position'}!`;
-          break;
-        case 'Reviewed':
-          type = 'info';
-          message = `Your application for ${job?.title || 'a position'} is under review.`;
-          break;
-        default:
-          type = 'info';
-          message = `Your application for ${job?.title || 'a position'} has been submitted.`;
-      }
-      
-      return {
-        id: app._id,
-        type,
-        message,
-        time: timeAgo,
-        read: readNotifications.has(app._id), // Check if notification was read
+      // Add notification for initial submission
+      const submissionTime = formatTimeAgo(new Date(app.createdAt));
+      generatedNotifications.push({
+        id: `${app._id}_submitted`,
+        type: 'info',
+        message: `Your application for ${job?.title || 'a position'} has been submitted.`,
+        time: submissionTime,
+        read: readNotifications.has(`${app._id}_submitted`),
         applicationId: app._id,
-        jobId: job?._id
-      };
-    }).reverse(); // Show newest first
+        jobId: job?._id,
+        timestamp: new Date(app.createdAt).getTime()
+      });
+      
+      // Add notifications for each status change in timeline
+      if (app.timeline && app.timeline.length > 0) {
+        app.timeline.forEach((event, index) => {
+          const eventTime = formatTimeAgo(new Date(event.date));
+          let type = 'info';
+          let message = '';
+          
+          switch(event.status) {
+            case 'accepted':
+              type = 'success';
+              message = `Your application for ${job?.title || 'a position'} has been accepted! 🎉`;
+              break;
+            case 'rejected':
+              type = 'error';
+              message = `Your application for ${job?.title || 'a position'} was not successful.`;
+              break;
+            case 'interview_scheduled':
+              type = 'warning';
+              message = `You have been invited for an interview for ${job?.title || 'a position'}! 📅`;
+              break;
+            case 'interviewed':
+              type = 'info';
+              message = `Interview completed for ${job?.title || 'a position'}.`;
+              break;
+            case 'offer_extended':
+              type = 'success';
+              message = `Congratulations! You have received a job offer for ${job?.title || 'a position'}! 🎁`;
+              break;
+            case 'under_review':
+              type = 'info';
+              message = `Your application for ${job?.title || 'a position'} is under review. 👀`;
+              break;
+            case 'shortlisted':
+              type = 'success';
+              message = `Great news! You've been shortlisted for ${job?.title || 'a position'}! ⭐`;
+              break;
+            case 'withdrawn':
+              type = 'info';
+              message = `Your application for ${job?.title || 'a position'} has been withdrawn.`;
+              break;
+            default:
+              type = 'info';
+              message = `Application status updated to ${event.status.replace('_', ' ')} for ${job?.title || 'a position'}.`;
+          }
+          
+          generatedNotifications.push({
+            id: `${app._id}_${event.status}_${index}`,
+            type,
+            message,
+            time: eventTime,
+            read: readNotifications.has(`${app._id}_${event.status}_${index}`),
+            applicationId: app._id,
+            jobId: job?._id,
+            timestamp: new Date(event.date).getTime()
+          });
+        });
+      }
+    });
+    
+    // Sort by timestamp (newest first)
+    generatedNotifications.sort((a, b) => b.timestamp - a.timestamp);
     
     setNotifications(generatedNotifications);
   }, [applications, jobs, readNotifications]); // Run when applications, jobs, or read state changes
@@ -220,6 +272,8 @@ export default function EmployeeDashboard({ user }) {
       try {
         const params = {
           status: 'open',
+          page: currentPage,
+          limit: jobsPerPage,
         };
         
         if (searchQuery) params.search = searchQuery;
@@ -228,6 +282,8 @@ export default function EmployeeDashboard({ user }) {
         
         const response = await jobService.getJobs(params);
         setJobs(response.data || []);
+        setTotalPages(response.pages || 1);
+        setTotalJobs(response.total || 0);
       } catch (error) {
         console.error('Error fetching jobs:', error);
         setJobsError(error.message || 'Failed to load jobs');
@@ -237,7 +293,7 @@ export default function EmployeeDashboard({ user }) {
     };
 
     fetchJobs();
-  }, [searchQuery, departmentFilter, typeFilter]); // Fetch on mount and when filters change
+  }, [searchQuery, departmentFilter, typeFilter, currentPage, jobsPerPage]); // Fetch on mount and when filters or page change
 
   // Fetch applications from API on mount (always load to check "already applied" status)
   useEffect(() => {
@@ -454,6 +510,21 @@ export default function EmployeeDashboard({ user }) {
     }
   };
 
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    // Scroll to top of main content area when page changes
+    const mainElement = document.querySelector('main');
+    if (mainElement) {
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, departmentFilter, typeFilter]);
+
   // Filter jobs for saved view
   const displayJobs = activeView === 'saved' 
     ? jobs.filter(job => savedJobs.includes(job._id))
@@ -471,9 +542,13 @@ export default function EmployeeDashboard({ user }) {
     >
       {activeView === 'browse' && (
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Browse Jobs</h1>
-            <p className="text-sm sm:text-base text-gray-600">Find your next opportunity</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Browse Jobs</h1>
+              <p className="text-sm sm:text-base text-gray-600">
+                {loadingJobs ? 'Loading...' : `${totalJobs} ${totalJobs === 1 ? 'opportunity' : 'opportunities'} available`}
+              </p>
+            </div>
           </div>
 
           {/* Search and Filters */}
@@ -645,6 +720,123 @@ export default function EmployeeDashboard({ user }) {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loadingJobs && !jobsError && jobs.length > 0 && totalPages > 1 && (
+            <div className="flex flex-col items-center gap-4 mt-8">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) handlePageChange(currentPage - 1);
+                      }}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  
+                  {/* First Page */}
+                  {currentPage > 2 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationLink 
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handlePageChange(1);
+                          }}
+                        >
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                      {currentPage > 3 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Previous Page */}
+                  {currentPage > 1 && (
+                    <PaginationItem>
+                      <PaginationLink 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(currentPage - 1);
+                        }}
+                      >
+                        {currentPage - 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Current Page */}
+                  <PaginationItem>
+                    <PaginationLink href="#" isActive onClick={(e) => e.preventDefault()}>
+                      {currentPage}
+                    </PaginationLink>
+                  </PaginationItem>
+                  
+                  {/* Next Page */}
+                  {currentPage < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(currentPage + 1);
+                        }}
+                      >
+                        {currentPage + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Last Page */}
+                  {currentPage < totalPages - 1 && (
+                    <>
+                      {currentPage < totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink 
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handlePageChange(totalPages);
+                          }}
+                        >
+                          {totalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                      }}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+              
+              {/* Pagination Info */}
+              <p className="text-sm text-gray-600">
+                Showing {jobs.length > 0 ? ((currentPage - 1) * jobsPerPage + 1) : 0} to {Math.min(currentPage * jobsPerPage, totalJobs)} of {totalJobs} jobs
+              </p>
             </div>
           )}
         </div>
@@ -882,6 +1074,7 @@ export default function EmployeeDashboard({ user }) {
                       {/* Timeline - Mobile Responsive */}
                       <div className="mt-4 pt-4 border-t">
                         <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto pb-2">
+                          {/* Applied Stage - Always completed */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
                             <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-green-100 flex items-center justify-center">
                               <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-600" />
@@ -889,23 +1082,29 @@ export default function EmployeeDashboard({ user }) {
                             <span className="text-xs sm:text-sm whitespace-nowrap">Applied</span>
                           </div>
                           <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          
+                          {/* Review Stage - Completed if status is under_review, shortlisted, interview_scheduled, interviewed, offer_extended, or accepted */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['reviewed', 'shortlisted', 'interview_scheduled', 'offered'].includes(app.status) ? 'bg-blue-600' : 'bg-gray-400'}`} />
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['under_review', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-blue-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['under_review', 'shortlisted', 'interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-blue-600' : 'bg-gray-400'}`} />
                             </div>
                             <span className="text-xs sm:text-sm whitespace-nowrap">Review</span>
                           </div>
                           <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          
+                          {/* Interview Stage - Completed if status is interview_scheduled, interviewed, offer_extended, or accepted */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['interview_scheduled', 'offered'].includes(app.status) ? 'bg-purple-600' : 'bg-gray-400'}`} />
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-purple-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['interview_scheduled', 'interviewed', 'offer_extended', 'accepted'].includes(app.status) ? 'bg-purple-600' : 'bg-gray-400'}`} />
                             </div>
                             <span className="text-xs sm:text-sm whitespace-nowrap">Interview</span>
                           </div>
                           <div className="flex-1 h-px bg-gray-300 min-w-[20px] sm:min-w-[40px]" />
+                          
+                          {/* Offer Stage - Completed if status is offer_extended or accepted */}
                           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-shrink-0">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${app.status === 'offered' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${app.status === 'offered' ? 'bg-green-600' : 'bg-gray-400'}`} />
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full ${['offer_extended', 'accepted'].includes(app.status) ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center`}>
+                              <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${['offer_extended', 'accepted'].includes(app.status) ? 'bg-green-600' : 'bg-gray-400'}`} />
                             </div>
                             <span className="text-xs sm:text-sm whitespace-nowrap">Offer</span>
                           </div>

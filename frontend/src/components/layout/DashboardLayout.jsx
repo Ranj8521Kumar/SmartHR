@@ -19,7 +19,7 @@ export default function DashboardLayout({
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="fixed inset-0 flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar 
         items={sidebarItems} 
         theme={theme} 

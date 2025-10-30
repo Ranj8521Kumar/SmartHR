@@ -5,7 +5,12 @@ import HRManagerDashboard from './components/dashboards/HRManagerDashboard';
 import ManagerDashboard from './components/dashboards/ManagerDashboard';
 import EmployeeDashboard from './components/dashboards/EmployeeDashboard';
 import AIInterviewPage from './components/interviews/AIInterviewPage';
+import ResetPasswordPage from './components/auth/ResetPasswordPage';
+import OAuthCallback from './components/auth/OAuthCallback';
 import { Button } from './components/ui/button';
+import { Toaster } from './components/ui/sonner';
+import { Toaster as HotToaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { LogOut } from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
@@ -15,9 +20,16 @@ function AppContent() {
 
   const handleLogout = async () => {
     try {
+      // Show logout toast first
+      toast.success('Logged out successfully!');
+      
+      // Small delay to ensure toast is visible before redirect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       await logout();
     } catch (error) {
       console.error('Logout error:', error);
+      toast.error('Logout failed. Please try again.');
     }
   };
 
@@ -63,6 +75,31 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster />
+      <HotToaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            duration: 4000,
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       {/* Logout Button - only show when authenticated */}
       {isAuthenticated && (
         <div className="fixed bottom-4 right-4 z-50">
@@ -78,8 +115,10 @@ function AppContent() {
       )}
 
       <Routes>
-        {/* Public AI Interview Route - must be first */}
+        {/* Public Routes */}
         <Route path="/ai-interview/:link" element={<AIInterviewPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/auth/oauth-callback" element={<OAuthCallback />} />
 
         {/* Authenticated routes */}
         {isAuthenticated ? (

@@ -30,7 +30,8 @@ import {
   Send,
   Inbox,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Gift
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -1328,16 +1329,34 @@ export default function HRManagerDashboard({ user }) {
                           </Button>
                           {app.status !== 'accepted' && app.status !== 'rejected' && (
                             <>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleQuickStatusUpdate(app._id, 'shortlisted')}
-                                title="Shortlist"
-                                disabled={app.status === 'shortlisted'}
-                                className="flex-1 sm:flex-none h-8 sm:h-9"
-                              >
-                                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-                              </Button>
+                              {/* Show Shortlist button only if not yet interview scheduled */}
+                              {!['interview_scheduled', 'interviewed', 'offer_extended'].includes(app.status) && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => handleQuickStatusUpdate(app._id, 'shortlisted')}
+                                  title="Shortlist"
+                                  disabled={app.status === 'shortlisted'}
+                                  className="flex-1 sm:flex-none h-8 sm:h-9"
+                                >
+                                  <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                </Button>
+                              )}
+                              
+                              {/* Show Extend Offer button when interview is scheduled or completed */}
+                              {['interview_scheduled', 'interviewed'].includes(app.status) && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => handleQuickStatusUpdate(app._id, 'offer_extended')}
+                                  title="Extend Offer"
+                                  disabled={app.status === 'offer_extended'}
+                                  className="flex-1 sm:flex-none h-8 sm:h-9"
+                                >
+                                  <Gift className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                </Button>
+                              )}
+                              
                               <Button 
                                 size="sm" 
                                 variant="outline" 

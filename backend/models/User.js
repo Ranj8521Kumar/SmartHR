@@ -27,9 +27,21 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Please add a password'],
+    required: function() {
+      // Password is not required for OAuth users
+      return !this.provider || this.provider === 'local';
+    },
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
+  },
+  provider: {
+    type: String,
+    enum: ['local', 'google', 'linkedin'],
+    default: 'local'
+  },
+  providerId: {
+    type: String,
+    sparse: true
   },
   role: {
     type: String,
@@ -79,11 +91,13 @@ const UserSchema = new mongoose.Schema({
 
 // Encrypt password using bcrypt before saving
 UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
+  // Skip password hashing if password is not modified or not present (OAuth users)
+  if (!this.isModified('password') || !this.password) {
     next();
+  } else {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Sign JWT and return

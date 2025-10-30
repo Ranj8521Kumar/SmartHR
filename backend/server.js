@@ -10,14 +10,18 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const path = require('path');
 const fileupload = require('express-fileupload');
+const session = require('express-session');
 
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const loggerMiddleware = require('./middleware/logger');
 const logger = require('./utils/logger');
 
-// Load env vars
+// Load env vars FIRST before importing passport
 dotenv.config();
+
+// Import passport AFTER env vars are loaded
+const passport = require('./config/passport');
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
@@ -177,7 +181,7 @@ server.keepAliveTimeout = 610000; // Slightly higher than timeout
 server.headersTimeout = 620000; // Slightly higher than keepAliveTimeout
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
+process.on('unhandledRejection', (err, _promise) => {
   logger.error(`Unhandled Rejection: ${err.message}`);
   console.log(`Error: ${err.message}`);
   // Close server & exit process
