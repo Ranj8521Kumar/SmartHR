@@ -75,6 +75,8 @@ export default function ManagerDashboard({ user }) {
   const [loadingApplications, setLoadingApplications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentApplicationsPage, setCurrentApplicationsPage] = useState(1);
+  const applicationsPerPage = 8;
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
 
@@ -83,6 +85,8 @@ export default function ManagerDashboard({ user }) {
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
   const [candidateFilter, setCandidateFilter] = useState('all');
+  const [currentCandidatesPage, setCurrentCandidatesPage] = useState(1);
+  const candidatesPerPage = 8;
 
   // Approvals page state
   const [approvals, setApprovals] = useState([]);
@@ -166,12 +170,14 @@ export default function ManagerDashboard({ user }) {
   const fetchCandidates = async () => {
     try {
       setLoadingCandidates(true);
-      // Fetch applications with shortlisted or higher status
-      const response = await dashboardService.getApplications({
-        status: 'shortlisted,interview_scheduled,interviewed,offer_extended'
-      });
+      // Fetch all applications, then filter client-side for relevant statuses
+      const response = await dashboardService.getApplications();
       if (response.success) {
-        setCandidates(response.data || []);
+        const all = response.data || [];
+        const relevantStatuses = new Set(['shortlisted','interview_scheduled','interviewed','offer_extended']);
+        const filtered = all.filter(app => relevantStatuses.has(app.status));
+        setCandidates(filtered);
+        setCurrentCandidatesPage(1);
       }
     } catch (error) {
       console.error('Failed to fetch candidates:', error);
@@ -302,6 +308,29 @@ export default function ManagerDashboard({ user }) {
     return filtered;
   };
 
+  // Applications pagination helpers
+  const getPaginatedApplications = () => {
+    const filtered = getFilteredApplications();
+    const startIndex = (currentApplicationsPage - 1) * applicationsPerPage;
+    const endIndex = startIndex + applicationsPerPage;
+    return filtered.slice(startIndex, endIndex);
+  };
+
+  const getTotalApplicationsPages = () => {
+    const filtered = getFilteredApplications();
+    return Math.ceil(filtered.length / applicationsPerPage) || 1;
+  };
+
+  const handleApplicationsPageChange = (page) => {
+    setCurrentApplicationsPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset Applications page when filters/search change
+  useEffect(() => {
+    setCurrentApplicationsPage(1);
+  }, [searchQuery, statusFilter]);
+
   const getFilteredCandidates = () => {
     let filtered = candidates;
 
@@ -329,12 +358,35 @@ export default function ManagerDashboard({ user }) {
     return filtered;
   };
 
+  // Pagination helpers for Candidates
+  const getPaginatedCandidates = () => {
+    const filtered = getFilteredCandidates();
+    const startIndex = (currentCandidatesPage - 1) * candidatesPerPage;
+    const endIndex = startIndex + candidatesPerPage;
+    return filtered.slice(startIndex, endIndex);
+  };
+
+  const getTotalCandidatePages = () => {
+    const filtered = getFilteredCandidates();
+    return Math.ceil(filtered.length / candidatesPerPage) || 1;
+  };
+
+  const handleCandidatesPageChange = (page) => {
+    setCurrentCandidatesPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset to first page when candidate filters change
+  useEffect(() => {
+    setCurrentCandidatesPage(1);
+  }, [candidateSearchQuery, candidateFilter]);
+
   const sidebarItems = [
     { icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', active: activeView === 'dashboard', onClick: () => setActiveView('dashboard') },
-    { icon: <Briefcase className="h-5 w-5" />, label: 'Requisitions', active: activeView === 'requisitions', onClick: () => setActiveView('requisitions') },
+    { icon: <Briefcase className="h-5 w-5" />, label: 'Requisitions', active: activeView === 'requisitions', onClick: () => setActiveView('requisitions'), badge: (dashboardData.activeRequisitions || []).length },
     { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: dashboardData.stats.totalApplications },
-    { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates') },
-    { icon: <CheckCircle className="h-5 w-5" />, label: 'Approvals', active: activeView === 'approvals', onClick: () => setActiveView('approvals'), badge: dashboardData.stats.pendingApprovals },
+    { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates'), badge: getFilteredCandidates().length },
+    { icon: <CheckCircle className="h-5 w-5" />, label: 'Approvals', active: activeView === 'approvals', onClick: () => setActiveView('approvals'), badge: approvals.length || dashboardData.stats.pendingApprovals },
   ];
 
   const toggleCandidateSelection = (id) => {
@@ -1021,8 +1073,9 @@ export default function ManagerDashboard({ user }) {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3 md:space-y-4">
-              {getFilteredApplications().map((app) => (
+            <>
+              <div className="space-y-3 md:space-y-4">
+                {getPaginatedApplications().map((app) => (
                 <Card key={app._id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4 md:p-6">
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">
@@ -1156,8 +1209,63 @@ export default function ManagerDashboard({ user }) {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {getTotalApplicationsPages() > 1 && (
+                <div className="flex justify-center mt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handleApplicationsPageChange(Math.max(1, currentApplicationsPage - 1))}
+                          className={currentApplicationsPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+
+                      {[...Array(getTotalApplicationsPages())].map((_, index) => {
+                        const pageNumber = index + 1;
+                        const totalPages = getTotalApplicationsPages();
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentApplicationsPage - 1 && pageNumber <= currentApplicationsPage + 1)
+                        ) {
+                          return (
+                            <PaginationItem key={pageNumber}>
+                              <PaginationLink
+                                onClick={() => handleApplicationsPageChange(pageNumber)}
+                                isActive={currentApplicationsPage === pageNumber}
+                                className="cursor-pointer"
+                              >
+                                {pageNumber}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        } else if (
+                          pageNumber === currentApplicationsPage - 2 ||
+                          pageNumber === currentApplicationsPage + 2
+                        ) {
+                          return (
+                            <PaginationItem key={pageNumber}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
+                        }
+                        return null;
+                      })}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handleApplicationsPageChange(Math.min(getTotalApplicationsPages(), currentApplicationsPage + 1))}
+                          className={currentApplicationsPage === getTotalApplicationsPages() ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1290,8 +1398,9 @@ export default function ManagerDashboard({ user }) {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-              {getFilteredCandidates().map((candidate) => (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                {getPaginatedCandidates().map((candidate) => (
                 <Card 
                   key={candidate._id}
                   className={`hover:shadow-lg transition-shadow ${selectedCandidates.includes(candidate._id) ? 'ring-2 ring-green-600' : ''}`}
@@ -1399,8 +1508,63 @@ export default function ManagerDashboard({ user }) {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {getTotalCandidatePages() > 1 && (
+                <div className="flex justify-center mt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => handleCandidatesPageChange(Math.max(1, currentCandidatesPage - 1))}
+                          className={currentCandidatesPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+
+                      {[...Array(getTotalCandidatePages())].map((_, index) => {
+                        const pageNumber = index + 1;
+                        const totalPages = getTotalCandidatePages();
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentCandidatesPage - 1 && pageNumber <= currentCandidatesPage + 1)
+                        ) {
+                          return (
+                            <PaginationItem key={pageNumber}>
+                              <PaginationLink
+                                onClick={() => handleCandidatesPageChange(pageNumber)}
+                                isActive={currentCandidatesPage === pageNumber}
+                                className="cursor-pointer"
+                              >
+                                {pageNumber}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        } else if (
+                          pageNumber === currentCandidatesPage - 2 ||
+                          pageNumber === currentCandidatesPage + 2
+                        ) {
+                          return (
+                            <PaginationItem key={pageNumber}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
+                        }
+                        return null;
+                      })}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => handleCandidatesPageChange(Math.min(getTotalCandidatePages(), currentCandidatesPage + 1))}
+                          className={currentCandidatesPage === getTotalCandidatePages() ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

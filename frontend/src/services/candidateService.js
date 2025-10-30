@@ -1,22 +1,16 @@
 import axios from 'axios';
+import { API_ENDPOINTS } from '../config/api';
+import authService from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+// Create an axios client without hardcoding a different base URL.
+// We'll pass full endpoint URLs from API_ENDPOINTS to avoid env var mismatches.
+const apiClient = axios.create();
 
-// Get auth token from localStorage
-const getAuthToken = () => {
-  const token = localStorage.getItem('token');
-  return token;
-};
-
-// Axios instance with auth header
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-});
-
-// Add token to requests
+// Attach auth token on each request
 apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken();
+  const token = authService.getToken();
   if (token) {
+    config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -30,7 +24,7 @@ const candidateService = {
    */
   getCandidates: async (params = {}) => {
     try {
-      const response = await apiClient.get('/applications', { params });
+      const response = await apiClient.get(API_ENDPOINTS.APPLICATIONS, { params });
       
       if (response.data.success) {
         // Extract unique candidates from applications
@@ -151,7 +145,7 @@ const candidateService = {
   getCandidateById: async (candidateId) => {
     try {
       // Get all applications for this candidate
-      const response = await apiClient.get('/applications', {
+      const response = await apiClient.get(API_ENDPOINTS.APPLICATIONS, {
         params: { applicant: candidateId }
       });
       
