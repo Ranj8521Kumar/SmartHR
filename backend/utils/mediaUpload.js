@@ -51,6 +51,11 @@ const uploadVideoRecording = async (buffer, filename, applicationId, interviewId
           quality: 'auto',
           timeout: 600000, // 10 minute timeout for large files
           chunk_size: 6000000, // 6MB chunks for better reliability
+          // Async processing for large videos
+          eager_async: true,
+          eager: [
+            { format: 'webm', quality: 'auto' }
+          ],
           // Add metadata
           context: {
             application_id: applicationId,
@@ -149,6 +154,11 @@ const uploadAudioRecording = async (buffer, filename, applicationId, interviewId
           format: 'webm',
           timeout: 600000, // 10 minute timeout for large files
           chunk_size: 6000000, // 6MB chunks for better reliability
+          // Async processing for large files
+          eager_async: true,
+          eager: [
+            { format: 'webm', quality: 'auto' }
+          ],
           // Add metadata
           context: {
             application_id: applicationId,
@@ -237,6 +247,11 @@ const uploadRemoteVideoUrl = async (remoteUrl, applicationId, interviewId) => {
       access_mode: 'public',
       overwrite: false,
       quality: 'auto',
+      // Async processing for large videos
+      eager_async: true,
+      eager: [
+        { format: 'webm', quality: 'auto' }
+      ],
       context: {
         application_id: applicationId,
         interview_id: interviewId,
