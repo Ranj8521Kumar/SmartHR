@@ -31,6 +31,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
+          let isNewUser = false;
           // Check if user already exists
           let user = await User.findOne({ providerId: profile.id, provider: 'google' });
 
@@ -45,6 +46,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
               await user.save();
             } else {
               // Create new user
+              isNewUser = true;
               user = await User.create({
                 firstName: profile.name.givenName || profile.displayName.split(' ')[0],
                 lastName: profile.name.familyName || profile.displayName.split(' ')[1] || '',
@@ -58,6 +60,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             }
           }
 
+          // Attach isNewUser flag to user object for use in callback
+          user.isNewUser = isNewUser;
           return done(null, user);
         } catch (err) {
           console.error('Google OAuth error:', err);
@@ -86,6 +90,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
+          let isNewUser = false;
           // Check if user already exists
           let user = await User.findOne({ providerId: profile.id, provider: 'linkedin' });
 
@@ -106,6 +111,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
               await user.save();
             } else {
               // Create new user
+              isNewUser = true;
               const firstName = profile.name.givenName || profile.displayName.split(' ')[0];
               const lastName = profile.name.familyName || profile.displayName.split(' ').slice(1).join(' ') || '';
 
@@ -122,6 +128,8 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
             }
           }
 
+          // Attach isNewUser flag to user object for use in callback
+          user.isNewUser = isNewUser;
           return done(null, user);
         } catch (err) {
           console.error('LinkedIn OAuth error:', err);
