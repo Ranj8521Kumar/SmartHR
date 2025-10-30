@@ -243,7 +243,7 @@ export default function LandingPage() {
               <motion.a 
                 href="#features"
                 whileHover={{ y: -2 }}
-                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400 hover:text-lg`}
               >
                 <span className="relative">
                 Features
@@ -257,7 +257,7 @@ export default function LandingPage() {
               <motion.a 
                 href="#how-it-works"
                 whileHover={{ y: -2 }}
-                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400 hover:text-lg`}
               >
                 <span className="relative">
                 How It Works
@@ -271,7 +271,7 @@ export default function LandingPage() {
               <motion.a 
                 href="#roles"
                 whileHover={{ y: -2 }}
-                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400 hover:text-lg`}
               >
                 <span className="relative">
                 Roles
@@ -285,7 +285,7 @@ export default function LandingPage() {
               <motion.button
                 onClick={() => setIsOpportunitiesOpen(true)}
                 whileHover={{ y: -2 }}
-                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400 hover:text-lg`}
               >
                 <span className="relative">
                 Opportunities
@@ -299,7 +299,7 @@ export default function LandingPage() {
               <motion.a 
                 href="#contact"
                 whileHover={{ y: -2 }}
-                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400`}
+                className={`relative transition-all duration-300 ${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-blue-400 hover:text-lg`}
               >
                 <span className="relative">
                 Contact
@@ -318,7 +318,7 @@ export default function LandingPage() {
                   >
                   <Button 
                       variant={isScrolled ? 'outline' : 'ghost'}
-                      className={`transition-all duration-300 ${
+                      className={`transition-all duration-300 hover:scale-105 text-base hover:text-lg ${
                         !isScrolled 
                           ? 'bg-white/10 backdrop-blur-md text-white border border-white/30 hover:bg-white/20 hover:border-white/50 shadow-lg' 
                           : 'bg-transparent hover:bg-gray-100'
@@ -434,7 +434,7 @@ export default function LandingPage() {
               </motion.a>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button className="w-full bg-purple-600/80 text-white hover:bg-purple-700 shadow-lg">
+                  <Button className="w-full bg-purple-600/80 text-white hover:bg-purple-700 shadow-lg transition-all duration-200 hover:scale-105 text-base hover:text-lg">
                     Sign In
                   </Button>
                 </PopoverTrigger>
@@ -556,7 +556,7 @@ export default function LandingPage() {
                   >
                   <Button 
                     size="lg" 
-                      className="w-full sm:w-auto bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/30 shadow-xl font-semibold px-8 py-6 text-base sm:text-lg"
+                      className="w-full sm:w-auto bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/30 shadow-xl font-semibold px-8 py-6 text-base sm:text-lg transition-all duration-200 hover:scale-105 hover:text-lg"
                   >
                     Sign In
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -608,7 +608,7 @@ export default function LandingPage() {
               >
               <Button 
                 size="lg" 
-                  className="w-full sm:w-auto bg-purple-600/50 text-white border border-white/30 hover:bg-purple-300 hover:text-gray-900 hover:border-purple-400 backdrop-blur-sm transition-all duration-300 shadow-xl font-semibold px-8 py-6 text-base sm:text-lg whitespace-nowrap"
+                  className="w-full sm:w-auto bg-purple-600 text-white border border-white/30 hover:bg-purple-700 hover:text-white hover:border-purple-500 backdrop-blur-sm transition-all duration-300 hover:scale-105 active:scale-105 shadow-xl font-semibold px-8 py-6 text-base sm:text-lg hover:text-lg whitespace-nowrap"
               >
                 Get Started
               </Button>
@@ -636,7 +636,7 @@ export default function LandingPage() {
         <motion.div
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-30"
+          className="absolute bottom-20 md:bottom-8 left-1/2 transform -translate-x-1/2 z-30"
         >
           <ChevronDown className="h-6 w-6 text-white" />
         </motion.div>
