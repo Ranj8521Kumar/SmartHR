@@ -7,6 +7,98 @@ const { analyzeApplicationAI } = require('../services/aiService');
 const sendEmail = require('../utils/sendEmail');
 const { uploadVideoRecording, uploadAudioRecording, uploadRemoteVideoUrl } = require('../utils/mediaUpload');
 
+// Helper function to format status display names
+const getStatusDisplayName = (status) => {
+  const statusMap = {
+    'submitted': 'Submitted',
+    'under_review': 'Under Review',
+    'shortlisted': 'Shortlisted',
+    'interview_scheduled': 'Interview Scheduled',
+    'interviewed': 'Interviewed',
+    'offer_extended': 'Offer Extended',
+    'accepted': 'Accepted',
+    'rejected': 'Rejected',
+    'withdrawn': 'Withdrawn'
+  };
+  return statusMap[status] || status;
+};
+
+// Helper function to get status-specific message and styling
+const getStatusEmailDetails = (status) => {
+  const details = {
+    'submitted': {
+      icon: '📧',
+      color: '#2196f3',
+      bgColor: '#e3f2fd',
+      message: 'Your application has been received and is being reviewed by our team.',
+      nextSteps: 'Our HR team will review your application and get back to you soon.'
+    },
+    'under_review': {
+      icon: '👀',
+      color: '#ff9800',
+      bgColor: '#fff3e0',
+      message: 'Your application is currently being reviewed by our recruitment team.',
+      nextSteps: 'We are evaluating your qualifications and will update you soon.'
+    },
+    'shortlisted': {
+      icon: '⭐',
+      color: '#4caf50',
+      bgColor: '#e8f5e9',
+      message: 'Congratulations! Your application has been shortlisted.',
+      nextSteps: 'You may be contacted for the next step in the hiring process.'
+    },
+    'interview_scheduled': {
+      icon: '📅',
+      color: '#9c27b0',
+      bgColor: '#f3e5f5',
+      message: 'An interview has been scheduled for your application.',
+      nextSteps: 'Please check your dashboard or email for interview details.'
+    },
+    'interviewed': {
+      icon: '✅',
+      color: '#2196f3',
+      bgColor: '#e3f2fd',
+      message: 'Thank you for completing your interview.',
+      nextSteps: 'We will review your interview and get back to you soon.'
+    },
+    'offer_extended': {
+      icon: '🎉',
+      color: '#4caf50',
+      bgColor: '#e8f5e9',
+      message: 'Congratulations! We are pleased to extend an offer to you.',
+      nextSteps: 'Please check your dashboard or email for the offer details.'
+    },
+    'accepted': {
+      icon: '🎊',
+      color: '#4caf50',
+      bgColor: '#e8f5e9',
+      message: 'Welcome aboard! Your offer has been accepted.',
+      nextSteps: 'Our team will contact you with onboarding details.'
+    },
+    'rejected': {
+      icon: '😔',
+      color: '#f44336',
+      bgColor: '#ffebee',
+      message: 'Thank you for your interest, but we have decided to move forward with other candidates.',
+      nextSteps: 'We encourage you to apply for other positions that match your skills.'
+    },
+    'withdrawn': {
+      icon: '↩️',
+      color: '#9e9e9e',
+      bgColor: '#f5f5f5',
+      message: 'Your application has been withdrawn.',
+      nextSteps: 'Feel free to apply for other positions anytime.'
+    }
+  };
+  return details[status] || {
+    icon: '📌',
+    color: '#2196f3',
+    bgColor: '#e3f2fd',
+    message: `Your application status has been updated to ${getStatusDisplayName(status)}.`,
+    nextSteps: 'Please check your dashboard for more details.'
+  };
+};
+
 // @desc    Get all applications
 // @route   GET /api/v1/applications
 // @access  Private
@@ -41,6 +133,7 @@ exports.getApplications = asyncHandler(async (req, res, next) => {
     .populate('job', 'title department location employmentType')
     .populate('applicant', 'firstName lastName email phone')
     .populate('resume', 'fileName fileUrl isParsed')
+    .populate('interviews.interviewer', 'firstName lastName email')
     .skip(skip)
     .limit(limit)
     .sort({ createdAt: -1 });
@@ -620,7 +713,47 @@ exports.createApplication = asyncHandler(async (req, res, next) => {
     await sendEmail({
       email: req.user.email,
       subject: 'Application Submitted Successfully',
-      message: `Your application for ${jobExists.title} has been submitted successfully.`
+      message: `Hi ${req.user.firstName},\n\nYour application for ${jobExists.title} has been submitted successfully.\n\nWe have received your application and our team will review it shortly. You will be notified of any updates via email.\n\nBest regards,\nHRMS Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0;">✅ Application Submitted</h1>
+          </div>
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333; margin-top: 0;">Hello ${req.user.firstName} 👋</h2>
+            <p style="color: #666; line-height: 1.6;">
+              Great news! Your application for <strong>${jobExists.title}</strong> has been submitted successfully.
+            </p>
+            <div style="margin: 30px 0; padding: 20px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+              <h3 style="margin-top: 0; color: #1976d2;">📋 Application Details:</h3>
+              <p style="margin: 5px 0;"><strong>Position:</strong> ${jobExists.title}</p>
+              <p style="margin: 5px 0;"><strong>Department:</strong> ${jobExists.department || 'N/A'}</p>
+              <p style="margin: 5px 0;"><strong>Location:</strong> ${jobExists.location || 'N/A'}</p>
+              <p style="margin: 5px 0;"><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+            <p style="color: #666; line-height: 1.6;">
+              We have received your application and our HR team will review it shortly. You will be notified via email of any updates regarding your application status.
+            </p>
+            <div style="margin: 30px 0; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+              <p style="margin: 0; color: #856404; font-weight: bold;">
+                💡 What's Next?
+              </p>
+              <ul style="color: #856404; margin: 10px 0 0 20px; padding: 0;">
+                <li>Our team will review your application</li>
+                <li>You'll receive email updates on your application status</li>
+                <li>You can track your application progress in your dashboard</li>
+              </ul>
+            </div>
+            <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+              Thank you for your interest in joining our team!
+            </p>
+            <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+              Best regards,<br>
+              <strong>HRMS Team</strong>
+            </p>
+          </div>
+        </div>
+      `
     });
   } catch (err) {
     console.error('Email send error:', err);
@@ -673,10 +806,56 @@ exports.updateApplication = asyncHandler(async (req, res, next) => {
 
   // Send status update email
   try {
+    const statusDetails = getStatusEmailDetails(status);
+    const displayName = getStatusDisplayName(status);
+    const applicantName = `${populatedApp.applicant.firstName} ${populatedApp.applicant.lastName || ''}`.trim();
+    
     await sendEmail({
       email: populatedApp.applicant.email,
       subject: `Application Status Update: ${populatedApp.job.title}`,
-      message: `Your application status has been updated to: ${status}`
+      message: `Hi ${populatedApp.applicant.firstName},\n\nYour application status for ${populatedApp.job.title} has been updated to: ${displayName}.\n\n${statusDetails.message}\n\n${statusDetails.nextSteps}\n\nBest regards,\nHRMS Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0;">${statusDetails.icon} Status Update</h1>
+          </div>
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333; margin-top: 0;">Hello ${populatedApp.applicant.firstName} 👋</h2>
+            <p style="color: #666; line-height: 1.6;">
+              Your application status for <strong>${populatedApp.job.title}</strong> has been updated to:
+            </p>
+            <div style="margin: 30px 0; padding: 25px; background: ${statusDetails.bgColor}; border-radius: 8px; border-left: 5px solid ${statusDetails.color}; text-align: center;">
+              <div style="font-size: 48px; margin-bottom: 10px;">${statusDetails.icon}</div>
+              <h2 style="margin: 0; color: ${statusDetails.color}; font-size: 24px;">${displayName}</h2>
+            </div>
+            <p style="color: #666; line-height: 1.6;">
+              ${statusDetails.message}
+            </p>
+            <div style="margin: 30px 0; padding: 20px; background: white; border-radius: 8px; border: 1px solid #e0e0e0;">
+              <h3 style="margin-top: 0; color: #333;">📋 Application Details:</h3>
+              <p style="margin: 5px 0;"><strong>Position:</strong> ${populatedApp.job.title}</p>
+              <p style="margin: 5px 0;"><strong>Department:</strong> ${populatedApp.job.department || 'N/A'}</p>
+              <p style="margin: 5px 0;"><strong>Location:</strong> ${populatedApp.job.location || 'N/A'}</p>
+              <p style="margin: 5px 0;"><strong>Updated:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+            <div style="margin: 30px 0; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+              <p style="margin: 0; color: #856404; font-weight: bold;">
+                💡 What's Next?
+              </p>
+              <p style="margin: 10px 0 0 0; color: #856404;">
+                ${statusDetails.nextSteps}
+              </p>
+            </div>
+            <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+              Thank you for your continued interest in joining our team!
+            </p>
+            <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+              Best regards,<br>
+              <strong>HRMS Team</strong>
+            </p>
+          </div>
+        </div>
+      `
     });
   } catch (err) {
     console.error('Email send error:', err);
@@ -1134,7 +1313,9 @@ exports.updateAIInterviewStatusPublic = asyncHandler(async (req, res, next) => {
   // Find application and interview by link
   const application = await Application.findOne({
     'interviews.aiInterview.uniqueLink': link
-  });
+  })
+    .populate('applicant', 'firstName lastName email')
+    .populate('job', 'title company');
 
   if (!application) {
     return next(new ErrorResponse('Invalid interview link', 404));
@@ -1204,6 +1385,64 @@ exports.updateAIInterviewStatusPublic = asyncHandler(async (req, res, next) => {
         date: new Date(),
         notes: 'AI interview completed by candidate'
       });
+
+      // Send completion confirmation email
+      try {
+        const candidateName = `${application.applicant?.firstName || ''} ${application.applicant?.lastName || ''}`.trim() || 'Candidate';
+        const jobTitle = application.job?.title || 'the position';
+        const companyName = application.job?.company || 'Our Company';
+        const duration = interview.aiInterview.duration || 30;
+
+        await sendEmail({
+          email: application.applicant.email,
+          subject: 'AI Video Interview Completed Successfully',
+          message: `Dear ${candidateName},\n\nThank you for completing your AI video interview for the ${jobTitle} position at ${companyName}.\n\nYour interview has been recorded and submitted for review. Our hiring team will evaluate your responses and get back to you soon.\n\nThank you for your time and interest in joining our team!\n\nBest regards,\nHRMS Recruitment Team`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                <h1 style="color: white; margin: 0;">✅ Interview Completed</h1>
+              </div>
+              <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                <h2 style="color: #333; margin-top: 0;">Hello ${candidateName} 👋</h2>
+                <p style="color: #666; line-height: 1.6;">
+                  Thank you for completing your AI video interview for the <strong>${jobTitle}</strong> position at ${companyName}!
+                </p>
+                <div style="margin: 30px 0; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+                  <h3 style="margin-top: 0; color: #2e7d32;">🎉 Interview Summary:</h3>
+                  <p style="margin: 5px 0;"><strong>Position:</strong> ${jobTitle}</p>
+                  <p style="margin: 5px 0;"><strong>Company:</strong> ${companyName}</p>
+                  <p style="margin: 5px 0;"><strong>Duration:</strong> ${duration} minutes</p>
+                  <p style="margin: 5px 0;"><strong>Completed:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+                <p style="color: #666; line-height: 1.6;">
+                  Your interview has been recorded and submitted for review. Our hiring team will carefully evaluate your responses and get back to you soon regarding the next steps in the hiring process.
+                </p>
+                <div style="margin: 30px 0; padding: 20px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                  <p style="margin: 0; color: #1976d2; font-weight: bold;">
+                    💼 What's Next?
+                  </p>
+                  <ul style="color: #1976d2; margin: 10px 0 0 20px; padding: 0;">
+                    <li>Our team will review your interview responses</li>
+                    <li>You'll receive email updates on your application status</li>
+                    <li>You can track your application progress in your dashboard</li>
+                  </ul>
+                </div>
+                <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                  Thank you for your time and interest in joining our team!
+                </p>
+                <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                  Best regards,<br>
+                  <strong>${companyName} Recruitment Team</strong>
+                </p>
+              </div>
+            </div>
+          `
+        });
+        console.log(`✅ Interview completion email sent to ${application.applicant.email}`);
+      } catch (emailError) {
+        console.error('Failed to send interview completion email:', emailError);
+        // Don't fail the entire request if email fails
+      }
     }
   }
 

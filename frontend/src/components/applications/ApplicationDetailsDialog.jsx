@@ -340,6 +340,57 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                     </CardContent>
                   </Card>
                 )}
+
+                {/* AI Interview Link - Show for employees when interview is scheduled */}
+                {!canUpdateStatus && application.status === 'interview_scheduled' && aiInterviewLink && (
+                  <Card className="w-full max-w-full overflow-hidden border-2 border-purple-200">
+                    <CardHeader className="px-4 sm:px-6 bg-gradient-to-r from-purple-50 to-purple-100">
+                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        <Video className="h-5 w-5 text-purple-600" />
+                        AI Video Interview
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 px-4 sm:px-6 pt-4">
+                      <p className="text-sm text-gray-700">
+                        You have been scheduled for an AI video interview. Click the link below to start your interview.
+                      </p>
+                      <div className="flex items-center gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <ExternalLink className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-purple-800">Interview Link</p>
+                          <p className="text-xs text-purple-600 truncate">{aiInterviewLink}</p>
+                        </div>
+                        <Button
+                          onClick={() => copyToClipboard(aiInterviewLink)}
+                          variant="outline"
+                          size="sm"
+                          className="flex-shrink-0 text-xs"
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                        <Button
+                          onClick={() => window.open(aiInterviewLink, '_blank')}
+                          variant="default"
+                          size="sm"
+                          className="flex-shrink-0 text-xs bg-purple-600 hover:bg-purple-700"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Open
+                        </Button>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                        <p className="text-xs text-blue-800 font-medium mb-1">💡 Interview Tips:</p>
+                        <ul className="text-xs text-blue-700 space-y-1 ml-4 list-disc">
+                          <li>Ensure you have a stable internet connection</li>
+                          <li>Find a quiet environment with good lighting</li>
+                          <li>Make sure your camera and microphone are working</li>
+                          <li>Read the job description before starting</li>
+                        </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               {/* Resume Tab */}

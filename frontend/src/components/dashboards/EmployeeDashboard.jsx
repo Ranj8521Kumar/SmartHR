@@ -29,6 +29,7 @@ import authService from '../../services/authService';
 import JobDetailsDialog from '../jobs/JobDetailsDialog';
 import ApplyJobDialog from '../jobs/ApplyJobDialog';
 import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
+import toast from 'react-hot-toast';
 
 const statusColors = {
   'Interview Scheduled': 'bg-purple-100 text-purple-800',
@@ -244,6 +245,20 @@ export default function EmployeeDashboard({ user }) {
               message = `Application status updated to ${event.status.replace('_', ' ')} for ${job?.title || 'a position'}.`;
           }
           
+          // Extract AI interview link if status is interview_scheduled
+          let aiInterviewLink = null;
+          if (event.status === 'interview_scheduled' && app.interviews) {
+            const aiInterview = app.interviews.find(interview => 
+              interview.type === 'ai_video' && interview.aiInterview?.uniqueLink
+            );
+            if (aiInterview && aiInterview.aiInterview.uniqueLink) {
+              const baseUrl = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
+              aiInterviewLink = aiInterview.aiInterview.uniqueLink.startsWith('http') 
+                ? aiInterview.aiInterview.uniqueLink 
+                : `${baseUrl}/ai-interview/${aiInterview.aiInterview.uniqueLink}`;
+            }
+          }
+          
           generatedNotifications.push({
             id: `${app._id}_${event.status}_${index}`,
             type,
@@ -252,7 +267,8 @@ export default function EmployeeDashboard({ user }) {
             read: readNotifications.has(`${app._id}_${event.status}_${index}`),
             applicationId: app._id,
             jobId: job?._id,
-            timestamp: new Date(event.date).getTime()
+            timestamp: new Date(event.date).getTime(),
+            aiInterviewLink: aiInterviewLink
           });
         });
       }
@@ -1462,6 +1478,44 @@ export default function EmployeeDashboard({ user }) {
                           {notification.message}
                         </p>
                         <p className="text-xs sm:text-sm text-gray-500 mt-1">{notification.time}</p>
+                        
+                        {/* Show interview link for interview_scheduled notifications */}
+                        {notification.aiInterviewLink && (
+                          <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            <p className="text-xs font-semibold text-purple-800 mb-2">🎥 AI Video Interview Link:</p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value={notification.aiInterviewLink}
+                                className="flex-1 px-2 py-1 text-xs border border-purple-300 rounded bg-white text-gray-700 truncate"
+                              />
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(notification.aiInterviewLink);
+                                  toast.success('Interview link copied!');
+                                }}
+                                variant="outline"
+                                size="sm"
+                                className="flex-shrink-0 text-xs h-8"
+                              >
+                                Copy
+                              </Button>
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(notification.aiInterviewLink, '_blank');
+                                }}
+                                variant="default"
+                                size="sm"
+                                className="flex-shrink-0 text-xs h-8 bg-purple-600 hover:bg-purple-700"
+                              >
+                                Open
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Unread indicator */}
