@@ -239,6 +239,25 @@ exports.googleCallback = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Authentication failed', 401));
   }
 
+  // Get expectedRole from cookie
+  const expectedRole = req.cookies.oauth_expected_role;
+
+  // Check if this OAuth was initiated from employee login/register
+  if (expectedRole && expectedRole.toLowerCase() === 'employee') {
+    // If user is not an employee, deny access
+    if (req.user.role.toLowerCase() !== 'employee') {
+      // Clear the cookie
+      res.clearCookie('oauth_expected_role');
+      // Redirect to frontend with error message
+      const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const errorMessage = encodeURIComponent('You are not an Employee');
+      const redirectURL = `${frontendURL}/?error=${errorMessage}`;
+      return res.redirect(redirectURL);
+    }
+    // Clear the cookie after validation
+    res.clearCookie('oauth_expected_role');
+  }
+
   // Update last login
   req.user.lastLogin = Date.now();
   await req.user.save({ validateBeforeSave: false });
@@ -252,6 +271,25 @@ exports.googleCallback = asyncHandler(async (req, res, next) => {
 exports.linkedinCallback = asyncHandler(async (req, res, next) => {
   if (!req.user) {
     return next(new ErrorResponse('Authentication failed', 401));
+  }
+
+  // Get expectedRole from cookie
+  const expectedRole = req.cookies.oauth_expected_role;
+
+  // Check if this OAuth was initiated from employee login/register
+  if (expectedRole && expectedRole.toLowerCase() === 'employee') {
+    // If user is not an employee, deny access
+    if (req.user.role.toLowerCase() !== 'employee') {
+      // Clear the cookie
+      res.clearCookie('oauth_expected_role');
+      // Redirect to frontend with error message
+      const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const errorMessage = encodeURIComponent('You are not an Employee');
+      const redirectURL = `${frontendURL}/?error=${errorMessage}`;
+      return res.redirect(redirectURL);
+    }
+    // Clear the cookie after validation
+    res.clearCookie('oauth_expected_role');
   }
 
   // Update last login

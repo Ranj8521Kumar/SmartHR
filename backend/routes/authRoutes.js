@@ -26,7 +26,20 @@ router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:token', resetPassword);
 
 // Google OAuth routes
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', (req, res, next) => {
+  // Store expected role in cookie before OAuth
+  if (req.query.expectedRole) {
+    res.cookie('oauth_expected_role', req.query.expectedRole, {
+      httpOnly: true,
+      maxAge: 10 * 60 * 1000, // 10 minutes
+      secure: process.env.NODE_ENV === 'production'
+    });
+  }
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    session: false 
+  })(req, res, next);
+});
 router.get('/google/callback', 
   passport.authenticate('google', { 
     failureRedirect: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/?error=oauth_failed` : 'http://localhost:5173/?error=oauth_failed',
@@ -36,7 +49,20 @@ router.get('/google/callback',
 );
 
 // LinkedIn OAuth routes
-router.get('/linkedin', passport.authenticate('linkedin', { scope: ['openid', 'profile', 'email'] }));
+router.get('/linkedin', (req, res, next) => {
+  // Store expected role in cookie before OAuth
+  if (req.query.expectedRole) {
+    res.cookie('oauth_expected_role', req.query.expectedRole, {
+      httpOnly: true,
+      maxAge: 10 * 60 * 1000, // 10 minutes
+      secure: process.env.NODE_ENV === 'production'
+    });
+  }
+  passport.authenticate('linkedin', { 
+    scope: ['openid', 'profile', 'email'],
+    session: false 
+  })(req, res, next);
+});
 router.get('/linkedin/callback',
   passport.authenticate('linkedin', { 
     failureRedirect: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/?error=oauth_failed` : 'http://localhost:5173/?error=oauth_failed',

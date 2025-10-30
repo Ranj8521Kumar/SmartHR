@@ -27,8 +27,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL: process.env.GOOGLE_CALLBACK_URL || '/api/v1/auth/google/callback',
         scope: ['profile', 'email'],
+        passReqToCallback: true,
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (req, accessToken, refreshToken, profile, done) => {
         try {
           // Check if user already exists
           let user = await User.findOne({ providerId: profile.id, provider: 'google' });
@@ -81,8 +82,9 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
         // Use LinkedIn's standard OAuth scopes to reliably fetch profile and email
         scope: ['r_liteprofile', 'r_emailaddress'],
         state: true,
+        passReqToCallback: true,
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (req, accessToken, refreshToken, profile, done) => {
         try {
           // Check if user already exists
           let user = await User.findOne({ providerId: profile.id, provider: 'linkedin' });

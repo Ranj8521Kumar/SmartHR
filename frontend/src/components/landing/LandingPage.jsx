@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { 
   Briefcase, 
@@ -41,6 +42,7 @@ import HeroScene from './HeroScene';
 
 export default function LandingPage() {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -58,6 +60,18 @@ export default function LandingPage() {
       setIsLoginOpen(true);
     }
   }, [location]);
+
+  // Check for OAuth error in URL query parameters
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) {
+      // Show error toast
+      toast.error(decodeURIComponent(error));
+      // Clean up the URL by removing the error parameter
+      searchParams.delete('error');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { scrollY } = useScroll();
 

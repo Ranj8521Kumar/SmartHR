@@ -179,8 +179,12 @@ export default function LoginForm({ onSuccess, expectedRole }) {
       return;
     }
 
-    // Redirect to OAuth provider
-    window.location.href = `${API_URL}/auth/${provider}`;
+    // Redirect to OAuth provider with expectedRole parameter
+    let oauthUrl = `${API_URL}/auth/${provider}`;
+    if (expectedRole) {
+      oauthUrl += `?expectedRole=${encodeURIComponent(expectedRole)}`;
+    }
+    window.location.href = oauthUrl;
   };
 
   const displayError = localError || error;
