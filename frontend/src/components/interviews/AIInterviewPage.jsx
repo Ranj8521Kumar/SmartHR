@@ -21,10 +21,13 @@ import {
   Pause,
   RotateCcw,
   LogOut,
-  Upload
+  Upload,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import interviewService, { uploadInterviewRecording, uploadInterviewRecordingByLink } from '../../services/interviewService';
 import recordingService from '../../services/recordingService';
+import eyeTrackingService from '../../services/eyeTrackingService';
 
 export default function AIInterviewPage() {
   const { link } = useParams();
@@ -63,6 +66,17 @@ export default function AIInterviewPage() {
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
   const [fullscreenExitAttempts, setFullscreenExitAttempts] = useState(0);
   const [selectedVoice, setSelectedVoice] = useState(null); // Cache selected voice
+
+  // Eye tracking state
+  const [isEyeTrackingActive, setIsEyeTrackingActive] = useState(false);
+  const [showEyeTrackingWarning, setShowEyeTrackingWarning] = useState(false);
+  const [eyeTrackingWarningMessage, setEyeTrackingWarningMessage] = useState('');
+  const [eyeTrackingViolations, setEyeTrackingViolations] = useState(0);
+  const [eyeTrackingStats, setEyeTrackingStats] = useState({
+    totalLookAwayCount: 0,
+    lookAwayDuration: 0,
+    isCurrentlyLookingAway: false
+  });
 
   // Refs
   const videoRef = useRef(null);
@@ -429,8 +443,22 @@ export default function AIInterviewPage() {
     const voices = window.speechSynthesis.getVoices();
     console.log('🎤 Available voices:', voices.map(v => `${v.name} (${v.lang})`));
 
-    // Priority order of high-quality voices (most natural first)
+    // Priority order of high-quality voices (INDIAN FEMALE voices first)
     const preferredVoices = [
+      // Indian English Female Voices - HIGHEST PRIORITY (Neerja first)
+      'Microsoft Neerja Online (Natural) - English (India)',
+      'Microsoft Neerja - English (India)',
+      'Neerja',
+      'Microsoft Heera Online (Natural) - English (India)',
+      'Microsoft Heera - English (India)',
+      'Heera',
+      'Microsoft Swara Online (Natural) - English (India)',
+      'Microsoft Swara - English (India)',
+      'Swara',
+      'Google हिन्दी India',
+      'Google UK English Female', // Often has Indian-accented option
+      'Veena',
+
       // Microsoft Neural Voices (Windows 11/Edge) - BEST QUALITY - Very Natural
       'Microsoft Aria Online (Natural) - English (United States)',
       'Microsoft Jenny Online (Natural) - English (United States)',
@@ -443,7 +471,6 @@ export default function AIInterviewPage() {
 
       // Google Voices (Chrome/Android) - GOOD QUALITY - Clear and professional
       'Google US English Female',
-      'Google UK English Female',
       'Google US English',
 
       // macOS Premium Voices - EXCELLENT QUALITY
@@ -459,16 +486,25 @@ export default function AIInterviewPage() {
       'Samantha (Premium)',
 
       // Fallback regional English voices
+      'en-IN', // Indian English
       'en-US',
       'en-GB',
       'en-AU'
     ];
+
+    // Exclude male voices
+    const maleVoiceKeywords = ['david', 'mark', 'ravi', 'male', 'man', 'guy', 'james', 'daniel', 'christopher'];
 
     // Try to find preferred voice (exact or partial match)
     for (const preferredName of preferredVoices) {
       const voice = voices.find(v => {
         const nameLower = v.name.toLowerCase();
         const preferredLower = preferredName.toLowerCase();
+
+        // Skip male voices
+        if (maleVoiceKeywords.some(keyword => nameLower.includes(keyword))) {
+          return false;
+        }
 
         return v.name === preferredName ||
                nameLower.includes(preferredLower) ||
@@ -481,7 +517,28 @@ export default function AIInterviewPage() {
       }
     }
 
-    // Fallback 1: Find any high-quality English female voice with "natural" or "neural" in name
+    // Fallback 1: Find Indian English FEMALE voice (Neerja preferred, exclude Ravi which is male)
+    const indianVoice = voices.find(v => {
+      const nameLower = v.name.toLowerCase();
+      // Exclude male Indian voices
+      if (nameLower.includes('ravi')) return false;
+
+      // Prioritize Neerja
+      if (nameLower.includes('neerja')) return true;
+
+      return v.lang.includes('IN') ||
+        v.lang.includes('hi') ||
+        nameLower.includes('india') ||
+        nameLower.includes('heera') ||
+        nameLower.includes('swara') ||
+        nameLower.includes('veena');
+    });
+    if (indianVoice) {
+      console.log('✅ Selected Indian voice:', indianVoice.name);
+      return indianVoice;
+    }
+
+    // Fallback 2: Find any high-quality English female voice with "natural" or "neural" in name
     const premiumVoice = voices.find(v =>
       v.lang.startsWith('en') &&
       (v.name.toLowerCase().includes('natural') ||
@@ -494,7 +551,7 @@ export default function AIInterviewPage() {
       return premiumVoice;
     }
 
-    // Fallback 2: Find any high-quality English female voice
+    // Fallback 3: Find any high-quality English female voice
     const englishFemaleVoice = voices.find(v =>
       v.lang.startsWith('en') &&
       (v.name.toLowerCase().includes('female') ||
@@ -879,6 +936,40 @@ export default function AIInterviewPage() {
         setError('Warning: Could not start recording - camera/microphone access was not granted');
       }
 
+      // Start eye tracking after video is set up
+      if (videoRef.current) {
+        try {
+          console.log('👁️ Starting eye tracking...');
+          await eyeTrackingService.startTracking(videoRef.current, {
+            onLookingAway: (data) => {
+              console.log('⚠️ Looking away detected:', data);
+              setShowEyeTrackingWarning(true);
+              setEyeTrackingWarningMessage(data.message);
+              setEyeTrackingViolations(data.totalLookAwayCount);
+              setEyeTrackingStats({
+                totalLookAwayCount: data.totalLookAwayCount,
+                lookAwayDuration: Math.round(data.lookAwayDuration),
+                isCurrentlyLookingAway: true
+              });
+            },
+            onLookingAtScreen: (data) => {
+              console.log('✅ Looking at screen:', data);
+              setShowEyeTrackingWarning(false);
+              setEyeTrackingStats({
+                totalLookAwayCount: data.totalLookAwayCount,
+                lookAwayDuration: Math.round(data.lookAwayDuration),
+                isCurrentlyLookingAway: false
+              });
+            }
+          });
+          setIsEyeTrackingActive(true);
+          console.log('✅ Eye tracking started successfully');
+        } catch (eyeErr) {
+          console.error('❌ Failed to start eye tracking:', eyeErr);
+          // Continue with interview even if eye tracking fails
+        }
+      }
+
       // Enter fullscreen mode after video is set up
       try {
         console.log('Entering fullscreen mode on entire interview page...');
@@ -962,6 +1053,18 @@ export default function AIInterviewPage() {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
+      }
+
+      // Stop eye tracking and get final statistics
+      if (isEyeTrackingActive) {
+        const eyeTrackingFinalStats = eyeTrackingService.stopTracking();
+        setEyeTrackingStats({
+          totalLookAwayCount: eyeTrackingFinalStats.totalLookAwayCount,
+          lookAwayDuration: Math.round(eyeTrackingFinalStats.lookAwayDuration),
+          isCurrentlyLookingAway: false
+        });
+        setIsEyeTrackingActive(false);
+        console.log('👁️ Eye tracking stopped. Final stats:', eyeTrackingFinalStats);
       }
 
       // Stop recording if active
@@ -1087,7 +1190,12 @@ export default function AIInterviewPage() {
         recordingUrl: recordingUrl, // Cloudinary URL
         duration: interview?.duration * 60 - timeRemaining,
         feedback: feedback,
-        completedAt: new Date()
+        completedAt: new Date(),
+        eyeTrackingData: {
+          totalLookAwayCount: eyeTrackingStats.totalLookAwayCount,
+          lookAwayDuration: eyeTrackingStats.lookAwayDuration,
+          violations: eyeTrackingViolations
+        }
       };
 
       console.log('Submitting interview completion data:', {
@@ -1275,6 +1383,61 @@ export default function AIInterviewPage() {
           <span className="text-sm font-medium">{isRecording ? 'Recording' : 'Preparing recorder...'}</span>
         </div>
       )}
+
+      {/* Eye Tracking Warning */}
+      {showEyeTrackingWarning && interviewStatus === 'active' && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top duration-300">
+          <div className="bg-red-600 text-white px-6 py-4 rounded-lg shadow-2xl border-2 border-red-700 max-w-md">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <AlertCircle className="h-6 w-6 animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-sm mb-1">⚠️ Warning: Looking Away Detected</p>
+                <p className="text-xs text-red-100">{eyeTrackingWarningMessage}</p>
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <div className="bg-white/20 rounded-full px-2 py-1">
+                  <span className="text-xs font-bold">{eyeTrackingViolations}</span>
+                </div>
+                <p className="text-[10px] text-red-200 mt-0.5">violations</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Eye Tracking Status Indicator */}
+      {isEyeTrackingActive && interviewStatus === 'active' && (
+        <div className="fixed top-4 left-4 z-50">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg ${
+            showEyeTrackingWarning ? 'bg-red-600 text-white' : 'bg-green-600 text-white'
+          }`}>
+            {showEyeTrackingWarning ? (
+              <EyeOff className="h-4 w-4 animate-pulse" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+            <span className="text-sm font-medium">
+              {showEyeTrackingWarning ? 'Eyes Not Detected' : 'Eye Tracking Active'}
+            </span>
+          </div>
+          {/* Eye Tracking Stats */}
+          <div className="mt-2 bg-white/95 backdrop-blur-sm rounded-lg p-2 shadow-md text-xs">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-gray-600 font-medium">Look-Away Count</p>
+                <p className="text-lg font-bold text-gray-900">{eyeTrackingStats.totalLookAwayCount}</p>
+              </div>
+              <div>
+                <p className="text-gray-600 font-medium">Duration</p>
+                <p className="text-lg font-bold text-gray-900">{eyeTrackingStats.lookAwayDuration}s</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1325,14 +1488,14 @@ export default function AIInterviewPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Interview Area */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Video/Interview Area */}
             <Card className="shadow-xl border-2 border-purple-100 overflow-hidden">
               <CardContent className="p-0">
-                <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 relative overflow-hidden">
+                <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 relative overflow-hidden" style={{ maxHeight: '60vh' }}>
                   {/* Video Element - Always present */}
                   <video
                     ref={videoRef}
@@ -1412,6 +1575,40 @@ export default function AIInterviewPage() {
                   )}
                 </div>
 
+                {/* Question Display - Prominent position above controls */}
+                {currentQuestion && interviewStatus === 'active' && !isGreeting && (
+                  <div className="px-6 pt-4 pb-6 bg-gradient-to-b from-blue-50 to-white border-t-2 border-blue-100">
+                    <div className="bg-white border-2 border-blue-200 rounded-xl shadow-lg p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                            {questionIndex + 1}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-semibold text-blue-900 uppercase tracking-wide">
+                              Question {questionIndex + 1} of {totalQuestions}
+                            </p>
+                            <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full">
+                              <Clock className="h-4 w-4 text-gray-600" />
+                              <span className={`text-sm font-bold ${questionTimeRemaining <= 30 ? 'text-red-600' : 'text-gray-700'}`}>
+                                {formatTime(questionTimeRemaining)}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-lg text-gray-900 leading-relaxed font-medium break-words">
+                            {currentQuestion}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-3 italic">
+                            Take your time to answer. Speak clearly into your microphone.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Interview Controls */}
                 <div className="p-6 bg-white border-t-2 border-gray-100">
                   {/* Waiting Status Banner */}
@@ -1489,39 +1686,6 @@ export default function AIInterviewPage() {
               </CardContent>
             </Card>
 
-            {/* Current Question */}
-            {currentQuestion && interviewStatus === 'active' && (
-              <Card className="shadow-lg border-2 border-blue-100 bg-white">
-                <CardHeader className="pb-3 bg-blue-50 border-b border-blue-100">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-semibold shadow-sm">
-                        {questionIndex + 1}
-                      </div>
-                      <div>
-                        <CardTitle className="text-base font-semibold text-gray-900">Question {questionIndex + 1} of {totalQuestions}</CardTitle>
-                        <p className="text-xs text-gray-600 mt-0.5">Take your time to answer</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm border border-gray-200">
-                      <Clock className="h-4 w-4 text-gray-600" />
-                      <span className={`text-sm font-semibold ${questionTimeRemaining <= 30 ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>
-                        {formatTime(questionTimeRemaining)}
-                      </span>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-600">
-                    <p className="text-base text-gray-800 leading-relaxed">{currentQuestion}</p>
-                  </div>
-                  <Progress
-                    value={(questionTimeRemaining / 300) * 100}
-                    className="mt-4 h-2"
-                  />
-                </CardContent>
-              </Card>
-            )}
 
             {/* Feedback Section */}
             {interviewStatus === 'completed' && (
