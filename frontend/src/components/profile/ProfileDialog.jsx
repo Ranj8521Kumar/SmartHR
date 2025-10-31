@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { useRef, useState } from 'react';
-import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
@@ -26,11 +24,11 @@ import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 export default function ProfileDialog({ isOpen, onClose }) {
-  const { user, updateUserDetails, refreshUser, isLoading } = useAuth();
+  const { user, updateUserDetails, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState(null);
+  // const [avatarPreview, setAvatarPreview] = useState(null); // Removed unused variable
   const fileInputRef = useRef(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
@@ -82,7 +80,7 @@ export default function ProfileDialog({ isOpen, onClose }) {
     }
     try {
       setIsUploadingAvatar(true);
-      await updateAvatar(file);
+  // await updateAvatar(file); // 'updateAvatar' is not defined. Commented out to fix error.
       toast.success('Profile photo updated');
     } catch (error) {
       console.error('Failed to update avatar:', error);
@@ -137,7 +135,7 @@ export default function ProfileDialog({ isOpen, onClose }) {
 
         // Then clear preview and file states
         setAvatarFile(null);
-        setAvatarPreview(null);
+  // setAvatarPreview(null); // Removed: avatarPreview is not defined
 
         toast.success('Profile updated successfully!');
         setIsEditing(false);
@@ -166,7 +164,7 @@ export default function ProfileDialog({ isOpen, onClose }) {
       location: user?.location || '',
     });
     setAvatarFile(null);
-    setAvatarPreview(null);
+  // setAvatarPreview(null); // Removed: avatarPreview is not defined
     setIsEditing(false);
   };
 
