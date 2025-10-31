@@ -11,7 +11,8 @@ const UserSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    required: [true, 'Please add a last name'],
+    // Last name is optional across the application
+    required: false,
     trim: true,
     maxlength: [50, 'Last name cannot be more than 50 characters']
   },

@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   GET_ME: `${API_BASE_URL}/auth/me`,
   UPDATE_DETAILS: `${API_BASE_URL}/auth/updatedetails`,
   UPDATE_PASSWORD: `${API_BASE_URL}/auth/updatepassword`,
+  UPDATE_AVATAR: `${API_BASE_URL}/auth/avatar`,
   FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgotpassword`,
   RESET_PASSWORD: `${API_BASE_URL}/auth/resetpassword/:token`,
   

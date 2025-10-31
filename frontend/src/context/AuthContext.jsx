@@ -121,6 +121,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateAvatar = async (file) => {
+    try {
+      setError(null);
+      const response = await authService.updateAvatar(file);
+      setUser(response.data);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
   const forgotPassword = async (email) => {
     try {
       setError(null);
@@ -162,6 +174,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUserDetails,
     updatePassword,
+    updateAvatar,
     forgotPassword,
     clearError,
     setToken,

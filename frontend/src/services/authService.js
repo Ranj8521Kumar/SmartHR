@@ -229,6 +229,44 @@ class AuthService {
   }
 
   /**
+   * Update user avatar
+   * @param {File} file - Image file
+   * @returns {Promise} Updated user data
+   */
+  async updateAvatar(file) {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No token found');
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await fetch(API_ENDPOINTS.UPDATE_AVATAR, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        credentials: 'include',
+        body: formData
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update avatar');
+      }
+
+      if (data.data) {
+        localStorage.setItem('user', JSON.stringify(data.data));
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Update avatar error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Update password
    * @param {string} currentPassword - Current password
    * @param {string} newPassword - New password

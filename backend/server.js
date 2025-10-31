@@ -46,6 +46,22 @@ app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 // Cookie parser
 app.use(cookieParser());
 
+// Sessions (needed for OAuth providers that require state like LinkedIn)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev_session_secret_change_me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false, // set true when behind HTTPS/proxy
+    maxAge: 1000 * 60 * 60 * 24 // 1 day
+  }
+}));
+
+// Initialize Passport (required for OAuth routes)
+app.use(passport.initialize());
+app.use(passport.session());
+
 // File upload with size limit
 app.use(fileupload({
   createParentPath: true,

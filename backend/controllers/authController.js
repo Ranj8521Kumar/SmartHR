@@ -29,8 +29,42 @@ exports.register = asyncHandler(async (req, res, next) => {
   try {
     await sendEmail({
       email: user.email,
-      subject: 'Welcome to HRMS',
-      message: `Hi ${user.firstName},\n\nWelcome to our HRMS platform! Your account has been successfully created.`
+      subject: 'Welcome to HRMS - Registration Successful',
+      message: `Hi ${user.firstName},\n\nWelcome to our HRMS platform! Your account has been successfully created.\n\nYou can now access all employee features including:\n- View your profile and update information\n- Apply for new job positions\n- Track your applications\n- Participate in AI interviews\n\nThank you for joining us!\n\nBest regards,\nHRMS Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0;">Welcome to HRMS!</h1>
+          </div>
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333; margin-top: 0;">Hello ${user.firstName} 👋</h2>
+            <p style="color: #666; line-height: 1.6;">
+              Your employee account has been successfully created!
+            </p>
+            <p style="color: #666; line-height: 1.6;">
+              You can now access all employee features including:
+            </p>
+            <ul style="color: #666; line-height: 2;">
+              <li>📋 View your profile and update information</li>
+              <li>💼 Apply for new job positions</li>
+              <li>📊 Track your applications</li>
+              <li>🤖 Participate in AI interviews</li>
+            </ul>
+            <div style="margin: 30px 0; padding: 20px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+              <p style="margin: 0; color: #1976d2; font-weight: bold;">
+                🎉 Your account is ready to use!
+              </p>
+            </div>
+            <p style="color: #666; line-height: 1.6; margin-top: 30px;">
+              Thank you for joining us! If you have any questions, please don't hesitate to contact our support team.
+            </p>
+            <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+              Best regards,<br>
+              <strong>HRMS Team</strong>
+            </p>
+          </div>
+        </div>
+      `
     });
   } catch (err) {
     console.error('Email send error:', err);
@@ -72,6 +106,44 @@ exports.login = asyncHandler(async (req, res, next) => {
   // Update last login
   user.lastLogin = Date.now();
   await user.save({ validateBeforeSave: false });
+
+  // Send sign-in notification email for employees
+  if (user.role.toLowerCase() === 'employee') {
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'HRMS - Successful Sign In',
+        message: `Hi ${user.firstName},\n\nYou have successfully signed in to your HRMS employee account.\n\nIf this wasn't you, please contact our support team immediately.\n\nBest regards,\nHRMS Team`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">Sign In Successful</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+              <h2 style="color: #333; margin-top: 0;">Hello ${user.firstName} 👋</h2>
+              <p style="color: #666; line-height: 1.6;">
+                You have successfully signed in to your HRMS employee account.
+              </p>
+              <div style="margin: 30px 0; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+                <p style="margin: 0; color: #2e7d32;">
+                  <strong>✅ Login Time:</strong> ${new Date().toLocaleString()}
+                </p>
+              </div>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                If this wasn't you, please contact our support team immediately to secure your account.
+              </p>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                Best regards,<br>
+                <strong>HRMS Team</strong>
+              </p>
+            </div>
+          </div>
+        `
+      });
+    } catch (err) {
+      console.error('Email send error:', err);
+    }
+  }
 
   sendTokenResponse(user, 200, res);
 });
@@ -165,6 +237,58 @@ exports.updatePassword = asyncHandler(async (req, res, next) => {
   await user.save();
 
   sendTokenResponse(user, 200, res);
+});
+
+// @desc    Update user avatar
+// @route   PUT /api/v1/auth/avatar
+// @access  Private
+exports.updateAvatar = asyncHandler(async (req, res, next) => {
+  const { cloudinary } = require('../utils/cloudinary');
+
+  // Using express-fileupload (already configured globally)
+  const uploadedFile = req.files && (req.files.avatar || req.files.file || req.files.image);
+  if (!uploadedFile) {
+    return next(new ErrorResponse('No image file uploaded', 400));
+  }
+
+  // Basic validation
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowed.includes(uploadedFile.mimetype)) {
+    return next(new ErrorResponse('Only image files are allowed (jpg, png, gif, webp)', 400));
+  }
+  const maxBytes = 2 * 1024 * 1024; // 2MB
+  if (uploadedFile.size > maxBytes) {
+    return next(new ErrorResponse('Image too large. Max 2MB', 400));
+  }
+
+  const result = await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'SmartHR/Avatars',
+        resource_type: 'image',
+        type: 'upload',
+        access_mode: 'public',
+        overwrite: true,
+        transformation: [{ width: 256, height: 256, crop: 'fill', gravity: 'auto' }]
+      },
+      (error, uploaded) => {
+        if (error) return reject(error);
+        return resolve(uploaded);
+      }
+    );
+    stream.end(uploadedFile.data);
+  });
+
+  const user = await User.findByIdAndUpdate(
+    req.user.id,
+    { avatar: result.secure_url },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    success: true,
+    data: user
+  });
 });
 
 // @desc    Forgot password
@@ -263,9 +387,108 @@ exports.googleCallback = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Authentication failed', 401));
   }
 
+  // Get expectedRole from cookie
+  const expectedRole = req.cookies.oauth_expected_role;
+
+  // Check if this OAuth was initiated from employee login/register
+  if (expectedRole && expectedRole.toLowerCase() === 'employee') {
+    // If user is not an employee, deny access
+    if (req.user.role.toLowerCase() !== 'employee') {
+      // Clear the cookie
+      res.clearCookie('oauth_expected_role');
+      // Redirect to frontend with error message
+      const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const errorMessage = encodeURIComponent('You are not an Employee');
+      const redirectURL = `${frontendURL}/?error=${errorMessage}`;
+      return res.redirect(redirectURL);
+    }
+    // Clear the cookie after validation
+    res.clearCookie('oauth_expected_role');
+  }
+
   // Update last login
   req.user.lastLogin = Date.now();
   await req.user.save({ validateBeforeSave: false });
+
+  // Send email notification based on whether this is a new user or existing user
+  try {
+    if (req.user.isNewUser) {
+      // Send welcome email for new employee registration
+      await sendEmail({
+        email: req.user.email,
+        subject: 'Welcome to HRMS - Registration Successful',
+        message: `Hi ${req.user.firstName},\n\nWelcome to our HRMS platform! Your employee account has been successfully created with Google OAuth.\n\nYou can now access all employee features including:\n- View your profile and update information\n- Apply for new job positions\n- Track your applications\n- Participate in AI interviews\n\nThank you for joining us!\n\nBest regards,\nHRMS Team`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">Welcome to HRMS!</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+              <h2 style="color: #333; margin-top: 0;">Hello ${req.user.firstName} 👋</h2>
+              <p style="color: #666; line-height: 1.6;">
+                Your employee account has been successfully created with <strong>Google OAuth</strong>!
+              </p>
+              <p style="color: #666; line-height: 1.6;">
+                You can now access all employee features including:
+              </p>
+              <ul style="color: #666; line-height: 2;">
+                <li>📋 View your profile and update information</li>
+                <li>💼 Apply for new job positions</li>
+                <li>📊 Track your applications</li>
+                <li>🤖 Participate in AI interviews</li>
+              </ul>
+              <div style="margin: 30px 0; padding: 20px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <p style="margin: 0; color: #1976d2; font-weight: bold;">
+                  🎉 Your account is ready to use!
+                </p>
+              </div>
+              <p style="color: #666; line-height: 1.6; margin-top: 30px;">
+                Thank you for joining us! If you have any questions, please don't hesitate to contact our support team.
+              </p>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                Best regards,<br>
+                <strong>HRMS Team</strong>
+              </p>
+            </div>
+          </div>
+        `
+      });
+    } else {
+      // Send sign-in notification for existing employee
+      await sendEmail({
+        email: req.user.email,
+        subject: 'HRMS - Successful Sign In',
+        message: `Hi ${req.user.firstName},\n\nYou have successfully signed in to your HRMS employee account using Google OAuth.\n\nIf this wasn't you, please contact our support team immediately.\n\nBest regards,\nHRMS Team`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">Sign In Successful</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+              <h2 style="color: #333; margin-top: 0;">Hello ${req.user.firstName} 👋</h2>
+              <p style="color: #666; line-height: 1.6;">
+                You have successfully signed in to your HRMS employee account using <strong>Google OAuth</strong>.
+              </p>
+              <div style="margin: 30px 0; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+                <p style="margin: 0; color: #2e7d32;">
+                  <strong>✅ Login Time:</strong> ${new Date().toLocaleString()}
+                </p>
+              </div>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                If this wasn't you, please contact our support team immediately to secure your account.
+              </p>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                Best regards,<br>
+                <strong>HRMS Team</strong>
+              </p>
+            </div>
+          </div>
+        `
+      });
+    }
+  } catch (err) {
+    console.error('Email send error:', err);
+  }
 
   sendTokenResponse(req.user, 200, res, true);
 });
@@ -278,9 +501,108 @@ exports.linkedinCallback = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Authentication failed', 401));
   }
 
+  // Get expectedRole from cookie
+  const expectedRole = req.cookies.oauth_expected_role;
+
+  // Check if this OAuth was initiated from employee login/register
+  if (expectedRole && expectedRole.toLowerCase() === 'employee') {
+    // If user is not an employee, deny access
+    if (req.user.role.toLowerCase() !== 'employee') {
+      // Clear the cookie
+      res.clearCookie('oauth_expected_role');
+      // Redirect to frontend with error message
+      const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const errorMessage = encodeURIComponent('You are not an Employee');
+      const redirectURL = `${frontendURL}/?error=${errorMessage}`;
+      return res.redirect(redirectURL);
+    }
+    // Clear the cookie after validation
+    res.clearCookie('oauth_expected_role');
+  }
+
   // Update last login
   req.user.lastLogin = Date.now();
   await req.user.save({ validateBeforeSave: false });
+
+  // Send email notification based on whether this is a new user or existing user
+  try {
+    if (req.user.isNewUser) {
+      // Send welcome email for new employee registration
+      await sendEmail({
+        email: req.user.email,
+        subject: 'Welcome to HRMS - Registration Successful',
+        message: `Hi ${req.user.firstName},\n\nWelcome to our HRMS platform! Your employee account has been successfully created with LinkedIn OAuth.\n\nYou can now access all employee features including:\n- View your profile and update information\n- Apply for new job positions\n- Track your applications\n- Participate in AI interviews\n\nThank you for joining us!\n\nBest regards,\nHRMS Team`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">Welcome to HRMS!</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+              <h2 style="color: #333; margin-top: 0;">Hello ${req.user.firstName} 👋</h2>
+              <p style="color: #666; line-height: 1.6;">
+                Your employee account has been successfully created with <strong>LinkedIn OAuth</strong>!
+              </p>
+              <p style="color: #666; line-height: 1.6;">
+                You can now access all employee features including:
+              </p>
+              <ul style="color: #666; line-height: 2;">
+                <li>📋 View your profile and update information</li>
+                <li>💼 Apply for new job positions</li>
+                <li>📊 Track your applications</li>
+                <li>🤖 Participate in AI interviews</li>
+              </ul>
+              <div style="margin: 30px 0; padding: 20px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <p style="margin: 0; color: #1976d2; font-weight: bold;">
+                  🎉 Your account is ready to use!
+                </p>
+              </div>
+              <p style="color: #666; line-height: 1.6; margin-top: 30px;">
+                Thank you for joining us! If you have any questions, please don't hesitate to contact our support team.
+              </p>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                Best regards,<br>
+                <strong>HRMS Team</strong>
+              </p>
+            </div>
+          </div>
+        `
+      });
+    } else {
+      // Send sign-in notification for existing employee
+      await sendEmail({
+        email: req.user.email,
+        subject: 'HRMS - Successful Sign In',
+        message: `Hi ${req.user.firstName},\n\nYou have successfully signed in to your HRMS employee account using LinkedIn OAuth.\n\nIf this wasn't you, please contact our support team immediately.\n\nBest regards,\nHRMS Team`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">Sign In Successful</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+              <h2 style="color: #333; margin-top: 0;">Hello ${req.user.firstName} 👋</h2>
+              <p style="color: #666; line-height: 1.6;">
+                You have successfully signed in to your HRMS employee account using <strong>LinkedIn OAuth</strong>.
+              </p>
+              <div style="margin: 30px 0; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+                <p style="margin: 0; color: #2e7d32;">
+                  <strong>✅ Login Time:</strong> ${new Date().toLocaleString()}
+                </p>
+              </div>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                If this wasn't you, please contact our support team immediately to secure your account.
+              </p>
+              <p style="color: #666; line-height: 1.6; margin-top: 20px;">
+                Best regards,<br>
+                <strong>HRMS Team</strong>
+              </p>
+            </div>
+          </div>
+        `
+      });
+    }
+  } catch (err) {
+    console.error('Email send error:', err);
+  }
 
   sendTokenResponse(req.user, 200, res, true);
 });

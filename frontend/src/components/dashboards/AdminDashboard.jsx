@@ -47,6 +47,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Progress } from '../ui/progress';
 
 export default function AdminDashboard({ user }) {
   const { user: authUser } = useAuth();
@@ -89,6 +90,8 @@ export default function AdminDashboard({ user }) {
   const [applicationTrends, setApplicationTrends] = useState([]);
   const [statusDistribution, setStatusDistribution] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
+  // Analytics view controls
+  const [analyticsRange, setAnalyticsRange] = useState(6); // months
   
   // Badge counts for sidebar - loaded immediately
   const [usersCount, setUsersCount] = useState(0);
@@ -108,6 +111,13 @@ export default function AdminDashboard({ user }) {
   const [notifications, setNotifications] = useState([]);
   // eslint-disable-next-line no-unused-vars
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  // Notifications pagination
+  const [notificationsPage, setNotificationsPage] = useState(1);
+  const notificationsPerPage = 10;
+  useEffect(() => {
+    // Reset to first page whenever notifications change
+    setNotificationsPage(1);
+  }, [notifications.length]);
   
   // Settings state
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -209,7 +219,7 @@ export default function AdminDashboard({ user }) {
       'under_review': '#3b82f6',
       'shortlisted': '#8b5cf6',
       'interview_scheduled': '#6366f1',
-      'interviewed': '#ec4899',
+      'interviewed': '#06b6d4',
       'offer_extended': '#10b981',
       'accepted': '#10b981',
       'rejected': '#ef4444',
@@ -554,6 +564,21 @@ export default function AdminDashboard({ user }) {
     logsPage * logsPerPage
   );
 
+  // Derived analytics metrics
+  const applicationsTrendForRange = applicationTrends.slice(-analyticsRange);
+  const totalApplicationsAllTime = (dashboardData?.summary?.totalApplications) ?? applicationTrends.reduce((sum, m) => sum + (m.applications || 0), 0);
+  const totalApplicationsInRange = applicationsTrendForRange.reduce((sum, m) => sum + (m.applications || 0), 0);
+  const pendingCount = (statusDistribution.find(s => s.name === 'Pending')?.value) || 0;
+  const interviewedCount = (statusDistribution.find(s => s.name === 'Interviewed')?.value) || 0;
+  const interviewRate = totalApplicationsAllTime ? Math.round((interviewedCount / totalApplicationsAllTime) * 100) : 0;
+
+  // Paginated notifications
+  const totalNotificationsPages = Math.max(1, Math.ceil(notifications.length / notificationsPerPage));
+  const paginatedNotifications = notifications.slice(
+    (notificationsPage - 1) * notificationsPerPage,
+    notificationsPage * notificationsPerPage
+  );
+
   // Handle form input changes
   const handleFormChange = (field, value) => {
     setUserForm(prev => ({ ...prev, [field]: value }));
@@ -566,7 +591,7 @@ export default function AdminDashboard({ user }) {
       setFormError('');
       
       // Validate form
-      if (!userForm.firstName || !userForm.lastName || !userForm.email || !userForm.password || !userForm.role) {
+      if (!userForm.firstName || !userForm.email || !userForm.password || !userForm.role) {
         setFormError('Please fill in all required fields');
         return;
       }
@@ -642,7 +667,7 @@ export default function AdminDashboard({ user }) {
     try {
       setFormError('');
       
-      if (!userForm.firstName || !userForm.lastName || !userForm.email || !userForm.role) {
+      if (!userForm.firstName || !userForm.email || !userForm.role) {
         setFormError('Please fill in all required fields');
         return;
       }
@@ -1104,7 +1129,7 @@ export default function AdminDashboard({ user }) {
 
   const handleUpdateProfile = async () => {
     try {
-      if (!profileData.firstName || !profileData.lastName || !profileData.email) {
+  if (!profileData.firstName || !profileData.email) {
         alert('Please fill in all required fields');
         return;
       }
@@ -2218,14 +2243,57 @@ export default function AdminDashboard({ user }) {
             </div>
           </div>
 
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-gray-500">Total Applications</div>
+                <div className="mt-1 text-2xl font-semibold">{totalApplicationsAllTime}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-gray-500">Pending</div>
+                <div className="mt-1 text-2xl font-semibold">{pendingCount}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-gray-500">Interview Rate</div>
+                    <div className="mt-1 text-2xl font-semibold">{interviewRate}%</div>
+                  </div>
+                  <div className="w-24">
+                    <Progress value={interviewRate} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Monthly Applications</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Monthly Applications</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Range</span>
+                    <Select value={String(analyticsRange)} onValueChange={(v) => setAnalyticsRange(parseInt(v, 10))}>
+                      <SelectTrigger className="w-28">
+                        <SelectValue placeholder="Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="6">Last 6 months</SelectItem>
+                        <SelectItem value="12">Last 12 months</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={applicationTrends}>
+                  <BarChart data={applicationsTrendForRange}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
@@ -2245,6 +2313,9 @@ export default function AdminDashboard({ user }) {
                 <div className="space-y-4">
                   {dashboardData?.jobsByDepartment?.map((dept, index) => {
                     const colors = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
+                    const total = dept.count || 0;
+                    const open = dept.openPositions || 0;
+                    const pct = total > 0 ? Math.round((open / total) * 100) : 0;
                     return (
                       <div key={index} className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -2252,7 +2323,10 @@ export default function AdminDashboard({ user }) {
                           <span>{dept._id || 'Unknown'}</span>
                         </div>
                         <div className="text-sm text-gray-600">
-                          {dept.openPositions || 0} open • {dept.count || 0} total
+                          <div className="flex items-center gap-3">
+                            <div className="w-40"><Progress value={pct} /></div>
+                            <span>{open} open • {total} total</span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -2266,6 +2340,34 @@ export default function AdminDashboard({ user }) {
               </CardContent>
             </Card>
           </div>
+
+          {/* Status Distribution Donut */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Application Status Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={statusDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={(entry) => `${entry.name} (${entry.value})`}
+                    outerRadius={110}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {statusDistribution.map((entry, index) => (
+                      <Cell key={`analytics-status-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -2597,7 +2699,7 @@ export default function AdminDashboard({ user }) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {notifications.map((notification) => (
+                  {paginatedNotifications.map((notification) => (
                     <div
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
@@ -2654,6 +2756,36 @@ export default function AdminDashboard({ user }) {
                   ))}
                 </div>
               )}
+
+              {/* Notifications Pagination */}
+              {notifications.length > 0 && (
+                <div className="mt-4 flex items-center justify-between border-t pt-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {Math.min((notificationsPage - 1) * notificationsPerPage + 1, notifications.length)} - {Math.min(notificationsPage * notificationsPerPage, notifications.length)} of {notifications.length} notifications
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNotificationsPage(prev => Math.max(1, prev - 1))}
+                      disabled={notificationsPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-gray-600">
+                      Page {notificationsPage} of {totalNotificationsPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNotificationsPage(prev => Math.min(totalNotificationsPages, prev + 1))}
+                      disabled={notificationsPage === totalNotificationsPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -2686,7 +2818,7 @@ export default function AdminDashboard({ user }) {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="settingsLastName">Last Name *</Label>
+                    <Label htmlFor="settingsLastName">Last Name</Label>
                     <Input
                       id="settingsLastName"
                       value={profileData.lastName}
