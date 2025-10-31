@@ -394,8 +394,6 @@ export default function ManagerDashboard({ user }) {
     { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates') },
     { icon: <CheckCircle className="h-5 w-5" />, label: 'Approvals', active: activeView === 'approvals', onClick: () => setActiveView('approvals'), badge: dashboardData.stats.pendingApprovals },
     { icon: <Settings className="h-5 w-5" />, label: 'Settings', active: false, onClick: handleSettingsClick },
-    { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates'), badge: getFilteredCandidates().length },
-    { icon: <CheckCircle className="h-5 w-5" />, label: 'Approvals', active: activeView === 'approvals', onClick: () => setActiveView('approvals'), badge: approvals.length || dashboardData.stats.pendingApprovals },
   ];
 
   const toggleCandidateSelection = (id) => {
