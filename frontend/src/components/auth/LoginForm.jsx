@@ -9,6 +9,8 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
+import authService from '../../services/authService';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 export default function LoginForm({ onSuccess, expectedRole }) {
@@ -150,7 +152,7 @@ export default function LoginForm({ onSuccess, expectedRole }) {
 
     try {
       setIsResetting(true);
-      const response = await forgotPassword(resetEmail);
+  const response = await authService.forgotPassword(resetEmail);
       
       // Check if email service is configured
       if (response.data && response.data.includes('not configured')) {
