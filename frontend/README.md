@@ -1,16 +1,80 @@
-# React + Vite
+# SmartHR Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Overview
+This is the frontend for SmartHR, an AI-powered recruitment platform. Built with React and Vite, it provides a modern, responsive UI for candidates, HR, managers, and admins.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
+- **Authentication & Authorization**: Login, registration, role-based access
+- **Google & LinkedIn OAuth**: Social login support
+- **AI Video Interview**: Conduct and record video interviews
+- **Face Expression Detection**: Analyze candidate facial expressions during interviews
+- **Eye Tracking**: Detect candidate attention and engagement
+- **Interview Recording**: Record and upload video/audio interviews
+- **Resume Upload & Parsing**: Upload resumes and view parsed results
+- **Job Listings & Applications**: Browse jobs, apply, and track status
+- **Dashboard & Analytics**: Visualize recruitment metrics
+- **Notifications**: Real-time feedback and alerts
+- **Profile Management**: Update user details and profile photo
+- **Responsive Design**: Mobile-friendly UI
+- **Tailwind CSS**: Modern styling
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
+- **React** (Vite)
+- **Tailwind CSS**
+- **face-api.js** (face/eye tracking)
+- **recharts** (analytics)
+- **react-hot-toast** (notifications)
+- **radix-ui** (UI components)
+- **axios** (API calls)
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Setup Instructions
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure API URL:
+   - Set `VITE_API_URL` in `.env` to your backend API endpoint
+3. Start development server:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## Project Structure
+```
+frontend/
+├── public/
+│   ├── models/ (face-api.js models)
+│   └── styles/
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── config/
+│   ├── context/
+│   ├── hooks/
+│   ├── services/
+│   └── App.jsx, main.jsx, etc.
+├── index.html
+├── package.json
+└── README.md
+```
+
+---
+
+## Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
+
+---
+
+## License
+MIT

@@ -1,130 +1,128 @@
-# HRMS Backend - AI-Powered Recruitment System
+# SmartHR Backend
+
+## Overview
+This is the backend for SmartHR, an AI-powered recruitment platform. Built with Express.js and MongoDB, it provides RESTful APIs, AI/ML services, and secure authentication for all user roles.
+
+---
 
 ## Features
+- **Authentication & Authorization**: JWT-based auth with RBAC
+- **Google & LinkedIn OAuth**: Social login support
+- **AI Resume Parsing**: Automatic resume analysis using NLP and ML
+- **AI Video Interview**: Video/audio interview recording and analysis
+- **Interview Recording & Upload**: Secure video/audio recording and upload to cloud
+- **Face Expression Detection**: Analyze candidate facial expressions
+- **Eye Tracking**: Detect candidate attention and engagement
+- **Transcript Generation**: Automatic transcription of interview recordings
+- **Text-to-Speech (TTS)**: TTS features for accessibility and playback
+- **Intelligent Candidate Screening**: ML-powered analytics and matching
+- **Email Integration**: Automated notifications via Nodemailer
+- **Smart Search**: Advanced filtering and search
+- **Analytics Dashboard**: Recruitment metrics and insights
+- **Role-Based Access**: Custom permissions for each user type
+- **Job Management**: Create, update, and manage job postings
+- **Application Management**: Submit and track job applications
+- **Resume Management**: Upload, parse, and view resumes
+- **User Management**: Admin and HR controls for users
+- **Cloud Uploads**: Cloudinary integration for file storage
+- **Notifications**: Automated email and dashboard notifications
 
-- 🔐 **Authentication & Authorization**: JWT-based auth with RBAC
-- 🤖 **AI-Powered Resume Parsing**: Automatic resume analysis using NLP
-- 📊 **ML Analytics**: Intelligent candidate screening and matching
-- 📧 **Email Integration**: Automated notifications via Nodemailer
-- 🔍 **Smart Search**: Advanced filtering and search capabilities
-- 📈 **Analytics Dashboard**: Comprehensive recruitment metrics
-- 🎯 **Role-Based Access**: Manager, HR Recruiter, Employee, Admin roles
+---
 
-## Architecture
+## Tech Stack
+- **Express.js**
+- **MongoDB (Mongoose)**
+- **OpenAI, HuggingFace** (AI/ML)
+- **PDF-Parse, Mammoth, Natural** (resume/NLP)
+- **Nodemailer** (email)
+- **Cloudinary, Multer** (file uploads)
+- **Passport.js** (OAuth)
+- **Helmet, rate limiting, XSS protection, JWT, bcrypt** (security)
 
-- **Backend Framework**: Express.js
-- **Database**: MongoDB with Mongoose ODM
-- **Authentication**: JWT + bcrypt
-- **AI/ML Services**: OpenAI, HuggingFace
-- **File Processing**: PDF-Parse, Mammoth
-- **NLP**: Natural library
-- **Email**: Nodemailer
-- **Security**: Helmet, rate limiting, XSS protection
+---
 
-## Installation
+## Setup Instructions
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure environment:
+   - Copy `.env.example` to `.env`
+   - Set required variables:
+     ```
+     MONGODB_URI=mongodb://localhost:27017/hrms
+     JWT_SECRET=your-secret-key
+     EMAIL_USER=your-email
+     EMAIL_PASS=your-password
+     OPENAI_API_KEY=your-openai-key
+     ```
+3. Start MongoDB:
+   - Local: `net start MongoDB`
+   - Or use MongoDB Atlas (update `MONGODB_URI`)
+4. Seed database:
+   ```bash
+   npm run seed
+   ```
+5. Start server:
+   ```bash
+   npm run dev
+   # or for production
+   npm start
+   ```
 
-```bash
-# Install dependencies
-npm install
-
-# Copy environment variables
-cp .env.example .env
-
-# Configure your .env file with appropriate values
-
-# Start development server
-npm run dev
-
-# Start production server
-npm start
-```
-
-## Environment Setup
-
-1. Configure MongoDB connection
-2. Set JWT secret key
-3. Configure email service credentials
-4. Add AI service API keys (OpenAI/HuggingFace)
-5. Set CORS origin for frontend
+---
 
 ## API Endpoints
+See `API_DOCUMENTATION.md` for full details.
 
-### Authentication
-- POST `/api/v1/auth/register` - User registration
-- POST `/api/v1/auth/login` - User login
-- GET `/api/v1/auth/logout` - User logout
-- GET `/api/v1/auth/me` - Get current user
-- PUT `/api/v1/auth/updatedetails` - Update user details
-- PUT `/api/v1/auth/updatepassword` - Update password
-
-### Users (Admin only)
-- GET `/api/v1/users` - Get all users
-- GET `/api/v1/users/:id` - Get single user
-- PUT `/api/v1/users/:id` - Update user
-- DELETE `/api/v1/users/:id` - Delete user
-
-### Jobs
-- GET `/api/v1/jobs` - Get all jobs
-- GET `/api/v1/jobs/:id` - Get single job
-- POST `/api/v1/jobs` - Create job (HR/Manager)
-- PUT `/api/v1/jobs/:id` - Update job
-- DELETE `/api/v1/jobs/:id` - Delete job
-
-### Applications
-- GET `/api/v1/applications` - Get applications
-- GET `/api/v1/applications/:id` - Get single application
-- POST `/api/v1/applications` - Submit application
-- PUT `/api/v1/applications/:id` - Update application status
-- DELETE `/api/v1/applications/:id` - Delete application
-
-### Resumes
-- POST `/api/v1/resumes/upload` - Upload resume
-- POST `/api/v1/resumes/parse` - Parse resume with AI
-- GET `/api/v1/resumes/:id` - Get resume details
-- GET `/api/v1/resumes/user/:userId` - Get user resumes
-
-### Analytics
-- GET `/api/v1/analytics/dashboard` - Get dashboard metrics
-- GET `/api/v1/analytics/applications` - Application analytics
-- GET `/api/v1/analytics/jobs` - Job analytics
-- POST `/api/v1/analytics/candidate-match` - AI candidate matching
+---
 
 ## Project Structure
-
 ```
 backend/
-├── config/           # Configuration files
-├── controllers/      # Route controllers
-├── middleware/       # Custom middleware
-├── models/          # Database models
-├── routes/          # API routes
-├── services/        # Business logic & AI services
-├── utils/           # Utility functions
-├── uploads/         # File uploads
-├── logs/            # Application logs
-├── scripts/         # Database seeds & scripts
-├── server.js        # Entry point
-└── package.json     # Dependencies
+├── config/
+├── controllers/
+├── middleware/
+├── models/
+├── routes/
+├── services/
+├── utils/
+├── uploads/
+├── logs/
+├── scripts/
+├── server.js
+└── package.json
 ```
 
-## Security Features
+---
 
+## Security Features
 - JWT token authentication
-- Password hashing with bcrypt
+- Password hashing (bcrypt)
 - Rate limiting
 - MongoDB sanitization
 - XSS protection
-- Security headers with Helmet
+- Security headers (Helmet)
 - CORS configuration
 - Input validation
 
-## Roles & Permissions
+---
 
-- **Admin**: Full system access
+## Roles & Permissions
+- **Admin**: Full access
 - **Manager**: Manage jobs, view analytics
 - **HR Recruiter**: Process applications, screen candidates
 - **Employee**: View jobs, submit applications
 
-## License
+---
 
+## Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
+
+---
+
+## License
 MIT
