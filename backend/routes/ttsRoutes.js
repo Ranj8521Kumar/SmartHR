@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
-// @desc    Generate speech using ElevenLabs TTS
+// @desc    Generate speech using HuggingFace TTS (Microsoft SpeechT5)
 // @route   POST /api/v1/tts/speak
 // @access  Public (used during interview)
 router.post('/speak', async (req, res) => {
   try {
-    const { text, voiceId } = req.body;
+    const { text } = req.body;
 
     if (!text) {
       return res.status(400).json({
@@ -16,52 +16,58 @@ router.post('/speak', async (req, res) => {
       });
     }
 
-    // Default to Rachel voice if not specified
-    const selectedVoiceId = voiceId || '21m00Tcm4TlvDq8ikWAM';
+    const HF_API_KEY = process.env.HUGGINGFACE_API_KEY || process.env.HF_ACCESS_TOKEN;
 
-    const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-
-    if (!ELEVENLABS_API_KEY) {
+    if (!HF_API_KEY) {
       return res.status(500).json({
         success: false,
-        message: 'ElevenLabs API key not configured'
+        message: 'HuggingFace API key not configured'
       });
     }
 
-    // Call ElevenLabs API
+    // Use Microsoft SpeechT5 TTS model
+    const modelId = process.env.HF_TTS_MODEL || 'microsoft/speecht5_tts';
+
+    console.log(`🎤 Generating TTS for text: "${text.substring(0, 50)}..." using model: ${modelId}`);
+
+    // Call HuggingFace Inference API
     const response = await axios.post(
-      `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`,
+      `https://api-inference.huggingface.co/models/${modelId}`,
       {
-        text: text,
-        model_id: 'eleven_monolingual_v1',
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75,
-          style: 0.0,
-          use_speaker_boost: true
-        }
+        inputs: text
       },
       {
         headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': ELEVENLABS_API_KEY
+          'Authorization': `Bearer ${HF_API_KEY}`,
+          'Content-Type': 'application/json'
         },
-        responseType: 'arraybuffer'
+        responseType: 'arraybuffer',
+        timeout: 60000 // 60 seconds timeout for TTS generation
       }
     );
 
     // Return audio as base64
     const audioBase64 = Buffer.from(response.data, 'binary').toString('base64');
 
+    console.log(`✅ TTS generated successfully, audio size: ${audioBase64.length} bytes`);
+
     res.status(200).json({
       success: true,
       audio: audioBase64,
-      contentType: 'audio/mpeg'
+      contentType: 'audio/flac' // SpeechT5 returns FLAC audio
     });
 
   } catch (error) {
-    console.error('ElevenLabs TTS Error:', error.response?.data || error.message);
+    console.error('HuggingFace TTS Error:', error.response?.data || error.message);
+
+    // If model is loading, inform the user
+    if (error.response?.status === 503) {
+      return res.status(503).json({
+        success: false,
+        message: 'TTS model is loading, please try again in a few seconds',
+        error: 'Model loading'
+      });
+    }
 
     res.status(error.response?.status || 500).json({
       success: false,
@@ -71,41 +77,32 @@ router.post('/speak', async (req, res) => {
   }
 });
 
-// @desc    Get available voices
-// @route   GET /api/v1/tts/voices
+// @desc    Get TTS status and available models
+// @route   GET /api/v1/tts/status
 // @access  Public
-router.get('/voices', async (req, res) => {
+router.get('/status', async (req, res) => {
   try {
-    const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-
-    if (!ELEVENLABS_API_KEY) {
-      return res.status(500).json({
-        success: false,
-        message: 'ElevenLabs API key not configured'
-      });
-    }
-
-    const response = await axios.get(
-      'https://api.elevenlabs.io/v1/voices',
-      {
-        headers: {
-          'xi-api-key': ELEVENLABS_API_KEY
-        }
-      }
-    );
+    const HF_API_KEY = process.env.HUGGINGFACE_API_KEY || process.env.HF_ACCESS_TOKEN;
 
     res.status(200).json({
       success: true,
-      voices: response.data.voices
+      provider: 'HuggingFace',
+      model: process.env.HF_TTS_MODEL || 'microsoft/speecht5_tts',
+      configured: !!HF_API_KEY,
+      availableModels: [
+        'microsoft/speecht5_tts', // Good quality, fast
+        'facebook/mms-tts-eng', // Multilingual
+        'suno/bark' // High quality, slower
+      ]
     });
 
   } catch (error) {
-    console.error('ElevenLabs Voices Error:', error.response?.data || error.message);
+    console.error('TTS Status Error:', error.message);
 
-    res.status(error.response?.status || 500).json({
+    res.status(500).json({
       success: false,
-      message: 'Failed to fetch voices',
-      error: error.response?.data || error.message
+      message: 'Failed to fetch TTS status',
+      error: error.message
     });
   }
 });

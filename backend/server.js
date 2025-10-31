@@ -114,6 +114,22 @@ app.use(compression());
 // Custom logger middleware
 app.use(loggerMiddleware);
 
+// Session configuration (required for OAuth with state)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret-key-change-this-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport and restore authentication state from session
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Static folder for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
