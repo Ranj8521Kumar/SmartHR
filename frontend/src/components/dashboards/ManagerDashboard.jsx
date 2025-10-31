@@ -382,6 +382,11 @@ export default function ManagerDashboard({ user }) {
     setCurrentCandidatesPage(1);
   }, [candidateSearchQuery, candidateFilter]);
 
+  // Define handleSettingsClick before sidebarItems
+  const handleSettingsClick = () => {
+    setIsSettingsOpen(true);
+  };
+
   const sidebarItems = [
     { icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard', active: activeView === 'dashboard', onClick: () => setActiveView('dashboard') },
     { icon: <Briefcase className="h-5 w-5" />, label: 'Requisitions', active: activeView === 'requisitions', onClick: () => setActiveView('requisitions'), badge: (dashboardData.activeRequisitions || []).length },
@@ -418,9 +423,6 @@ export default function ManagerDashboard({ user }) {
     fetchDashboardData(); // Refresh the dashboard data
   };
 
-  const handleSettingsClick = () => {
-    setIsSettingsOpen(true);
-  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
