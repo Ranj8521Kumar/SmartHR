@@ -22,7 +22,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 
 export default function ProfileDialog({ isOpen, onClose }) {
-  const { user, updateUserDetails, updateAvatar, isLoading } = useAuth();
+  const { user, updateUserDetails, updateAvatar } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -125,8 +125,8 @@ export default function ProfileDialog({ isOpen, onClose }) {
           <Card className="w-full max-w-full overflow-hidden">
             <CardContent className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 cursor-zoom-in" onClick={() => setIsAvatarPreviewOpen(true)}>
-                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
+                <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0">
+                  <Avatar className="h-20 w-20 sm:h-24 sm:w-24 cursor-zoom-in" onClick={() => setIsAvatarPreviewOpen(true)}>
                     <AvatarImage src={userAvatar} alt={fullName} />
                     <AvatarFallback className="text-2xl">{user.firstName?.charAt(0)}{user.lastName?.charAt(0)}</AvatarFallback>
                   </Avatar>
