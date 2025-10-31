@@ -14,14 +14,40 @@ const {
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const passport = require('../config/passport');
+const avatarUpload = require('../utils/avatarUpload');
 
 const router = express.Router();
+
+// Multer error handler middleware
+const handleMulterError = (err, req, res, next) => {
+  if (err) {
+    console.error('Multer error:', err);
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'File upload error'
+    });
+  }
+  next();
+};
 
 router.post('/register', register);
 router.post('/login', login);
 router.get('/logout', logout);
 router.get('/me', protect, getMe);
-router.put('/updatedetails', protect, updateDetails);
+router.put('/updatedetails', protect, (req, res, next) => {
+  console.log('=== AVATAR UPLOAD MIDDLEWARE ===');
+  console.log('Content-Type:', req.headers['content-type']);
+
+  avatarUpload.single('avatar')(req, res, (err) => {
+    if (err) {
+      // If there's an error but it's just no file, continue anyway
+      console.log('Avatar upload error (continuing):', err.message);
+      console.error('Full error:', err);
+    }
+    console.log('After multer - req.file:', req.file);
+    next();
+  });
+}, updateDetails);
 router.put('/updatepassword', protect, updatePassword);
 router.put('/avatar', protect, updateAvatar);
 router.post('/forgotpassword', forgotPassword);

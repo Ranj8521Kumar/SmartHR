@@ -19,11 +19,11 @@ const themeColors = {
   orange: 'bg-orange-600'
 };
 
-export default function TopNav({ 
-  user, 
-  theme = 'blue', 
-  onMenuClick, 
-  onProfileClick, 
+export default function TopNav({
+  user,
+  theme = 'blue',
+  onMenuClick,
+  onProfileClick,
   onSettingsClick,
   notifications = [],
   onNotificationClick,
@@ -34,6 +34,12 @@ export default function TopNav({
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Construct the full avatar URL - Cloudinary URLs are already full URLs
+  // Add cache-busting parameter to force browser to fetch new image
+  const userAvatar = user?.avatar && user.avatar !== 'default-avatar.png'
+    ? `${user.avatar}${user.avatar.includes('?') ? '&' : '?'}t=${user?.updatedAt || Date.now()}` // Add timestamp to bust cache
+    : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.firstName || 'User'}`;
 
   const handleLogout = async () => {
     try {
@@ -205,7 +211,7 @@ export default function TopNav({
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-white hover:bg-white/10 transition-colors">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.avatar} alt={user?.name || 'User'} />
+                <AvatarImage src={userAvatar} alt={user?.name || 'User'} />
                 <AvatarFallback>{user?.name?.charAt(0) || user?.firstName?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
               <span className="hidden md:block">{user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User'}</span>

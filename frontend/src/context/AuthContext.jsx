@@ -98,6 +98,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      setError(null);
+      const response = await authService.getCurrentUser();
+      setUser(response.data);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
   const updatePassword = async (currentPassword, newPassword) => {
     try {
       setError(null);
@@ -166,6 +178,7 @@ export const AuthProvider = ({ children }) => {
     forgotPassword,
     clearError,
     setToken,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

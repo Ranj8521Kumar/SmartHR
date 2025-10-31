@@ -940,11 +940,21 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse(`Application not found with id of ${req.params.id}`, 404));
   }
 
-  const { duration = 30, notes, questions = 5, secondsPerQuestion } = req.body;
+  const { duration = 30, scheduledDate, notes, questions = 5, secondsPerQuestion } = req.body;
 
   // Validate duration
   if (duration < 15 || duration > 120) {
     return next(new ErrorResponse('Interview duration must be between 15 and 120 minutes', 400));
+  }
+
+  // Validate scheduled date
+  if (!scheduledDate) {
+    return next(new ErrorResponse('Scheduled date is required', 400));
+  }
+
+  const scheduledDateTime = new Date(scheduledDate);
+  if (scheduledDateTime < new Date()) {
+    return next(new ErrorResponse('Scheduled date must be in the future', 400));
   }
 
   // Calculate number of questions based on duration (1 question per 5 minutes)
@@ -957,12 +967,13 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
   // Generate unique link
   const uniqueLink = generateUniqueInterviewLink();
 
-  // Set expiration date (7 days from now)
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
+  // Set expiration date (1 day after scheduled date)
+  const expiresAt = new Date(scheduledDateTime);
+  expiresAt.setDate(expiresAt.getDate() + 1);
 
   // Create AI interview object
   const aiInterviewData = {
+    scheduledDate: scheduledDateTime,
     duration,
     questions: generated.map(q => ({
       ...q,
@@ -988,7 +999,7 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
     status: 'ai_interview_scheduled',
     date: Date.now(),
     updatedBy: req.user.id,
-    notes: notes || `AI video interview scheduled for ${duration} minutes`
+    notes: notes || `AI video interview scheduled for ${scheduledDateTime.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })} (${duration} minutes)`
   });
 
   await application.save();
@@ -1032,9 +1043,10 @@ exports.scheduleAIInterview = asyncHandler(async (req, res, next) => {
               <h3>📋 Interview Details:</h3>
               <ul>
                 <li><strong>Position:</strong> ${jobTitle}</li>
+                <li><strong>Scheduled Date & Time:</strong> ${scheduledDateTime.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</li>
                 <li><strong>Duration:</strong> ${duration} minutes</li>
                 <li><strong>Number of Questions:</strong> ${generated.length}</li>
-                <li><strong>Expires:</strong> ${expiresAt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</li>
+                <li><strong>Link Expires:</strong> ${expiresAt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</li>
               </ul>
             </div>
 

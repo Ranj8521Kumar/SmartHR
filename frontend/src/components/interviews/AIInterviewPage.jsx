@@ -58,6 +58,7 @@ export default function AIInterviewPage() {
   const [recordingBlob, setRecordingBlob] = useState(null);
   const [isUploadingRecording, setIsUploadingRecording] = useState(false);
   const [uploadedRecordingUrl, setUploadedRecordingUrl] = useState(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   // UI state
   const [showTranscript, setShowTranscript] = useState(false);
@@ -585,17 +586,16 @@ export default function AIInterviewPage() {
         audioRef.current.currentTime = 0;
       }
 
-      console.log(`🗣️ Requesting ElevenLabs TTS for: "${text.substring(0, 50)}..." (isGreeting: ${isGreeting})`);
+      console.log(`🗣️ Requesting HuggingFace Whisper TTS for: "${text.substring(0, 50)}..." (isGreeting: ${isGreeting})`);
 
-      // Call backend API to get audio from ElevenLabs
+      // Call backend API to get audio from HuggingFace
       const response = await fetch(`${import.meta.env.VITE_API_URL}/tts/speak`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: text,
-          voiceId: 'EXAVITQu4vr4xnSDxMaL' // Sarah voice - professional, confident, warm, mature female voice for interviews
+          text: text
         })
       });
 
@@ -606,7 +606,7 @@ export default function AIInterviewPage() {
       }
 
       const data = await response.json();
-      console.log('✅ TTS API response:', { success: data.success, hasAudio: !!data.audio, audioLength: data.audio?.length });
+      console.log('✅ TTS API response:', { success: data.success, hasAudio: !!data.audio, audioLength: data.audio?.length, contentType: data.contentType });
 
       if (!data.success || !data.audio) {
         console.error('❌ Invalid TTS response:', data);
@@ -614,7 +614,8 @@ export default function AIInterviewPage() {
       }
 
       // Convert base64 audio to blob and play
-      const audioBlob = base64ToBlob(data.audio, 'audio/mpeg');
+      // HuggingFace SpeechT5 returns FLAC audio
+      const audioBlob = base64ToBlob(data.audio, data.contentType || 'audio/flac');
       const audioUrl = URL.createObjectURL(audioBlob);
 
       // Create or reuse audio element
@@ -632,11 +633,11 @@ export default function AIInterviewPage() {
 
       // Play the audio
       await audioRef.current.play();
-      console.log('✅ ElevenLabs Sarah (professional female) voice playing');
+      console.log('✅ HuggingFace Microsoft SpeechT5 TTS voice playing');
 
     } catch (e) {
-      console.error('ElevenLabs TTS error:', e);
-      // Fallback to enhanced browser TTS if ElevenLabs fails
+      console.error('HuggingFace TTS error:', e);
+      // Fallback to enhanced browser TTS if HuggingFace fails
       console.warn('⚠️ Falling back to browser TTS');
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -1183,6 +1184,36 @@ export default function AIInterviewPage() {
         console.warn('No recording blob available to upload');
       }
 
+      // Transcribe the audio using Whisper
+      let transcriptText = '';
+      if (blobToUpload) {
+        try {
+          setIsTranscribing(true);
+          console.log('🎤 Transcribing audio with Whisper...', {
+            blobSize: blobToUpload.size,
+            blobType: blobToUpload.type
+          });
+
+          const transcriptionResponse = await interviewService.transcribeAudio(blobToUpload);
+
+          if (transcriptionResponse.success && transcriptionResponse.data?.text) {
+            transcriptText = transcriptionResponse.data.text;
+            setTranscript([{ text: transcriptText, timestamp: new Date() }]);
+            console.log('✅ Audio transcribed successfully:', {
+              length: transcriptText.length,
+              preview: transcriptText.substring(0, 100)
+            });
+          } else {
+            console.warn('⚠️ Transcription returned no text:', transcriptionResponse);
+          }
+        } catch (transcribeErr) {
+          console.error('❌ Error transcribing audio:', transcribeErr);
+          // Continue anyway - transcription is optional
+        } finally {
+          setIsTranscribing(false);
+        }
+      }
+
       // Now submit interview completion with the Cloudinary URL
       const interviewData = {
         status: 'completed',
@@ -1570,6 +1601,12 @@ export default function AIInterviewPage() {
                             <p className="text-sm">Uploading recording to cloud storage...</p>
                           </div>
                         )}
+                        {isTranscribing && (
+                          <div className="mt-4 flex items-center justify-center gap-2">
+                            <Mic className="h-4 w-4 animate-pulse" />
+                            <p className="text-sm">Transcribing audio with Whisper AI...</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1661,8 +1698,8 @@ export default function AIInterviewPage() {
                     </>
                   )}
 
-                  {interviewStatus === 'completed' && !isSubmitting && !isUploadingRecording && (
-                    <Button onClick={submitInterviewResults} disabled={isSubmitting || isUploadingRecording}>
+                  {interviewStatus === 'completed' && !isSubmitting && !isUploadingRecording && !isTranscribing && (
+                    <Button onClick={submitInterviewResults} disabled={isSubmitting || isUploadingRecording || isTranscribing}>
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Submit Results
                     </Button>
@@ -1675,7 +1712,14 @@ export default function AIInterviewPage() {
                     </Button>
                   )}
 
-                  {isSubmitting && !isUploadingRecording && (
+                  {isTranscribing && (
+                    <Button disabled>
+                      <Mic className="h-4 w-4 mr-2 animate-pulse" />
+                      Transcribing with Whisper AI...
+                    </Button>
+                  )}
+
+                  {isSubmitting && !isUploadingRecording && !isTranscribing && (
                     <Button disabled>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Submitting interview...

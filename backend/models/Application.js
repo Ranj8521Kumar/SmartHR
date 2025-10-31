@@ -108,6 +108,10 @@ const ApplicationSchema = new mongoose.Schema({
     },
     // AI Interview specific fields
     aiInterview: {
+      scheduledDate: {
+        type: Date,
+        // Scheduled date and time for the interview
+      },
       duration: {
         type: Number, // Duration in minutes
         min: 15,

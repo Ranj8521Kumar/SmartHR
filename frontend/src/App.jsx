@@ -39,7 +39,9 @@ function AppContent() {
     const userWithAvatar = {
       ...user,
       name: `${user.firstName} ${user.lastName}`,
-      avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`
+      avatar: user.avatar
+        ? `${user.avatar}${user.avatar.includes('?') ? '&' : '?'}t=${user.updatedAt || Date.now()}`
+        : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`
     };
 
     // Map backend role names to dashboard components

@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -7,26 +8,31 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Briefcase, 
+import {
+  User,
+  Mail,
+  Phone,
+  Briefcase,
   Calendar,
   MapPin,
   Loader2,
   Edit2,
   X,
-  Save
+  Save,
+  Camera,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 export default function ProfileDialog({ isOpen, onClose }) {
-  const { user, updateUserDetails, updateAvatar } = useAuth();
+  const { user, updateUserDetails, refreshUser, isLoading } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const fileInputRef = useRef(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -37,6 +43,21 @@ export default function ProfileDialog({ isOpen, onClose }) {
     position: user?.position || '',
     location: user?.location || '',
   });
+
+  // Update formData when user changes
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        department: user.department || '',
+        position: user.position || '',
+        location: user.location || '',
+      });
+    }
+  }, [user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -75,10 +96,60 @@ export default function ProfileDialog({ isOpen, onClose }) {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      await updateUserDetails(formData);
-      setIsEditing(false);
+
+      // If there's an avatar file, upload it first
+      if (avatarFile) {
+        console.log('Uploading avatar file:', avatarFile.name);
+        const formDataWithAvatar = new FormData();
+        formDataWithAvatar.append('avatar', avatarFile);
+
+        // Add other fields
+        Object.keys(formData).forEach(key => {
+          if (formData[key]) {
+            formDataWithAvatar.append(key, formData[key]);
+          }
+        });
+
+        // Upload with FormData
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/updatedetails`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+          body: formDataWithAvatar,
+        });
+
+        const data = await response.json();
+        console.log('Update response:', data);
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to update profile');
+        }
+
+        console.log('Avatar in response:', data.data?.avatar);
+
+        // Refresh user data from backend first to get new avatar URL
+        console.log('Refreshing user data...');
+        const refreshedData = await refreshUser();
+        console.log('User refreshed, new avatar:', refreshedData?.data?.avatar);
+
+        // Then clear preview and file states
+        setAvatarFile(null);
+        setAvatarPreview(null);
+
+        toast.success('Profile updated successfully!');
+        setIsEditing(false);
+      } else {
+        // No avatar file, use regular update
+        await updateUserDetails(formData);
+        toast.success('Profile updated successfully!');
+        setIsEditing(false);
+      }
     } catch (error) {
       console.error('Failed to update profile:', error);
+      toast.error(error.message || 'Failed to update profile');
     } finally {
       setIsSaving(false);
     }
@@ -94,13 +165,19 @@ export default function ProfileDialog({ isOpen, onClose }) {
       position: user?.position || '',
       location: user?.location || '',
     });
+    setAvatarFile(null);
+    setAvatarPreview(null);
     setIsEditing(false);
   };
 
   if (!user) return null;
 
   const fullName = `${user.firstName} ${user.lastName}`;
-  const userAvatar = user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`;
+  // Construct the full avatar URL - Cloudinary URLs are already full URLs
+  // Add cache-busting parameter to force browser to fetch new image
+  const userAvatar = user.avatar && user.avatar !== 'default-avatar.png'
+    ? `${user.avatar}${user.avatar.includes('?') ? '&' : '?'}t=${user.updatedAt || Date.now()}` // Add timestamp to bust cache
+    : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`;
 
   const roleColors = {
     'admin': 'bg-red-100 text-red-800',

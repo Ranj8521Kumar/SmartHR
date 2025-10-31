@@ -134,8 +134,11 @@ const interviewService = {
           if (app.interviews && app.interviews.length > 0) {
             // Process each interview in the application
             app.interviews.forEach(interview => {
+              // Get scheduled date - check both regular and AI interview scheduledDate
+              const scheduledDate = interview.scheduledDate || interview.aiInterview?.scheduledDate;
+
               interviews.push({
-                _id: interview._id || `${app._id}-${interview.scheduledDate}`,
+                _id: interview._id || `${app._id}-${scheduledDate || Date.now()}`,
                 application: {
                   _id: app._id,
                   status: app.status,
@@ -149,12 +152,14 @@ const interviewService = {
                   phone: app.applicant?.phone,
                 },
                 job: app.job,
-                scheduledDate: interview.scheduledDate,
+                scheduledDate: scheduledDate,
                 type: interview.type,
                 interviewer: interview.interviewer,
                 feedback: interview.feedback,
                 rating: interview.rating,
-                status: interview.status || (app.status === 'interviewed' ? 'completed' : 'scheduled'),
+                status: interview.status || (app.status === 'interviewed' ? 'Completed' : 'Scheduled'),
+                // Include AI interview data if present
+                aiInterview: interview.aiInterview,
               });
             });
           } else if (app.status === 'interview_scheduled') {
@@ -220,19 +225,21 @@ const interviewService = {
         
         const stats = {
           totalInterviews: interviews.length,
-          scheduled: interviews.filter(i => i.status === 'scheduled' || i.status === 'pending').length,
-          completed: interviews.filter(i => i.status === 'completed').length,
+          scheduled: interviews.filter(i => i.status?.toLowerCase() === 'scheduled' || i.status?.toLowerCase() === 'pending').length,
+          completed: interviews.filter(i => i.status?.toLowerCase() === 'completed').length,
           upcoming: interviews.filter(i => {
             if (!i.scheduledDate) return false;
             const interviewDate = new Date(i.scheduledDate);
-            return interviewDate > now && (i.status === 'scheduled' || i.status === 'pending');
+            const status = i.status?.toLowerCase();
+            return interviewDate > now && (status === 'scheduled' || status === 'pending');
           }).length,
           today: interviews.filter(i => {
             if (!i.scheduledDate) return false;
             const interviewDate = new Date(i.scheduledDate);
+            const status = i.status?.toLowerCase();
             return (
               interviewDate.toDateString() === now.toDateString() &&
-              (i.status === 'scheduled' || i.status === 'pending')
+              (status === 'scheduled' || status === 'pending')
             );
           }).length,
           byType: {
