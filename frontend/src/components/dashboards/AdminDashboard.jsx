@@ -209,7 +209,7 @@ export default function AdminDashboard({ user }) {
       'under_review': '#3b82f6',
       'shortlisted': '#8b5cf6',
       'interview_scheduled': '#6366f1',
-      'interviewed': '#8b5cf6',
+      'interviewed': '#ec4899',
       'offer_extended': '#10b981',
       'accepted': '#10b981',
       'rejected': '#ef4444',

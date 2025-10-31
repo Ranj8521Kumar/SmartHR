@@ -51,6 +51,7 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
   const [notes, setNotes] = useState('');
   const [error, setError] = useState(null);
   const [aiInterviewDuration, setAiInterviewDuration] = useState(30);
+  const [aiInterviewScheduledDate, setAiInterviewScheduledDate] = useState('');
   const [isSchedulingAI, setIsSchedulingAI] = useState(false);
   const [aiInterviewLink, setAiInterviewLink] = useState(null);
 
@@ -119,11 +120,26 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
   };
 
   const handleScheduleAIInterview = async () => {
+    // Validate scheduled date
+    if (!aiInterviewScheduledDate) {
+      toast.error('Please select a date and time for the interview');
+      return;
+    }
+
+    const scheduledDateTime = new Date(aiInterviewScheduledDate);
+    const now = new Date();
+
+    if (scheduledDateTime < now) {
+      toast.error('Scheduled date must be in the future');
+      return;
+    }
+
     setIsSchedulingAI(true);
     setError(null);
     try {
       const response = await interviewService.scheduleAIInterview(applicationId, {
         duration: aiInterviewDuration,
+        scheduledDate: aiInterviewScheduledDate,
         notes: notes || 'AI Video Interview scheduled'
       });
 
@@ -233,25 +249,29 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                   </Badge>
                 </div>
               </div>
-              <div className="w-full lg:w-auto lg:min-w-[180px] lg:text-right flex-shrink-0">
-                <div className="text-xs sm:text-sm text-gray-600 mb-2">AI Match Score</div>
-                <div className="flex items-center gap-2 sm:gap-3 lg:justify-end">
-                  <Progress 
-                    value={application.aiScore?.overallScore || 0} 
-                    className="flex-1 lg:w-24 h-2" 
-                  />
-                  <span className="text-xl sm:text-2xl font-bold text-purple-600 whitespace-nowrap flex-shrink-0 min-w-[60px] text-right">
-                    {application.aiScore?.overallScore || 0}%
-                  </span>
+              {user?.role !== 'employee' && (
+                <div className="w-full lg:w-auto lg:min-w-[180px] lg:text-right flex-shrink-0">
+                  <div className="text-xs sm:text-sm text-gray-600 mb-2">AI Match Score</div>
+                  <div className="flex items-center gap-2 sm:gap-3 lg:justify-end">
+                    <Progress
+                      value={application.aiScore?.overallScore || 0}
+                      className="flex-1 lg:w-24 h-2"
+                    />
+                    <span className="text-xl sm:text-2xl font-bold text-purple-600 whitespace-nowrap flex-shrink-0 min-w-[60px] text-right">
+                      {application.aiScore?.overallScore || 0}%
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <Tabs defaultValue="overview" className="w-full overflow-hidden">
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
+              <TabsList className={`grid w-full ${user?.role === 'employee' ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'} h-auto gap-1`}>
                 <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-3">Overview</TabsTrigger>
                 <TabsTrigger value="resume" className="text-xs sm:text-sm px-2 sm:px-3">Resume</TabsTrigger>
-                <TabsTrigger value="ai-analysis" className="text-xs sm:text-sm px-2 sm:px-3">AI Analysis</TabsTrigger>
+                {user?.role !== 'employee' && (
+                  <TabsTrigger value="ai-analysis" className="text-xs sm:text-sm px-2 sm:px-3">AI Analysis</TabsTrigger>
+                )}
                 <TabsTrigger value="timeline" className="text-xs sm:text-sm px-2 sm:px-3">Timeline</TabsTrigger>
               </TabsList>
 
@@ -446,52 +466,54 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
               </TabsContent>
 
               {/* AI Analysis Tab */}
-              <TabsContent value="ai-analysis" className="mt-4 sm:mt-6 w-full max-w-full overflow-hidden">
-                <Card className="w-full max-w-full overflow-hidden">
-                  <CardHeader className="px-4 sm:px-6">
-                    <CardTitle className="text-base sm:text-lg">AI Matching Analysis</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 sm:space-y-6 overflow-hidden px-4 sm:px-6">
-                    {application.aiScore ? (
-                      <>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-full">
-                          <div className="min-w-0">
-                            <div className="text-xs sm:text-sm text-gray-500 mb-2">Skills Match</div>
-                            <div className="flex items-center gap-2">
-                              <Progress value={application.aiScore.skillsMatch || 0} className="h-2 flex-1" />
-                              <span className="font-semibold text-sm sm:text-base whitespace-nowrap">{application.aiScore.skillsMatch || 0}%</span>
+              {user?.role !== 'employee' && (
+                <TabsContent value="ai-analysis" className="mt-4 sm:mt-6 w-full max-w-full overflow-hidden">
+                  <Card className="w-full max-w-full overflow-hidden">
+                    <CardHeader className="px-4 sm:px-6">
+                      <CardTitle className="text-base sm:text-lg">AI Matching Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 sm:space-y-6 overflow-hidden px-4 sm:px-6">
+                      {application.aiScore ? (
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-full">
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm text-gray-500 mb-2">Skills Match</div>
+                              <div className="flex items-center gap-2">
+                                <Progress value={application.aiScore.skillsMatch || 0} className="h-2 flex-1" />
+                                <span className="font-semibold text-sm sm:text-base whitespace-nowrap">{application.aiScore.skillsMatch || 0}%</span>
+                              </div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm text-gray-500 mb-2">Experience Match</div>
+                              <div className="flex items-center gap-2">
+                                <Progress value={application.aiScore.experienceMatch || 0} className="h-2 flex-1" />
+                                <span className="font-semibold text-sm sm:text-base whitespace-nowrap">{application.aiScore.experienceMatch || 0}%</span>
+                              </div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm text-gray-500 mb-2">Qualification Match</div>
+                              <div className="flex items-center gap-2">
+                                <Progress value={application.aiScore.qualificationMatch || 0} className="h-2 flex-1" />
+                                <span className="font-semibold text-sm sm:text-base whitespace-nowrap">{application.aiScore.qualificationMatch || 0}%</span>
+                              </div>
                             </div>
                           </div>
-                          <div className="min-w-0">
-                            <div className="text-xs sm:text-sm text-gray-500 mb-2">Experience Match</div>
-                            <div className="flex items-center gap-2">
-                              <Progress value={application.aiScore.experienceMatch || 0} className="h-2 flex-1" />
-                              <span className="font-semibold text-sm sm:text-base whitespace-nowrap">{application.aiScore.experienceMatch || 0}%</span>
+                          {application.aiScore.analysis && (
+                            <div className="w-full max-w-full overflow-hidden">
+                              <h4 className="font-semibold mb-2 text-sm sm:text-base">Detailed Analysis</h4>
+                              <p className="text-gray-700 whitespace-pre-wrap text-sm sm:text-base break-words overflow-wrap-anywhere">
+                                {application.aiScore.analysis}
+                              </p>
                             </div>
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-xs sm:text-sm text-gray-500 mb-2">Qualification Match</div>
-                            <div className="flex items-center gap-2">
-                              <Progress value={application.aiScore.qualificationMatch || 0} className="h-2 flex-1" />
-                              <span className="font-semibold text-sm sm:text-base whitespace-nowrap">{application.aiScore.qualificationMatch || 0}%</span>
-                            </div>
-                          </div>
-                        </div>
-                        {application.aiScore.analysis && (
-                          <div className="w-full max-w-full overflow-hidden">
-                            <h4 className="font-semibold mb-2 text-sm sm:text-base">Detailed Analysis</h4>
-                            <p className="text-gray-700 whitespace-pre-wrap text-sm sm:text-base break-words overflow-wrap-anywhere">
-                              {application.aiScore.analysis}
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-gray-500 text-sm sm:text-base">No AI analysis available</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-gray-500 text-sm sm:text-base">No AI analysis available</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
 
               {/* Timeline Tab */}
               <TabsContent value="timeline" className="mt-4 sm:mt-6 w-full max-w-full overflow-hidden">
@@ -640,16 +662,28 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                   <div className="border-t pt-4">
                     <h4 className="font-semibold mb-3 text-sm sm:text-base">AI Video Interview</h4>
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="duration" className="text-sm">Duration (minutes):</Label>
-                        <Select
-                          value={aiInterviewDuration.toString()}
-                          onValueChange={(value) => setAiInterviewDuration(parseInt(value))}
-                        >
-                          <SelectTrigger className="w-24 text-sm">
-                            <SelectValue placeholder="30" />
-                          </SelectTrigger>
-                          <SelectContent>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-2">
+                          <Label htmlFor="scheduledDate" className="text-sm">Scheduled Date & Time:</Label>
+                          <Input
+                            id="scheduledDate"
+                            type="datetime-local"
+                            value={aiInterviewScheduledDate}
+                            onChange={(e) => setAiInterviewScheduledDate(e.target.value)}
+                            className="text-sm"
+                            min={new Date().toISOString().slice(0, 16)}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label htmlFor="duration" className="text-sm">Duration (minutes):</Label>
+                          <Select
+                            value={aiInterviewDuration.toString()}
+                            onValueChange={(value) => setAiInterviewDuration(parseInt(value))}
+                          >
+                            <SelectTrigger className="w-full text-sm">
+                              <SelectValue placeholder="30" />
+                            </SelectTrigger>
+                            <SelectContent>
                             <SelectItem value="15">15</SelectItem>
                             <SelectItem value="20">20</SelectItem>
                             <SelectItem value="25">25</SelectItem>
@@ -674,6 +708,7 @@ export default function ApplicationDetailsDialog({ isOpen, onClose, applicationI
                             <SelectItem value="120">120</SelectItem>
                           </SelectContent>
                         </Select>
+                        </div>
                       </div>
                       <Button
                         onClick={handleScheduleAIInterview}

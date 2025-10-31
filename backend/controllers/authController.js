@@ -107,18 +107,42 @@ exports.getMe = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/v1/auth/updatedetails
 // @access  Private
 exports.updateDetails = asyncHandler(async (req, res, next) => {
+  console.log('=== UPDATE DETAILS REQUEST ===');
+  console.log('req.file:', req.file);
+  console.log('req.body:', req.body);
+  console.log('Content-Type:', req.headers['content-type']);
+
   const fieldsToUpdate = {
     firstName: req.body.firstName,
     lastName: req.body.lastName,
     email: req.body.email,
     phone: req.body.phone,
-    address: req.body.address
+    address: req.body.address,
+    position: req.body.position,
+    location: req.body.location
   };
+
+  // If avatar file is uploaded via Cloudinary, store the secure URL
+  if (req.file) {
+    console.log('Avatar file uploaded:', req.file.path);
+    fieldsToUpdate.avatar = req.file.path; // Cloudinary secure URL
+  } else {
+    console.log('No avatar file in request');
+  }
+
+  // Remove undefined fields
+  Object.keys(fieldsToUpdate).forEach(key => {
+    if (fieldsToUpdate[key] === undefined) {
+      delete fieldsToUpdate[key];
+    }
+  });
 
   const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
     new: true,
     runValidators: true
   });
+
+  console.log('Updated user avatar:', user.avatar);
 
   res.status(200).json({
     success: true,

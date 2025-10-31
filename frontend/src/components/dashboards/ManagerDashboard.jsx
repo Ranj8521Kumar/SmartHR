@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import StatsCard from '../shared/StatsCard';
-import { 
-  LayoutDashboard, 
-  Briefcase, 
-  FileText, 
+import {
+  LayoutDashboard,
+  Briefcase,
+  FileText,
   Users,
   CheckCircle,
   Clock,
@@ -19,7 +19,8 @@ import {
   Eye,
   XCircle,
   Loader2,
-  MapPin
+  MapPin,
+  Settings
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -335,6 +336,7 @@ export default function ManagerDashboard({ user }) {
     { icon: <FileText className="h-5 w-5" />, label: 'Applications', active: activeView === 'applications', onClick: () => setActiveView('applications'), badge: dashboardData.stats.totalApplications },
     { icon: <Users className="h-5 w-5" />, label: 'Candidates', active: activeView === 'candidates', onClick: () => setActiveView('candidates') },
     { icon: <CheckCircle className="h-5 w-5" />, label: 'Approvals', active: activeView === 'approvals', onClick: () => setActiveView('approvals'), badge: dashboardData.stats.pendingApprovals },
+    { icon: <Settings className="h-5 w-5" />, label: 'Settings', active: false, onClick: handleSettingsClick },
   ];
 
   const toggleCandidateSelection = (id) => {

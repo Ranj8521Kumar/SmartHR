@@ -8,10 +8,11 @@ import ApplicationDetailsDialog from '../applications/ApplicationDetailsDialog';
 import CandidateDetailsDialog from '../candidates/CandidateDetailsDialog';
 import InterviewDetailsDialog from '../interviews/InterviewDetailsDialog';
 import CommunicationDetailsDialog from '../communications/CommunicationDetailsDialog';
-import { 
-  LayoutDashboard, 
-  Briefcase, 
-  FileText, 
+import SettingsDialog from '../settings/SettingsDialog';
+import {
+  LayoutDashboard,
+  Briefcase,
+  FileText,
   Users,
   User,
   Calendar,
@@ -31,7 +32,8 @@ import {
   Inbox,
   ChevronLeft,
   ChevronRight,
-  Gift
+  Gift,
+  Settings
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -144,6 +146,7 @@ export default function HRManagerDashboard({ user }) {
   
   const [isInterviewDetailsOpen, setIsInterviewDetailsOpen] = useState(false);
   const [selectedInterview, setSelectedInterview] = useState(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Load read notifications from localStorage on mount
   useEffect(() => {
@@ -354,6 +357,11 @@ export default function HRManagerDashboard({ user }) {
   const handleEditJob = (job) => {
     setSelectedJob(job);
     setIsEditJobOpen(true);
+  };
+
+  // Handle settings click
+  const handleSettingsClick = () => {
+    setIsSettingsOpen(true);
   };
 
   // Handle view applications click
@@ -913,12 +921,13 @@ export default function HRManagerDashboard({ user }) {
     { icon: <Calendar className="h-5 w-5" />, label: 'Interviews', active: activeView === 'interviews', onClick: () => setActiveView('interviews'), badge: allInterviews.length || 0 },
     { icon: <Mail className="h-5 w-5" />, label: 'Communications', active: activeView === 'communications', onClick: () => setActiveView('communications'), badge: allCommunications.length || 0 },
     { icon: <BarChart3 className="h-5 w-5" />, label: 'Analytics', active: activeView === 'analytics', onClick: () => setActiveView('analytics') },
+    { icon: <Settings className="h-5 w-5" />, label: 'Settings', active: false, onClick: handleSettingsClick },
   ];
 
   // Loading state
   if (isLoading) {
     return (
-      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="purple">
+      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="purple" onSettingsClick={handleSettingsClick}>
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
@@ -932,7 +941,7 @@ export default function HRManagerDashboard({ user }) {
   // Error state
   if (error) {
     return (
-      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="purple">
+      <DashboardLayout user={user} sidebarItems={sidebarItems} theme="purple" onSettingsClick={handleSettingsClick}>
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <p className="text-red-600 mb-4">Error loading dashboard: {error}</p>
@@ -950,14 +959,15 @@ export default function HRManagerDashboard({ user }) {
   const totalJobs = String(summary.totalJobs ?? 0);
   
   return (
-    <DashboardLayout 
-      user={user} 
-      sidebarItems={sidebarItems} 
+    <DashboardLayout
+      user={user}
+      sidebarItems={sidebarItems}
       theme="purple"
       notifications={notifications}
       onNotificationClick={handleNotificationClick}
       onViewAllNotifications={() => setActiveView('applications')}
       onMarkAllRead={handleMarkAllRead}
+      onSettingsClick={handleSettingsClick}
     >
       {activeView === 'dashboard' && (
         <div className="space-y-6">
@@ -2834,6 +2844,13 @@ export default function HRManagerDashboard({ user }) {
         onClose={() => setIsCommunicationDetailsOpen(false)}
         communication={selectedCommunication}
         onSendReply={handleSendReply}
+      />
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        user={user}
       />
     </DashboardLayout>
   );
