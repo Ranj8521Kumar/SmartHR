@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  server:
+    build: ./backend
+    container_name: hrms-backend
+    ports:
+      - "5000:5000"
+    networks:
+      - hrms-network
+    restart: unless-stopped
+  client:
+    build: ./frontend
+    container_name: hrms-frontend
+    ports:
+      - "5173:3000"
+    networks:
+      - hrms-network
+    depends_on:
+      - server
+    restart: unless-stopped
+
+networks:
+  hrms-network:
+    driver: bridge
+
