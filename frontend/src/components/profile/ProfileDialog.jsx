@@ -24,7 +24,7 @@ import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 export default function ProfileDialog({ isOpen, onClose }) {
-  const { user, updateUserDetails, refreshUser } = useAuth();
+  const { user, updateUserDetails, refreshUser, updateAvatar } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
@@ -80,8 +80,15 @@ export default function ProfileDialog({ isOpen, onClose }) {
     }
     try {
       setIsUploadingAvatar(true);
-  // await updateAvatar(file); // 'updateAvatar' is not defined. Commented out to fix error.
-      toast.success('Profile photo updated');
+      // Upload avatar using context method
+      if (typeof updateAvatar === 'function') {
+        await updateAvatar(file);
+        await refreshUser(); // Ensure user context is updated
+        toast.success('Profile photo updated');
+      } else {
+        toast.error('Avatar update function not available');
+      }
+      setAvatarFile(null);
     } catch (error) {
       console.error('Failed to update avatar:', error);
       toast.error(error?.message || 'Failed to update photo');
